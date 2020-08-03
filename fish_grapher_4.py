@@ -219,6 +219,11 @@ axes.append( fig.add_subplot(gs[2, 3]))
 axes.append( fig.add_subplot(gs[2, 4]))
 axes.append( fig.add_subplot(gs[2, 5]))  
 
+
+
+for i in range(8):
+	axes[i+1].set(xlim=(-200, 200), ylim=(-200, 200))
+
 #Make an array to store the graphs in
 ims=[]
 
