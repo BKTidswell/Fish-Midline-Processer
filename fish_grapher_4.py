@@ -245,6 +245,6 @@ for i in range(time_points-1):
 	#Append the temp plots to the ims in order to build up the stack of plots to animate
 	ims.append(temp_plots)
 
-#Ru through the ims to create the animation like a flipbook
-#ani = animation.ArtistAnimation(fig, ims, interval=50, blit=True,repeat_delay=4000)
-#plt.show()
+#Run through the ims to create the animation like a flipbook
+ani = animation.ArtistAnimation(fig, ims, interval=50, blit=True,repeat_delay=4000)
+plt.show()
