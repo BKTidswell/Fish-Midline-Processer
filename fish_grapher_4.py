@@ -95,11 +95,8 @@ def splprep_predict(x,y,maxTime):
 	  
 	#So this goes from the second data point to the end
 	#And this function only appends the new data if there is a change between them
-	#I think this was important for the last setup but I'm not sure why it
-	#   would be still, so I'm going to comment it out
-
-	#Update: Everything breaks if I remove this and I don't know why. 
-	#	Keeping it in for now until I can figure it out
+	#splprep does not work if the coordinates are the same one after another, and this removes
+	# those points
 
 	newX = [x[0]]
 	newY = [y[0]]
@@ -108,9 +105,7 @@ def splprep_predict(x,y,maxTime):
 		if (abs(x[i] - x[i-1]) > 1e-4) or (abs(y[i] - y[i-1]) > 1e-4):
 			newX.append(x[i])
 			newY.append(y[i])
-		else:
-			print("here") 
-		  
+
 	newX = np.asarray(newX)
 	newY = np.asarray(newY)
 
@@ -251,5 +246,5 @@ for i in range(time_points-1):
 	ims.append(temp_plots)
 
 #Ru through the ims to create the animation like a flipbook
-ani = animation.ArtistAnimation(fig, ims, interval=50, blit=True,repeat_delay=4000)
-plt.show()
+#ani = animation.ArtistAnimation(fig, ims, interval=50, blit=True,repeat_delay=4000)
+#plt.show()
