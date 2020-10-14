@@ -9,13 +9,13 @@ from scipy.interpolate import splprep, splev
 from matplotlib.gridspec import GridSpec
 
 #Defines the number of fish and the body parts that are tracked by DLC
-n_fish = 5
-b_parts_csv = ["head","tail","midline2","midline1","midline3"]
+n_fish = 8
+b_parts_csv = ["head","tailbase","midline2","midline1","midline3","tailtip"]
 n_b_parts = len(b_parts_csv)
-b_parts = ["head","midline1","midline2","midline3","tail",]
+b_parts = ["head","midline1","midline2","midline3","tailbase","tailtip",]
 
 #Sets the colors used later for the Matplotlib graphs
-fish_colors = ["red","orange","green","blue","purple"]
+fish_colors = ["red","yellow","orange","green","blue","purple","pink","grey"]
 
 #This function takes the CSV from DLC and outputs a dictionary with the data stored in a more managable way:
 #The structure is:
@@ -37,7 +37,7 @@ def DLC_CSV_to_dict(num_fish,fish_parts):
 				fish_dict[i][part][point] = []
 
 	# Give the location of the file 
-	file = "N_LLine_A_1_TrimmedDLC_resnet50_Multi_VidsJun3shuffle1_3000_sk_filtered.csv"
+	file = "2020_7_28_29_TN_DN_F2_V1DLC_resnet50_L8FVJul4shuffle1_100000_sk_filtered.csv"
 	  
 	# To open Workbook 
 	fish_data = pd.read_csv(file)
@@ -61,11 +61,13 @@ def DLC_CSV_to_dict(num_fish,fish_parts):
 #The point of the function here is to take the dict data and change it to a better format for matplotlib
 #Returns a 2 x Frames array with x and y data
 def dict_to_fish_time(f_dict,fish_num,time):
-	x = np.zeros(n_fish)
-	y = np.zeros(n_fish)
+	x = np.zeros(n_b_parts)
+	y = np.zeros(n_b_parts)
 
 	#Goes through and fills in the x and y arrays
-	for i in range(n_fish):
+
+	#UH this usage of i here is very wrong and only worked before by coincidence
+	for i in range(n_b_parts):
 		x[i] = f_dict[fish_num][b_parts[i]]["x"][time]
 		y[i] = f_dict[fish_num][b_parts[i]]["y"][time]
 
@@ -110,7 +112,7 @@ def splprep_predict(x,y,maxTime):
 	newY = np.asarray(newY)
 
 	#Runs splprep with s as smoothing to generate the splines
-	tck, u = splprep([newX, newY], s=10**4)
+	tck, u = splprep([newX, newY], s=10**5)
 	#Creates the time points to that they go from 0 to 1 with a number of 
 	# devisions equal to the number of frames
 	newU = np.arange(0,1,t[1]/(t[-1]+t[1]))
@@ -202,6 +204,19 @@ for i in range(n_fish):
 	fish_perp.append(f_perp_temp)
 	fish_paths.append(estimate_path_temp)
 
+fish_para = np.asarray(fish_para)
+fish_perp = np.asarray(fish_perp)
+
+#Plot the tail points
+tt_fig, tt_axs = plt.subplots(n_fish)
+tt_fig.suptitle('Fish Tailtip Perpendicular offsets')
+time_x = np.linspace(0.0, time_points-1, time_points-1)
+
+for i in range(n_fish):
+	print(fish_perp.shape)
+	tt_axs[i].plot(time_x,fish_perp[i][:,5],color = fish_colors[i])
+plt.show()
+
 #Set up the figure
 fig = plt.figure(figsize=(14,7))
 axes = []
@@ -218,7 +233,6 @@ axes.append( fig.add_subplot(gs[1, 5]))
 axes.append( fig.add_subplot(gs[2, 3]))
 axes.append( fig.add_subplot(gs[2, 4]))
 axes.append( fig.add_subplot(gs[2, 5]))  
-
 
 
 for i in range(8):
