@@ -3,6 +3,7 @@ import math
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
+from matplotlib import colors
 from scipy import interpolate
 import numpy.ma as ma
 from scipy.interpolate import splprep, splev
@@ -18,13 +19,15 @@ b_parts = ["head","midline1","midline2","midline3","tailbase","tailtip",]
 #Sets the colors used later for the Matplotlib graphs
 fish_colors = ["red","orange","yellow","green","blue","purple","pink","grey"]
 
-#This function takes the CSV from DLC and outputs a dictionary with the data stored in a more managable way:
-#The structure is:
-#   fish_dict:
-#       individual_fish:
-#           x_cord for each frame
-#           y for each frame
-#           probability for each frame
+def get_slope(x,y):
+	slope_array = np.zeros(len(x))
+
+	for i in range(2,len(x)-2):
+		#This gets the slope from the points surrounding i so that the signal is less noisy
+		slope = (((y[i+1]-y[i-1]) / (x[i+1]-x[i-1])) + ((y[i+2]-y[i-2]) / (x[i+2]-x[i-2]))) / 2
+		slope_array[i] = slope
+
+	return(slope_array[2:-2])
 
 #normalizes between -1 and 1
 def normalize_signal(data):
@@ -44,6 +47,14 @@ def shrink_nanmean(data, rows, cols):
 def shrink_sum(data, rows, cols):
     return data.reshape(rows, int(data.shape[0]/rows), cols, int(data.shape[1]/cols)).sum(axis=1).sum(axis=2)
 
+#This function takes the CSV from DLC and outputs a dictionary with the data stored in a more managable way:
+#The structure is:
+#   fish_dict:
+#       individual_fish:
+#           x_cord for each frame
+#           y for each frame
+#           probability for each frame
+
 def DLC_CSV_to_dict(num_fish,fish_parts):
 	data_points = ["x","y","prob"]
 	  
@@ -58,6 +69,8 @@ def DLC_CSV_to_dict(num_fish,fish_parts):
 
 	# Give the location of the file 
 	file = "2020_7_28_29_TN_DN_F2_V1DLC_resnet50_L8FVJul4shuffle1_100000_sk_filtered.csv"
+	#file = "2020_7_28_10_TN_DN_F0_V1DLC_resnet50_L8FVJul4shuffle1_50000_bx_filtered.csv"
+	#file = "2020_6_29_13_TN_DN_F2_VDLC_resnet50_L8FVJul4shuffle1_50000_bx_filtered.csv"
 	  
 	# To open Workbook 
 	fish_data = pd.read_csv(file)
@@ -241,11 +254,41 @@ for i in range(n_fish):
 fish_para = np.asarray(fish_para)
 fish_perp = np.asarray(fish_perp)
 
+
+# f1 = fish_perp[0][:,5]
+# f2 = fish_perp[1][:,5]
+
+# analytic_signal_f1 = hilbert(f1)
+# instantaneous_phase_f1 = np.unwrap(np.angle(analytic_signal_f1))
+
+# analytic_signal_f2 = hilbert(f2)
+# instantaneous_phase_f2 = np.unwrap(np.angle(analytic_signal_f2))
+
+# slope = get_slope(instantaneous_phase_f1,instantaneous_phase_f2)
+
+
+# t = np.linspace(0, time_points-2, time_points-1)
+
+# fig, axs = plt.subplots(4)
+# axs[0].plot(t, f1)
+# axs[0].plot(t, f2)
+# axs[1].plot(t, instantaneous_phase_f1)
+# axs[1].plot(t, instantaneous_phase_f2)
+# axs[2].plot(instantaneous_phase_f1,instantaneous_phase_f2)
+# axs[3].plot(t[2:-2], slope)
+# #axs[3].axhline(y=1, c="black")
+# axs[3].set_xlabel("time in seconds")
+# #axs[3].set_ylim(-2, 2)
+
+
+# plt.show()
+
+
 #Plot the tail points
 tt_fig, tt_axs = plt.subplots(n_fish)
-tt_fig.suptitle('Hilbert Transform Phase Correlation with Red')
+tt_fig.suptitle('Hilbert Transform Phase Correlation')
 time_x = np.linspace(0, time_points-2, time_points-1)
-time_x = np.linspace((time_points-2)/-2, (time_points-2)/2, time_points-1)
+#time_x = np.linspace((time_points-2)/-2, (time_points-2)/2, time_points-1)
 
 #l_maxima = []
 #l_minima = []
@@ -255,30 +298,37 @@ time_x = np.linspace((time_points-2)/-2, (time_points-2)/2, time_points-1)
 # 	l_maxima.append(argrelextrema(fish_tail, np.greater)[0])
 # 	l_minima.append(argrelextrema(fish_tail, np.less)[0])
 
+boxplot_data = []
+
 for i in range(n_fish):
 	# cross_correlate = normalize_signal(correlate(fish_perp[0][:,5] - np.mean(fish_perp[0][:,5]),
 	# 											 fish_perp[i][:,5] - np.mean(fish_perp[i][:,5]),
 	# 											 mode="same"))
 	# tt_axs[i].plot(time_x,cross_correlate,color = fish_colors[i])
 
-	analytic_signal_red = hilbert(normalize_signal(fish_perp[0][:,5]))
-	instantaneous_phase_red = np.unwrap(np.angle(analytic_signal_red))
+	analytic_signal_main = hilbert(normalize_signal(fish_perp[0][:,5]))
+	instantaneous_phase_main = np.unwrap(np.angle(analytic_signal_main))
 
 	analytic_signal = hilbert(normalize_signal(fish_perp[i][:,5]))
 	instantaneous_phase = np.unwrap(np.angle(analytic_signal))
 
-	cross_correlate = normalize_signal(correlate(instantaneous_phase_red,
-												 instantaneous_phase,
-												 mode="same"))
+	# cross_correlate = normalize_signal(correlate(instantaneous_phase_main,
+	# 											 instantaneous_phase,
+	# 											 mode="same"))
 
-	# for i do (i+1 - i-1) / 2
-	dx = np.diff(instantaneous_phase_red)
-	dy = np.diff(instantaneous_phase)
-	slope = dy/dx
+	# # for i do (i+1 - i-1) / 2
+	# dx = np.diff(instantaneous_phase_red)
+	# dy = np.diff(instantaneous_phase)
+	slope = get_slope(instantaneous_phase_main,instantaneous_phase)
 	norm_slope = abs(slope-1)
 
-	tt_axs[i].plot(time_x[0:-1],norm_slope,color = fish_colors[i])
-	tt_axs[i].axhline(y=1, c="black")
+	if i > 0:
+		boxplot_data.append(norm_slope)
+
+	tt_axs[i].plot(time_x[2:-2],norm_slope,color = fish_colors[i])
+	#tt_axs[i].axhline(y=0, c="black")
+
+	tt_axs[i].set_ylim(-1, 10)
 
 	# for j in range(len(l_maxima[i])):
 	# 	tt_axs[i].axvline(x=l_maxima[i][j], c="black")
@@ -286,7 +336,18 @@ for i in range(n_fish):
 	# for j in range(len(l_minima[i])):
 	# 	tt_axs[i].axvline(x=l_minima[i][j], c="black", ls = "--")
 
-#plt.show()
+plt.show()
+
+
+boxplot_data = np.asarray(boxplot_data)
+new_array = np.transpose(boxplot_data)
+
+labels = ["Fish 2","Fish 3","Fish 4","Fish 5","Fish 6","Fish 7","Fish 8"]
+fig7, ax7 = plt.subplots()
+bplot = ax7.set_title('Synchronization vs Fish 1')
+ax7.boxplot(new_array,
+			labels=labels)
+plt.show()
 
 
 #Ok So now I want to create a heatmaps of those slopes of the Hilbert Phases over time
@@ -309,19 +370,21 @@ for i in range(n_fish):
 		analytic_signal = hilbert(normalize_signal(fish_perp[j][:,5]))
 		instantaneous_phase = np.unwrap(np.angle(analytic_signal))
 
-		#Now get the slope
-		dx = np.diff(instantaneous_phase_main)
-		dy = np.diff(instantaneous_phase)
+		# #Now get the slope
+		# dx = np.diff(instantaneous_phase_main)
+		# dy = np.diff(instantaneous_phase)
 
 		#This normalizes from 0 to 1. Not sure I should do this, but here we are
 		#If I don't it really throws off the scale.
 
 		#10/13 slope is now 0 when they are aligned and higher when worse. 
-		slope = normalize_signal(dy/dx)
+
+		#10/16 uses the get slope function for smoother slope
+		slope = get_slope(instantaneous_phase_main,instantaneous_phase)
 		norm_slope = abs(slope-1)
 
 		#Now copy it all over. Time is reduced becuase diff makes it shorter
-		for t in range(time_points-2):
+		for t in range(time_points-5):
 			slope_array[i][j][t] = norm_slope[t]
 
 
@@ -329,6 +392,7 @@ dim = 2000
 offset = dim/2
 
 time_pos_array = np.zeros((dim,dim,time_points))
+#time_pos_array[time_pos_array == 0] = np.NaN
 
 fish_head_xs = []
 fish_head_ys = []
@@ -339,6 +403,10 @@ for i in range(n_fish):
 
 fish_head_xs = np.asarray(fish_head_xs)
 fish_head_ys = np.asarray(fish_head_ys)
+
+xs = []
+ys = []
+cs = []
 
 #Go through all timepoints with each fish as the center one
 for f in range(n_fish):
@@ -359,14 +427,36 @@ for f in range(n_fish):
 			x_pos = int(x_diff+offset)
 			y_pos = int(y_diff+offset)
 
+			xs.append(x_diff)
+			ys.append(y_diff)
+			# cs.append(slope_array[f][j][i])
+
 			#Makes it so that negative numbers are less correlated. 
-			time_pos_array[y_pos][x_pos][i] -= slope_array[f][j][i]
-			#time_pos_array[y_pos][x_pos][i] = 1
+			# if slope_array[f][j][i] > 1:
+			# 	time_pos_array[y_pos][x_pos][i] = 1
+			# else:
+			# 	time_pos_array[y_pos][x_pos][i] = 0
 
 
-#heatmap_array = np.sum(time_pos_array, axis=2)
-time_pos_array[time_pos_array == 0] = np.NaN
-heatmap_array = np.nanmean(time_pos_array, axis=2)
+			#time_pos_array[y_pos][x_pos][i] = slope_array[f][j][i]
+			time_pos_array[y_pos][x_pos][i] = 1
+
+
+fig, ax = plt.subplots()
+counts, xedges, yedges, im = ax.hist2d(xs, ys, bins=75, cmap = "jet", cmin = 1)
+ax.set_ylim(min(min(xedges),min(yedges)), max(max(xedges),max(yedges)))
+ax.set_xlim(min(min(xedges),min(yedges)), max(max(xedges),max(yedges)))
+im.set_clim(1,50)
+fig.colorbar(im)
+plt.show()
+
+# fp = plt.scatter(xs, ys, s=10, c=cs, alpha=0.5, cmap='jet')
+# plt.colorbar(fp)
+# plt.show()
+
+heatmap_array = np.sum(time_pos_array, axis=2)
+#time_pos_array[time_pos_array == 0] = np.NaN
+#heatmap_array = np.nanmean(time_pos_array, axis=2)
 
 #heatmap_array = np.nan_to_num(heatmap_array)
 
@@ -374,8 +464,8 @@ heatmap_array = np.nanmean(time_pos_array, axis=2)
 heatmap_array[int(dim/2)][int(dim/2)] = 0
 
 new_dim = 100
-shrunk_map = shrink_nanmean(heatmap_array,new_dim,new_dim)
-#shrunk_map = shrink_sum(heatmap_array,new_dim,new_dim)
+#shrunk_map = shrink_nanmean(heatmap_array,new_dim,new_dim)
+shrunk_map = shrink_sum(heatmap_array,new_dim,new_dim)
 
 
 shrunk_map[shrunk_map == 0] = np.NaN
@@ -386,9 +476,42 @@ shrunk_map[shrunk_map == 0] = np.NaN
 # plt.show()
 
 fig, ax = plt.subplots()
-ax.set_ylim(0, new_dim)
-im = ax.imshow(shrunk_map,cmap='plasma')
+# ax.set_ylim(len(shrunk_map)/-2, len(shrunk_map)/2)
+# ax.set_xlim(len(shrunk_map)/-2, len(shrunk_map)/2)
+ax.set_ylim(0,new_dim-1)
+im = ax.imshow(shrunk_map,cmap='jet')
+im.set_clim(0,75)
 fig.colorbar(im)
+plt.show()
+
+
+nn_dist_array = []
+
+main_fish_x = fish_head_xs[0][2:-3]
+main_fish_y = fish_head_ys[0][2:-3]
+
+for i in range(1,n_fish):
+	other_fish_x = fish_head_xs[i][2:-3]
+	other_fish_y = fish_head_ys[i][2:-3]
+
+	dist_array = np.sqrt((main_fish_x-other_fish_x)**2 + (main_fish_y-other_fish_y)**2)
+
+	nn_dist_array.append(dist_array)
+
+dist_boxplot_data = np.asarray(nn_dist_array)
+new_dist_array = np.transpose(dist_boxplot_data)
+
+labels = ["Fish 2","Fish 3","Fish 4","Fish 5","Fish 6","Fish 7","Fish 8"]
+fig7, ax7 = plt.subplots()
+bplot = ax7.set_title('Distance in Pixels to Fish 1')
+ax7.boxplot(new_dist_array,
+			labels=labels)
+plt.show()
+
+print(new_array.shape,new_dist_array.shape)
+
+fig, ax = plt.subplots()
+ax.hist2d(new_dist_array.flatten(), new_array.flatten(), bins=100, cmap = "jet")
 plt.show()
 
 
