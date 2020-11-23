@@ -77,7 +77,7 @@ def DLC_CSV_to_dict(num_fish,fish_parts,file):
 		#Every 3 [x,y,p] times number of body parts columns we move onto a new fish
 		fish_num = math.floor(i/(n_b_parts*3))
 		#Every 3 [x,y,p] columns we move to a new body part, and we rotate through all
-		fish_part = fish_parts[math.floor(i/3)%n_b_parts]
+		fish_part = fish_parts[int(math.floor(i/3)%n_b_parts)]
 		#rotate through the 3 [x,y,p] data type columns
 		data_point = data_points[i%3]
 		#Store the column data in the dict
