@@ -1,26 +1,25 @@
-import os
+import os, sys
 import math
 import seaborn as sns
-from mpl_toolkits.mplot3d import Axes3D
+import matplotlib as mpl
+from matplotlib.patches import Ellipse
 from fish_core import *
-import pandas as pd
-import random
 
 data_folder = os.getcwd()+"/Finished_Fish_Data/"
-flow = "F2"
+flow = "F0"
 dark = "DN"
 turb = "TN"
+
+if flow == "F0":
+	graph_color = "Blues"
+	detail_color = "red"
+else:
+	graph_color = "Blues"
+	detail_color = "red"
 
 save_file = "data_{}_{}_{}.npy".format(flow,dark,turb)
 
 new = False
-
-#6/29/20 ~700 pixels = 24.5 cm bc of curvature: 700/24.5 pixels per cm
-cnvrt_dict = {"2020":{"06": {"29":700/24.5},
-					  "07": {"28":800/24.5}}}
-
-def cnvrt_pixels(year,month,day,distance):
-	return distance/cnvrt_dict[year][month][day]
 
 num_data = 0
 data_files = []
@@ -39,8 +38,9 @@ if new:
 		year = file_name[0:4]
 		month = file_name[5:7]
 		day = file_name[8:10]
+		trial = file_name[11:13]
 
-		print(year,month,day,flow,dark,turb)
+		print(year,month,day,trial,flow,dark,turb)
 
 		#Create the fish dict and get the time points
 		fish_dict,time_points = DLC_CSV_to_dict(num_fish = n_fish, fish_parts = b_parts_csv, file = data_folder+file_name)
@@ -48,6 +48,17 @@ if new:
 		fish_para = []
 		fish_perp = []
 		fish_paths = []
+
+		head_xs = fish_dict[0]["head"]["x"]
+		head_ys = fish_dict[0]["head"]["y"]
+		midline_xs = fish_dict[0]["midline1"]["x"]
+		midline_ys = fish_dict[0]["midline1"]["y"]
+
+		#Find the pixel to bodylength conversion to nromalize all distances by body length
+		cnvrt_pix_bl = []
+
+		for i in range(n_fish):
+			cnvrt_pix_bl.append(median_fish_len(fish_dict,i))
 
 		#For each fish get the para and perp distances and append to the array
 		for i in range(n_fish):
@@ -106,7 +117,6 @@ if new:
 		if mean_hmap:
 			time_pos_array[time_pos_array == 0] = np.NaN
 
-
 		fish_head_xs = []
 		fish_head_ys = []
 
@@ -130,25 +140,27 @@ if new:
 					other_fish_y = fish_head_ys[j][i]
 
 					#This order is so that the heatmap faces correctly upstream
-					x_diff = cnvrt_pixels(year,month,day,main_fish_x - other_fish_x)
-					y_diff = cnvrt_pixels(year,month,day,other_fish_y - main_fish_y)
+					x_diff = (main_fish_x - other_fish_x)/cnvrt_pix_bl[f]
+					y_diff = (other_fish_y - main_fish_y)/cnvrt_pix_bl[f]
 
-					x_pos = int(x_diff+offset)
-					y_pos = int(y_diff+offset)
+					# x_pos = int(x_diff+offset)
+					# y_pos = int(y_diff+offset)
 
-					all_xs.append(x_diff)
-					all_ys.append(y_diff)
+					if abs(x_diff) > 7 or abs(y_diff) > 7:
+						pass
 
-					all_xs.append(-1*x_diff)
-					all_ys.append(y_diff)
-
-					all_cs.append(slope_array[f][j][i])
-					all_cs.append(slope_array[f][j][i])
-
-					if mean_hmap:
-						time_pos_array[y_pos][x_pos][i] = slope_array[f][j][i]
 					else:
-						time_pos_array[y_pos][x_pos][i] = 1
+						all_xs.append(x_diff)
+						all_ys.append(y_diff)
+
+						all_xs.append(-1*x_diff)
+						all_ys.append(y_diff)
+
+						# -1 * log(x+1)+1
+						all_cs.append(-1*math.log(slope_array[f][j][i]+1)+1)
+						all_cs.append(-1*math.log(slope_array[f][j][i]+1)+1)
+
+						#time_pos_array[y_pos][x_pos][i] = 1
 
 		# if mean_hmap:
 		# 	heatmap_array = np.nanmean(time_pos_array, axis=2)
@@ -196,15 +208,26 @@ if not new:
 		all_ys = np.load(f)
 		all_cs = np.load(f)
 
-# sns.set_style("white")
-# sns.kdeplot(x=all_xs, y=all_ys, cmap="Blues", shade=True, bw_method=.15)
-# plt.scatter(x=0, y=0, color='r')
-# plt.show()
-
 # sns.displot(all_cs)
 # plt.show()
 
-bin_size = 3
+##HERE
+print("Got the data, let's start graphing!")
+
+mean_xs = np.mean(all_xs[::2])
+mean_ys = np.mean(all_ys)
+
+sd_xs = np.std(all_xs)
+sd_ys = np.std(all_ys)
+
+sns.set_style("white")
+ax = sns.kdeplot(x=all_xs, y=all_ys, cmap=graph_color, shade=True, bw_method=.15)
+plt.scatter(x=0, y=0, color='r')
+plt.gcf().gca().add_artist(Ellipse((0, 0),mean_xs,mean_ys,facecolor="none",edgecolor='white'))
+plt.gcf().gca().add_artist(Ellipse((0, 0),sd_xs,sd_ys,facecolor="none",edgecolor=detail_color))
+plt.show()
+
+bin_size = 0.25
 
 x_range = round_down(np.max(np.absolute(all_xs)),base=bin_size)
 y_range = round_down(np.max(np.absolute(all_ys)),base=bin_size)
@@ -212,20 +235,17 @@ y_range = round_down(np.max(np.absolute(all_ys)),base=bin_size)
 #x and y are swapped to make it graph right
 heatmap_array = np.zeros((int(y_range*2/bin_size)+1,int(x_range*2/bin_size)+1,len(all_xs)))
 
-x_axis = np.asarray(range(-1*x_range,x_range+bin_size,bin_size))
-y_axis = np.asarray(range(-1*y_range,y_range+bin_size,bin_size))
+x_axis = np.linspace(-1*x_range,x_range,int(x_range*2/bin_size)+1)
+y_axis = np.linspace(-1*y_range,y_range,int(y_range*2/bin_size)+1)
 
 x_offset = int(x_range/bin_size)
 y_offset = int(y_range/bin_size)
-
-rounded_xs = []
 
 for i in range(len(all_xs)):
 	x = int(round_down(all_xs[i],base=bin_size)/bin_size + x_offset)
 	y = int(round_down(all_ys[i],base=bin_size)/bin_size + y_offset)
 
 	heatmap_array[y][x][i] = all_cs[i]
-	rounded_xs.append(x)
 
 heatmap_array[heatmap_array == 0] = 'nan'
 mean_map = np.nanmean(heatmap_array, axis=2)
@@ -236,19 +256,84 @@ mean_map = np.nan_to_num(mean_map)
 x_map = np.repeat(x_axis.reshape(1,len(x_axis)),len(y_axis),axis=0)
 y_map = np.repeat(y_axis.reshape(len(y_axis),1),len(x_axis),axis=1)
 
-
 fig = plt.figure()
 ax = fig.add_subplot(111)
 # Generate a contour plot
-cp = ax.contourf(x_map, y_map, mean_map, cmap = "Blues_r", cmin=0,cmax=2)
+cp = ax.contourf(x_map, y_map, mean_map, cmap = graph_color)
 cbar = fig.colorbar(cp)
-cp.set_clim(0, 2)
 ax.plot(0, 0, 'ro')
 plt.show()
 
 # fig, ax = plt.subplots()
 # im = ax.imshow(mean_map, cmap = "Blues_r")
 # plt.show()
+
+angles = (np.arctan2(all_ys,all_xs) * 180 / np.pi)
+#See notes, this makes it from 0 to 360
+angles = np.mod(abs(angles-360),360)
+#This rotates it so that 0 is at the top and 180 is below the fish
+angles = np.mod(angles+90,360)
+
+all_dists = get_dist_np(0,0,all_xs,all_ys)
+
+print(all_dists.shape)
+print(angles.shape)
+
+angle_bin_size = 30
+polar_axis = np.linspace(0,360,int(360/angle_bin_size)+1) - angle_bin_size/2
+polar_axis = (polar_axis+angle_bin_size/2) * np.pi /180
+
+dist_bin_size = 0.25
+d_range = round_down(np.max(all_dists),base=dist_bin_size)
+print(polar_axis)
+d_axis = np.linspace(0,d_range,int(d_range/dist_bin_size)+1)
+
+print(d_axis)
+
+polar_array = np.zeros((int(360/angle_bin_size), len(d_axis), len(angles)))
+
+for i in range(len(angles)):
+	a = int(angles[i]/angle_bin_size)
+	r = int(round_down(all_dists[i],base=dist_bin_size)/dist_bin_size)
+	polar_array[a][r][i] = all_cs[i]
+
+
+polar_array[polar_array == 0] = 'nan'
+polar_vals = np.nanmean(polar_array, axis=2)
+#print(polar_vals)
+#polar_vals = np.nan_to_num(polar_vals)
+polar_vals = np.append(polar_vals,polar_vals[0].reshape(1, (len(d_axis))),axis=0)
+
+print(polar_vals.shape)
+
+r, th = np.meshgrid(d_axis, polar_axis)
+
+
+fig = plt.figure()
+ax = fig.add_subplot(111, projection='polar')
+plt.pcolormesh(th, r, polar_vals, cmap = graph_color)
+ax.set_theta_zero_location("W")
+ax.set_theta_direction(-1)
+ax.set_thetamin(0)
+ax.set_thetamax(180)
+plt.plot(polar_axis, r, ls='none', color = 'k') 
+plt.grid()
+plt.colorbar()
+plt.show()
+
+
+# fig = plt.figure()
+# ax = fig.add_subplot(111, projection='polar')
+# plt.polar(polar_axis,polar_vals,'b-',label='No Flow')
+# ax.set_theta_zero_location("W")
+# ax.set_theta_direction(-1)
+# ax.set_thetamin(0)
+# ax.set_thetamax(180)
+# plt.legend(loc=(1,1))
+# #plt.legend([no_flow, flow],["No Flow","Flow"])
+# plt.show()
+
+##TO HERE
 
 # print(sum(all_cs)/len(all_cs))
 # n = round(len(all_cs)/2)

@@ -55,6 +55,32 @@ def shrink_sum(data, rows, cols):
 #           y for each frame
 #           probability for each frame
 
+def get_dist_np(x1s,y1s,x2s,y2s):
+	dist = np.sqrt((x1s-x2s)**2+(y1s-y2s)**2)
+	return dist
+
+def median_fish_len(f_dict,fish_num):
+
+	fish_bp_xs = []
+	fish_bp_ys = []
+
+	for bp in b_parts:
+		fish_bp_xs.append(f_dict[fish_num][bp]["x"])
+		fish_bp_ys.append(f_dict[fish_num][bp]["x"])
+
+	fish_bp_dist = []
+
+	for i in range(len(b_parts)-1):
+		bp_dist = get_dist_np(fish_bp_xs[i],fish_bp_ys[i],fish_bp_xs[i+1],fish_bp_ys[i+1])
+		fish_bp_dist.append(bp_dist)
+
+	fish_bp_dist = np.asarray(fish_bp_dist)
+
+	fish_bp_dist_sum = np.sum(fish_bp_dist, axis=0)
+
+	return np.median(fish_bp_dist_sum)
+
+	
 def DLC_CSV_to_dict(num_fish,fish_parts,file):
 	data_points = ["x","y","prob"]
 	  
@@ -94,7 +120,7 @@ def dict_to_fish_time(f_dict,fish_num,time):
 
 	#Goes through and fills in the x and y arrays
 
-	#UH this usage of i here is very wrong and only worked before by coincidence
+	#UH this usage of i here was very wrong and only worked before by coincidence
 	for i in range(n_b_parts):
 		x[i] = f_dict[fish_num][b_parts[i]]["x"][time]
 		y[i] = f_dict[fish_num][b_parts[i]]["y"][time]
