@@ -4,18 +4,14 @@ import seaborn as sns
 import matplotlib as mpl
 from matplotlib.patches import Ellipse
 from fish_core import *
+from PIL import Image
+import matplotlib.image as mpimg
+from matplotlib.offsetbox import OffsetImage, AnnotationBbox
 
 data_folder = os.getcwd()+"/Finished_Fish_Data/"
-flow = "F0"
+flow = "F2"
 dark = "DN"
 turb = "TN"
-
-if flow == "F0":
-	graph_color = "Blues"
-	detail_color = "red"
-else:
-	graph_color = "Blues"
-	detail_color = "red"
 
 save_file = "data_{}_{}_{}.npy".format(flow,dark,turb)
 
@@ -214,55 +210,57 @@ if not new:
 ##HERE
 print("Got the data, let's start graphing!")
 
-mean_xs = np.mean(all_xs[::2])
-mean_ys = np.mean(all_ys)
+#Replaced with polar plots
 
-sd_xs = np.std(all_xs)
-sd_ys = np.std(all_ys)
+# mean_xs = np.mean(all_xs[::2])
+# mean_ys = np.mean(all_ys)
 
-sns.set_style("white")
-ax = sns.kdeplot(x=all_xs, y=all_ys, cmap=graph_color, shade=True, bw_method=.15)
-plt.scatter(x=0, y=0, color='r')
-plt.gcf().gca().add_artist(Ellipse((0, 0),mean_xs,mean_ys,facecolor="none",edgecolor='white'))
-plt.gcf().gca().add_artist(Ellipse((0, 0),sd_xs,sd_ys,facecolor="none",edgecolor=detail_color))
-plt.show()
+# sd_xs = np.std(all_xs)
+# sd_ys = np.std(all_ys)
 
-bin_size = 0.25
+# sns.set_style("white")
+# ax = sns.kdeplot(x=all_xs, y=all_ys, cmap="GnBu", shade=True, bw_method=.15)
+# plt.scatter(x=0, y=0, color='r')
+# plt.gcf().gca().add_artist(Ellipse((0, 0),mean_xs,mean_ys,facecolor="none",edgecolor='white'))
+# plt.gcf().gca().add_artist(Ellipse((0, 0),sd_xs,sd_ys,facecolor="none",edgecolor="red"))
+# plt.show()
 
-x_range = round_down(np.max(np.absolute(all_xs)),base=bin_size)
-y_range = round_down(np.max(np.absolute(all_ys)),base=bin_size)
+# bin_size = 0.25
 
-#x and y are swapped to make it graph right
-heatmap_array = np.zeros((int(y_range*2/bin_size)+1,int(x_range*2/bin_size)+1,len(all_xs)))
+# x_range = round_down(np.max(np.absolute(all_xs)),base=bin_size)
+# y_range = round_down(np.max(np.absolute(all_ys)),base=bin_size)
 
-x_axis = np.linspace(-1*x_range,x_range,int(x_range*2/bin_size)+1)
-y_axis = np.linspace(-1*y_range,y_range,int(y_range*2/bin_size)+1)
+# #x and y are swapped to make it graph right
+# heatmap_array = np.zeros((int(y_range*2/bin_size)+1,int(x_range*2/bin_size)+1,len(all_xs)))
 
-x_offset = int(x_range/bin_size)
-y_offset = int(y_range/bin_size)
+# x_axis = np.linspace(-1*x_range,x_range,int(x_range*2/bin_size)+1)
+# y_axis = np.linspace(-1*y_range,y_range,int(y_range*2/bin_size)+1)
 
-for i in range(len(all_xs)):
-	x = int(round_down(all_xs[i],base=bin_size)/bin_size + x_offset)
-	y = int(round_down(all_ys[i],base=bin_size)/bin_size + y_offset)
+# x_offset = int(x_range/bin_size)
+# y_offset = int(y_range/bin_size)
 
-	heatmap_array[y][x][i] = all_cs[i]
+# for i in range(len(all_xs)):
+# 	x = int(round_down(all_xs[i],base=bin_size)/bin_size + x_offset)
+# 	y = int(round_down(all_ys[i],base=bin_size)/bin_size + y_offset)
 
-heatmap_array[heatmap_array == 0] = 'nan'
-mean_map = np.nanmean(heatmap_array, axis=2)
-mean_map = np.nan_to_num(mean_map)
+# 	heatmap_array[y][x][i] = all_cs[i]
 
-#Makes maps that work with ax.contour so that x and y axis are repeated over the Z array
-#https://alex.miller.im/posts/contour-plots-in-python-matplotlib-x-y-z/
-x_map = np.repeat(x_axis.reshape(1,len(x_axis)),len(y_axis),axis=0)
-y_map = np.repeat(y_axis.reshape(len(y_axis),1),len(x_axis),axis=1)
+# heatmap_array[heatmap_array == 0] = 'nan'
+# mean_map = np.nanmean(heatmap_array, axis=2)
+# mean_map = np.nan_to_num(mean_map)
 
-fig = plt.figure()
-ax = fig.add_subplot(111)
-# Generate a contour plot
-cp = ax.contourf(x_map, y_map, mean_map, cmap = graph_color)
-cbar = fig.colorbar(cp)
-ax.plot(0, 0, 'ro')
-plt.show()
+# #Makes maps that work with ax.contour so that x and y axis are repeated over the Z array
+# #https://alex.miller.im/posts/contour-plots-in-python-matplotlib-x-y-z/
+# x_map = np.repeat(x_axis.reshape(1,len(x_axis)),len(y_axis),axis=0)
+# y_map = np.repeat(y_axis.reshape(len(y_axis),1),len(x_axis),axis=1)
+
+# fig = plt.figure()
+# ax = fig.add_subplot(111)
+# # Generate a contour plot
+# cp = ax.contourf(x_map, y_map, mean_map, cmap = "GnBu")
+# cbar = fig.colorbar(cp)
+# ax.plot(0, 0, 'ro')
+# plt.show()
 
 # fig, ax = plt.subplots()
 # im = ax.imshow(mean_map, cmap = "Blues_r")
@@ -276,26 +274,28 @@ angles = np.mod(angles+90,360)
 
 all_dists = get_dist_np(0,0,all_xs,all_ys)
 
-print(all_dists.shape)
-print(angles.shape)
+# print(all_dists.shape)
+# print(angles.shape)
 
 angle_bin_size = 30
 polar_axis = np.linspace(0,360,int(360/angle_bin_size)+1) - angle_bin_size/2
 polar_axis = (polar_axis+angle_bin_size/2) * np.pi /180
 
-dist_bin_size = 0.25
+dist_bin_size = 1
 d_range = round_down(np.max(all_dists),base=dist_bin_size)
-print(polar_axis)
+#print(polar_axis)
 d_axis = np.linspace(0,d_range,int(d_range/dist_bin_size)+1)
 
-print(d_axis)
+# print(d_axis)
 
 polar_array = np.zeros((int(360/angle_bin_size), len(d_axis), len(angles)))
+polar_density_array = np.zeros((int(360/angle_bin_size), len(d_axis), len(angles)))
 
 for i in range(len(angles)):
 	a = int(angles[i]/angle_bin_size)
 	r = int(round_down(all_dists[i],base=dist_bin_size)/dist_bin_size)
 	polar_array[a][r][i] = all_cs[i]
+	polar_density_array[a][r][i] = 1
 
 
 polar_array[polar_array == 0] = 'nan'
@@ -304,18 +304,52 @@ polar_vals = np.nanmean(polar_array, axis=2)
 #polar_vals = np.nan_to_num(polar_vals)
 polar_vals = np.append(polar_vals,polar_vals[0].reshape(1, (len(d_axis))),axis=0)
 
-print(polar_vals.shape)
+#print(polar_vals.shape)
 
 r, th = np.meshgrid(d_axis, polar_axis)
 
-
 fig = plt.figure()
 ax = fig.add_subplot(111, projection='polar')
-plt.pcolormesh(th, r, polar_vals, cmap = graph_color)
+plt.pcolormesh(th, r, polar_vals, cmap = "GnBu", vmin = -0.75, vmax = 0.75)
+
+arr_png = mpimg.imread('fish.png')
+imagebox = OffsetImage(arr_png, zoom = 0.65)
+ab = AnnotationBbox(imagebox, (0, 0), frameon = False)
+ax.add_artist(ab)
+
+ax.set_xticks(polar_axis)
+ax.set_yticks(d_axis)
 ax.set_theta_zero_location("W")
 ax.set_theta_direction(-1)
 ax.set_thetamin(0)
 ax.set_thetamax(180)
+
+plt.plot(polar_axis, r, ls='none', color = 'k') 
+plt.grid()
+plt.colorbar()
+plt.show()
+
+
+polar_density = np.sum(polar_density_array, axis=2)
+polar_density = polar_density/np.amax(polar_density)
+polar_density = np.append(polar_density,polar_density[0].reshape(1, (len(d_axis))),axis=0)
+
+fig = plt.figure()
+ax = fig.add_subplot(111, projection='polar')
+plt.pcolormesh(th, r, polar_density, cmap = "GnBu", vmin = 0, vmax = 1)
+
+arr_png = mpimg.imread('fish.png')
+imagebox = OffsetImage(arr_png, zoom = 0.65)
+ab = AnnotationBbox(imagebox, (0, 0), frameon = False)
+ax.add_artist(ab)
+
+ax.set_xticks(polar_axis)
+ax.set_yticks(d_axis)
+ax.set_theta_zero_location("W")
+ax.set_theta_direction(-1)
+ax.set_thetamin(0)
+ax.set_thetamax(180)
+
 plt.plot(polar_axis, r, ls='none', color = 'k') 
 plt.grid()
 plt.colorbar()

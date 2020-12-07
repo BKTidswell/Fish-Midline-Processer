@@ -59,12 +59,15 @@ for filename in os.listdir(data_folder):
 					head_ys = num_row[2:146:18]
 
 					for i in range(num_fish):
-						for j in range(num_fish):
-							distance = get_dist([head_xs[i],head_ys[i]],[head_xs[j],head_ys[j]])/cnvrt_pix_bl[i]
+						for j in range(i+1,num_fish):
 
-							angle = get_angle([head_xs[i],head_ys[i]],[head_xs[j],head_ys[j]])
+							if i != j:
+								distance = get_dist([head_xs[i],head_ys[i]],[head_xs[j],head_ys[j]])/cnvrt_pix_bl[i]
 
-							f.write(outStr.format(fish1=i,fish2=j,dist=distance,angle=angle,year=year,month=month,day=day,trial=trial,frame=frame_counter,turb=turb,dark=dark,flow=flow))
+								angle = get_angle([head_xs[i],head_ys[i]],[head_xs[j],head_ys[j]])
+
+								f.write(outStr.format(fish1=i,fish2=j,dist=distance,angle=abs(angle),year=year,month=month,day=day,trial=trial,frame=frame_counter,turb=turb,dark=dark,flow=flow))
+								#f.write(outStr.format(fish1=i,fish2=j,dist=distance,angle=-1*angle,year=year,month=month,day=day,trial=trial,frame=frame_counter,turb=turb,dark=dark,flow=flow))
 
 					frame_counter += 1
 
