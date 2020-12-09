@@ -32,87 +32,13 @@ with open(save_file_1, 'rb') as f_1:
 	all_xs_1 = np.load(f_1)
 	all_ys_1 = np.load(f_1)
 	all_cs_1 = np.load(f_1)
+	all_hs_1 = np.load(f_1)
 
 with open(save_file_2, 'rb') as f_2:
 	all_xs_2 = np.load(f_2)
 	all_ys_2 = np.load(f_2)
 	all_cs_2 = np.load(f_2)
-
-bin_size = 1
-
-x_range = max(round_down(np.max(np.absolute(all_xs_1)),base=bin_size),
-			  round_down(np.max(np.absolute(all_xs_2)),base=bin_size))
-y_range = max(round_down(np.max(np.absolute(all_ys_1)),base=bin_size),
-			  round_down(np.max(np.absolute(all_ys_2)),base=bin_size))
-
-heatmap_array_1 = np.zeros((int(y_range*2/bin_size)+1,int(x_range*2/bin_size)+1,len(all_xs_1)))
-heatmap_array_2 = np.zeros((int(y_range*2/bin_size)+1,int(x_range*2/bin_size)+1,len(all_xs_2)))
-
-x_axis = np.linspace(-1*x_range,x_range,int(x_range*2/bin_size)+1)
-y_axis = np.linspace(-1*y_range,y_range,int(y_range*2/bin_size)+1)
-
-x_offset = int(x_range/bin_size)
-y_offset = int(y_range/bin_size)
-
-for i in range(len(all_xs_1)):
-	x_1 = int(round_down(all_xs_1[i],base=bin_size)/bin_size + x_offset)
-	y_1 = int(round_down(all_ys_1[i],base=bin_size)/bin_size + y_offset)
-
-	heatmap_array_1[y_1][x_1][i] = all_cs_1[i]
-
-for i in range(len(all_xs_2)):
-	x_2 = int(round_down(all_xs_2[i],base=bin_size)/bin_size + x_offset)
-	y_2 = int(round_down(all_ys_2[i],base=bin_size)/bin_size + y_offset)
-
-	heatmap_array_2[y_2][x_2][i] = all_cs_2[i]
-
-
-heatmap_array_1[heatmap_array_1 == 0] = 'nan'
-mean_map_1 = np.nanmean(heatmap_array_1, axis=2)
-mean_map_1 = np.nan_to_num(mean_map_1)
-
-heatmap_array_2[heatmap_array_2 == 0] = 'nan'
-mean_map_2 = np.nanmean(heatmap_array_2, axis=2)
-mean_map_2 = np.nan_to_num(mean_map_2)
-
-#Get SD
-se_array_1 = stats.sem(heatmap_array_1, axis=2, nan_policy = "omit")
-se_array_1 = np.nan_to_num(np.asarray(se_array_1))
-
-se_array_2 = stats.sem(heatmap_array_2, axis=2, nan_policy = "omit")
-se_array_2 = np.nan_to_num(np.asarray(se_array_2))
-
-#See if these are all that different
-mean_diff_array = abs(mean_map_1 - mean_map_2)
-comp_error_array = se_array_1 - se_array_2
-
-#See if the total difference is les than combined error
-diff_array = mean_diff_array > comp_error_array
-
-pos_neg_diff_array = np.where(mean_map_1 - mean_map_2 < 0, -1, 1)
-#pos_neg_diff_array = pos_neg_diff_array[pos_neg_diff_array > 0] = 1
-
-sig_diff_array = pos_neg_diff_array*diff_array
-sig_diff_array = sig_diff_array.astype('float')
-sig_diff_array[sig_diff_array == 0] = 'nan'
-
-#Makes maps that work with ax.contour so that x and y axis are repeated over the Z array
-#https://alex.miller.im/posts/contour-plots-in-python-matplotlib-x-y-z/
-x_map = np.repeat(x_axis.reshape(1,len(x_axis)),len(y_axis),axis=0)
-y_map = np.repeat(y_axis.reshape(len(y_axis),1),len(x_axis),axis=1)
-
-diff_map = mean_map_1 - mean_map_2
-
-# fig = plt.figure()
-# ax = fig.add_subplot(111)
-# # Generate a contour plot
-# cp = ax.contourf(x_map, y_map, sig_diff_array, cmap = "bwr_r")
-# cbar = fig.colorbar(cp)
-# ax.plot(0, 0, 'ko')
-# plt.show()
-
-# fig = plt.imshow(sig_diff_array, cmap='bwr_r')
-# plt.show()
+	all_hs_2 = np.load(f_2)
 
 #Making polar plots
 
@@ -143,25 +69,30 @@ d_axis = np.linspace(0,d_range,int(d_range/dist_bin_size)+1)
 
 polar_array_1 = np.zeros((int(360/angle_bin_size), len(d_axis), len(angles_1)))
 polar_density_array_1 = np.zeros((int(360/angle_bin_size), len(d_axis), len(angles_1)))
-
+polar_heading_array_1 = np.zeros((int(360/angle_bin_size), len(d_axis), len(angles_1)))
 
 for i in range(len(angles_1)):
 	a = int(angles_1[i]/angle_bin_size)
 	r = int(round_down(all_dists_1[i],base=dist_bin_size)/dist_bin_size)
+
 	polar_array_1[a][r][i] = all_cs_1[i]
 	polar_density_array_1[a][r][i] = 1
+	polar_heading_array_1[a][r][i] = all_hs_1[i]
 
 
 polar_array_2 = np.zeros((int(360/angle_bin_size), len(d_axis), len(angles_2)))
 polar_density_array_2 = np.zeros((int(360/angle_bin_size), len(d_axis), len(angles_1)))
+polar_heading_array_2 = np.zeros((int(360/angle_bin_size), len(d_axis), len(angles_1)))
 
 for i in range(len(angles_2)):
 	a = int(angles_2[i]/angle_bin_size)
 	r = int(round_down(all_dists_2[i],base=dist_bin_size)/dist_bin_size)
+
 	polar_array_2[a][r][i] = all_cs_2[i]
 	polar_density_array_2[a][r][i] = 1
+	polar_heading_array_2[a][r][i] = all_hs_2[i]
 
-
+#Looking at synchonzaion differences.
 polar_array_1[polar_array_1 == 0] = 'nan'
 polar_vals_1 = np.nanmean(polar_array_1, axis=2)
 polar_vals_1 = np.append(polar_vals_1,polar_vals_1[0].reshape(1, (len(d_axis))),axis=0)
@@ -170,7 +101,7 @@ polar_array_2[polar_array_2 == 0] = 'nan'
 polar_vals_2 = np.nanmean(polar_array_2, axis=2)
 polar_vals_2 = np.append(polar_vals_2,polar_vals_2[0].reshape(1, (len(d_axis))),axis=0)
 
-
+#Get SE of arrays
 se_polar_array_1 = stats.sem(polar_array_1, axis=2, nan_policy = "omit")
 se_polar_array_1 = np.nan_to_num(np.asarray(se_polar_array_1))
 se_polar_array_1 = np.append(se_polar_array_1,se_polar_array_1[0].reshape(1, (len(d_axis))),axis=0)
@@ -178,16 +109,6 @@ se_polar_array_1 = np.append(se_polar_array_1,se_polar_array_1[0].reshape(1, (le
 se_polar_array_2 = stats.sem(polar_array_2, axis=2, nan_policy = "omit")
 se_polar_array_2 = np.nan_to_num(np.asarray(se_polar_array_2))
 se_polar_array_2 = np.append(se_polar_array_2,se_polar_array_2[0].reshape(1, (len(d_axis))),axis=0)
-
-#Makes data for density plots
-polar_density_1 = np.sum(polar_density_array_1, axis=2)
-polar_density_1 = polar_density_1/np.amax(polar_density_1)
-polar_density_1 = np.append(polar_density_1,polar_density_1[0].reshape(1, (len(d_axis))),axis=0)
-
-polar_density_2 = np.sum(polar_density_array_2, axis=2)
-polar_density_2 = polar_density_2/np.amax(polar_density_2)
-polar_density_2 = np.append(polar_density_2,polar_density_2[0].reshape(1, (len(d_axis))),axis=0)
-
 
 #See if these are all that different
 polar_mean_diff_array = abs(polar_vals_1 - polar_vals_2)
@@ -199,6 +120,50 @@ pos_neg_diff_array = np.where(polar_vals_1 - polar_vals_2 < 0, -1, 1)
 
 sig_diff_array = pos_neg_diff_array*diff_array
 sig_diff_array = sig_diff_array.astype('float')
+
+
+
+#Makes data for density plots
+polar_density_1 = np.sum(polar_density_array_1, axis=2)
+polar_density_1 = polar_density_1/np.amax(polar_density_1)
+polar_density_1 = np.append(polar_density_1,polar_density_1[0].reshape(1, (len(d_axis))),axis=0)
+
+polar_density_2 = np.sum(polar_density_array_2, axis=2)
+polar_density_2 = polar_density_2/np.amax(polar_density_2)
+polar_density_2 = np.append(polar_density_2,polar_density_2[0].reshape(1, (len(d_axis))),axis=0)
+
+
+
+#get the mean headings in each area
+polar_heading_array_1[polar_heading_array_1 == 0] = 'nan'
+polar_headings_1 = np.nanmean(polar_heading_array_1, axis=2)
+polar_headings_1 = np.append(polar_headings_1,polar_headings_1[0].reshape(1, (len(d_axis))),axis=0)
+
+polar_heading_array_2[polar_heading_array_2 == 0] = 'nan'
+polar_headings_2 = np.nanmean(polar_heading_array_2, axis=2)
+polar_headings_2 = np.append(polar_headings_2,polar_headings_2[0].reshape(1, (len(d_axis))),axis=0)
+
+#Get SE of heading arrays
+se_polar_headings_1 = stats.sem(polar_heading_array_1, axis=2, nan_policy = "omit")
+se_polar_headings_1 = np.nan_to_num(np.asarray(se_polar_headings_1))
+se_polar_headings_1 = np.append(se_polar_headings_1,se_polar_headings_1[0].reshape(1, (len(d_axis))),axis=0)
+
+se_polar_headings_2 = stats.sem(polar_heading_array_2, axis=2, nan_policy = "omit")
+se_polar_headings_2 = np.nan_to_num(np.asarray(se_polar_headings_2))
+se_polar_headings_2 = np.append(se_polar_headings_2,se_polar_headings_2[0].reshape(1, (len(d_axis))),axis=0)
+
+#See if these are all that different
+#Reveresed from the other since higher is worse
+polar_mean_diff_headings = abs(polar_headings_2 - polar_headings_1)
+polar_comp_error_headings = se_polar_headings_1 + se_polar_headings_2
+
+#See if the total difference is less than combined error
+diff_headings = polar_mean_diff_headings > polar_comp_error_headings
+pos_neg_diff_headings = np.where(polar_headings_2 - polar_headings_1 < 0, -1, 1)
+
+sig_diff_headings = pos_neg_diff_headings*diff_headings
+sig_diff_headings = sig_diff_headings.astype('float')
+
 #sig_diff_array[sig_diff_array == 0] = 'nan'
 
 #print(sig_diff_array)
@@ -206,12 +171,14 @@ sig_diff_array = sig_diff_array.astype('float')
 r, th = np.meshgrid(d_axis, polar_axis)
 
 polar_vals_diff = polar_vals_1 - polar_vals_2
+heading_vals_diff = polar_headings_2 - polar_headings_1
 
-data = [polar_vals_diff,sig_diff_array,polar_vals_1,polar_density_1,polar_vals_2,polar_density_2]
-names = [flow_1+"_"+flow_2+"_diff.png",flow_1+"_"+flow_2+"_sig_diff.png",flow_1+"_sync.png",flow_1+"_density.png",flow_2+"_sync.png",flow_2+"_density.png"]
-color = ["bwr","bwr","GnBu","GnBu","GnBu","GnBu"]
-vmins = [-1,-1,-1,0,-1,0]
-vmaxs = [1,1,1,1,1,1]
+data = [polar_vals_diff,sig_diff_array,polar_vals_1,polar_density_1,polar_vals_2,polar_density_2,polar_headings_1,polar_headings_2,heading_vals_diff,sig_diff_headings]
+names = [flow_1+"_"+flow_2+"_diff.png",flow_1+"_"+flow_2+"_sig_diff.png",flow_1+"_sync.png",flow_1+"_density.png",flow_2+"_sync.png",flow_2+"_density.png",flow_1+"_headings.png",flow_2+"_headings.png",flow_1+"_"+flow_2+"_heading_diff.png",flow_1+"_"+flow_2+"_heading_sig_diff.png"]
+titles = ["No Flow - Flow Synchronization", "No Flow - Flow Synchronization","No Flow Synchronization","No Flow Density","Flow Synchronization","Flow Density","No Flow Headings","Flow Headings","No Flow - Flow Headings", "No Flow - Flow Headings"]
+color = ["bwr","bwr","GnBu","GnBu","GnBu","GnBu","GnBu_r","GnBu_r","bwr","bwr"]
+vmins = [-1,-1,-1,0,-1,0,0,0,-180,-1]
+vmaxs = [1,1,1,1,1,1,180,180,180,1]
 
 for i in range(len(data)):
 	print(names[i])
@@ -219,9 +186,10 @@ for i in range(len(data)):
 	fig = plt.figure()
 	ax = fig.add_subplot(111, projection='polar')
 	plt.pcolormesh(th, r, data[i], cmap = color[i], vmin=vmins[i], vmax=vmaxs[i])
+	plt.title(titles[i],pad = -40)
 
 	arr_png = mpimg.imread('fish.png')
-	imagebox = OffsetImage(arr_png, zoom = 0.65)
+	imagebox = OffsetImage(arr_png, zoom = 0.55)
 	ab = AnnotationBbox(imagebox, (0, 0), frameon = False)
 	ax.add_artist(ab)
 
@@ -234,7 +202,7 @@ for i in range(len(data)):
 
 	plt.plot(polar_axis, r, ls='none', color = 'k') 
 	plt.grid()
-	plt.colorbar()
+	plt.colorbar(pad = 0.1, shrink = 0.65)
 	#plt.show()
 
 	plt.savefig("Heatmaps/"+names[i])
