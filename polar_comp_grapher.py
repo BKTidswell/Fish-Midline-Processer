@@ -40,6 +40,12 @@ with open(save_file_2, 'rb') as f_2:
 	all_cs_2 = np.load(f_2)
 	all_hs_2 = np.load(f_2)
 
+sns.distplot(all_hs_1,kde = False)
+plt.show()
+
+sns.distplot(all_hs_2,kde = False)
+plt.show()
+
 #Making polar plots
 
 angles_1 = (np.arctan2(all_ys_1,all_xs_1) * 180 / np.pi)
@@ -176,9 +182,9 @@ heading_vals_diff = polar_headings_2 - polar_headings_1
 data = [polar_vals_diff,sig_diff_array,polar_vals_1,polar_density_1,polar_vals_2,polar_density_2,polar_headings_1,polar_headings_2,heading_vals_diff,sig_diff_headings]
 names = [flow_1+"_"+flow_2+"_diff.png",flow_1+"_"+flow_2+"_sig_diff.png",flow_1+"_sync.png",flow_1+"_density.png",flow_2+"_sync.png",flow_2+"_density.png",flow_1+"_headings.png",flow_2+"_headings.png",flow_1+"_"+flow_2+"_heading_diff.png",flow_1+"_"+flow_2+"_heading_sig_diff.png"]
 titles = ["No Flow - Flow Synchronization", "No Flow - Flow Synchronization","No Flow Synchronization","No Flow Density","Flow Synchronization","Flow Density","No Flow Headings","Flow Headings","No Flow - Flow Headings", "No Flow - Flow Headings"]
-color = ["bwr","bwr","GnBu","GnBu","GnBu","GnBu","GnBu_r","GnBu_r","bwr","bwr"]
-vmins = [-1,-1,-1,0,-1,0,0,0,-180,-1]
-vmaxs = [1,1,1,1,1,1,180,180,180,1]
+color = ["bwr","bwr","GnBu","GnBu","GnBu","GnBu","GnBu","GnBu","bwr","bwr"]
+vmins = [-1,-1,-1,0,-1,0,0,0,-1,-1]
+vmaxs = [1,1,1,1,1,1,1,1,1,1]
 
 for i in range(len(data)):
 	print(names[i])
