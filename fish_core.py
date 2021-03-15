@@ -21,7 +21,6 @@ fish_colors = ["red","orange","yellow","green","blue","purple","pink","grey"]
 
 def get_slope(x,y):
 	slope_array = np.zeros(len(x))
-
 	for i in range(2,len(x)-2):
 		#This gets the slope from the points surrounding i so that the signal is less noisy
 		slope = (((y[i+1]-y[i-1]) / (x[i+1]-x[i-1])) + ((y[i+2]-y[i-2]) / (x[i+2]-x[i-2]))) / 2

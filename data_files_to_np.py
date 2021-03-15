@@ -7,11 +7,15 @@ from fish_core import *
 from PIL import Image
 import matplotlib.image as mpimg
 from matplotlib.offsetbox import OffsetImage, AnnotationBbox
+from scipy.signal import savgol_filter, resample
 
 data_folder = os.getcwd()+"/Finished_Fish_Data/"
 flows = ["F0","F2"]
 darks = ["DN"]
 turbs = ["TN"]
+
+def moving_average(x, w):
+    return np.convolve(x, np.ones(w), 'valid') / w
 
 for flow in flows:
 	for dark in darks:
@@ -43,6 +47,7 @@ for flow in flows:
 			all_hs = []
 
 			for file_name in data_files:
+
 				year = file_name[0:4]
 				month = file_name[5:7]
 				day = file_name[8:10]
@@ -85,14 +90,33 @@ for flow in flows:
 				slope_array = np.zeros((n_fish,n_fish,time_points))
 
 				for i in range(n_fish):
-					for j in range(n_fish):
+					for j in range(i+1,n_fish):
+
+						cvn_n = 15
+						cvn_n_half = int(cvn_n/2)
+
+						signal_1 = normalize_signal(fish_perp[i][:,5])
+						signal_2 = normalize_signal(fish_perp[j][:,5])
+
+						mv_avg_1 = moving_average(moving_average(signal_1,cvn_n),cvn_n)
+						mv_avg_2 = moving_average(moving_average(signal_2,cvn_n),cvn_n)
+
+						short_signal_1 = signal_1[cvn_n:-cvn_n+2]
+						short_signal_2 = signal_2[cvn_n:-cvn_n+2]
+
+						pn_signal_1 = short_signal_1-mv_avg_1
+						pn_signal_2 = short_signal_2-mv_avg_2
+
+						# doubled_signal_1 = np.append(resample(pn_signal_1,int(len(pn_signal_1)/2)),resample(pn_signal_1,int(len(pn_signal_1)/2)))
+						# doubled_signal_2 = np.append(np.append(resample(pn_signal_1,int(len(pn_signal_1)/4)),resample(pn_signal_1,int(len(pn_signal_1)/4))),
+						# 							 np.append(resample(pn_signal_1,int(len(pn_signal_1)/4)),resample(pn_signal_1,int(len(pn_signal_1)/4))))
 
 						#Get the signal for each with Hilbert phase
-						analytic_signal_main = hilbert(normalize_signal(fish_perp[i][:,5]))
-						instantaneous_phase_main = np.unwrap(np.angle(analytic_signal_main))
+						analytic_signal_1 = hilbert(pn_signal_1)
+						instantaneous_phase_1 = np.unwrap(np.angle(analytic_signal_1))
 
-						analytic_signal = hilbert(normalize_signal(fish_perp[j][:,5]))
-						instantaneous_phase = np.unwrap(np.angle(analytic_signal))
+						analytic_signal_2 = hilbert(pn_signal_2)
+						instantaneous_phase_2 = np.unwrap(np.angle(analytic_signal_2))
 
 						# #Now get the slope
 						# dx = np.diff(instantaneous_phase_main)
@@ -104,12 +128,58 @@ for flow in flows:
 						#10/13 slope is now 0 when they are aligned and higher when worse. 
 
 						#10/16 uses the get slope function for smoother slope
-						slope = get_slope(instantaneous_phase_main,instantaneous_phase)
-						norm_slope = abs(slope-1)
+						#abs_diff = get_slope(instantaneous_phase_1,instantaneous_phase_2)
+						#norm_slope = abs(slope-1)
+
+						#12/14 I think that I just need to subtract actually. So 0 is best and > is worse still
+						#https://math.stackexchange.com/questions/1000519/phase-shift-of-two-sine-curves/1000703#1000703
+
+						# Actually I want the slope of the subtracted lines. Also this is a nightmare and I hate math
+						# and curves and lines and smoothing. God I hope this works. 
+
+						#Ok, so 12/15. How it works now is that the formulat is 2^-x and the *2 for sync_slope
+						# makes it so that if one is twice the freq of another then it gets a value of 1, which 
+						# then becomes 0.5 in the end. So 1x = 0, 2x = 0.5, 3x = 0.25, 4x = 0.125 etc.
+						# It's not perfect certainly. The *2 is just what I picked that worked best when I doubled
+						# it up. Also if one signal is 2x and the other is 4x, then then value difference is 2. 
+						# So it's not perfect on doubling, but it is on the total times faster from base.
+						# But why is the base the base?? Unclear to me at least. Still it works. 
+						abs_diff_smooth = savgol_filter(abs(instantaneous_phase_2 - instantaneous_phase_1),11,1)
+						sync_slope = abs(np.gradient(abs_diff_smooth))*2
+
+						#stuff_agh = -1*np.log(sync_slope2+1)+1
+						#stuff_agh = np.power(2,sync_slope*-1)
+
+						# fig, axs = plt.subplots(7)
+						# fig.suptitle('Vertically stacked subplots')
+						# axs[0].plot(range(len(short_signal_1)), short_signal_1)
+						# axs[0].plot(range(len(mv_avg_1)), mv_avg_1, "g")
+
+						# axs[1].plot(range(len(short_signal_2)), short_signal_2,"r")
+						# axs[1].plot(range(len(mv_avg_2)), mv_avg_2, "m")
+
+						# axs[2].plot(range(len(pn_signal_1)), pn_signal_1)
+						# axs[2].plot(range(len(pn_signal_2)), pn_signal_2,"r")
+
+						# axs[3].plot(range(len(instantaneous_phase_1)), instantaneous_phase_1)
+						# axs[3].plot(range(len(instantaneous_phase_2)), instantaneous_phase_2,"r")
+
+						# axs[4].plot(range(len(abs_diff_smooth)), abs_diff_smooth)
+
+						# axs[5].plot(range(len(sync_slope)), sync_slope)
+						# axs[5].set_ylim(-0.1,2)
+
+						# #axs[5].plot(range(len(sync_slope2)), sync_slope2,"r")
+
+						# axs[6].plot(range(len(stuff_agh)), stuff_agh,"r")
+
+						# plt.show()
+
+						# sys.exit()
 
 						#Now copy it all over. Time is reduced becuase diff makes it shorter
-						for t in range(time_points-5):
-							slope_array[i][j][t] = norm_slope[t]
+						for t in range(len(sync_slope)):
+							slope_array[i][j][t] = sync_slope[t]
 
 				fish_head_xs = []
 				fish_head_ys = []
@@ -132,17 +202,31 @@ for flow in flows:
 
 				#Go through all timepoints with each fish as the center one
 				#Edited so that all the time points are done at once through the magic of numpy
+
+				fish_angles = np.zeros(0)
+				fish_angles_2 = np.zeros(0)
+
 				for f in range(n_fish):
 					#This prevents perfect symetry and doubling up on fish
-					for g in range(f+1,n_fish):
+					main_fish_x = fish_head_xs[f]
+					main_fish_y = fish_head_ys[f]
 
-						main_fish_x = fish_head_xs[f]
-						main_fish_y = fish_head_ys[f]
+					main_fish_n_x = np.roll(main_fish_x, -1)
+					main_fish_n_y = np.roll(main_fish_y, -1)
+
+					#Get vectors for angle calculations
+					mfish_vecx = main_fish_n_x - main_fish_x
+					mfish_vecy = main_fish_n_y - main_fish_y
+
+					mfish_angle = np.rad2deg(np.arctan2(mfish_vecy,mfish_vecx))
+					#sns.distplot(mfish_angle)
+
+					#fish_angles = np.append(fish_angles,mfish_angle)
+
+					for g in range(f+1,n_fish):
 
 						# n is for "next"
 						# roll by 1 so the last pair value is not good, but that's why I use "range(len(x_diff)-1)" later
-						main_fish_n_x = np.roll(main_fish_x, -1)
-						main_fish_n_y = np.roll(main_fish_y, -1)
 					
 						other_fish_x = fish_head_xs[g]
 						other_fish_y = fish_head_ys[g]
@@ -150,18 +234,26 @@ for flow in flows:
 						other_fish_n_x = np.roll(other_fish_x, -1)
 						other_fish_n_y = np.roll(other_fish_y, -1)
 
-						#Get vectors for angle calculations
-						mfish_vecx = main_fish_n_x - main_fish_x
-						mfish_vecy = main_fish_n_y - main_fish_y
-
 						ofish_vecx = other_fish_n_x - other_fish_x
 						ofish_vecy = other_fish_n_y - other_fish_y
 
+						ofish_angle = np.rad2deg(np.arctan2(ofish_vecy,ofish_vecx))
+
+						#fish_angles_2 = np.append(fish_angles_2,ofish_angle)
+
 						#This is to make it not go over and wrap around at the 180, -180 side
-						angle_diff = (mfish_vecx * ofish_vecx + mfish_vecy * ofish_vecy) / (np.sqrt(mfish_vecx**2 + mfish_vecy**2) * np.sqrt(ofish_vecx**2 + ofish_vecy**2))
+						#angle_diff = (mfish_vecx * ofish_vecx + mfish_vecy * ofish_vecy) / (np.sqrt(mfish_vecx**2 + mfish_vecy**2) * np.sqrt(ofish_vecx**2 + ofish_vecy**2))
 
 						#This is to make it map from 0 to 1 to make subtracting easier
-						angle_diff = (angle_diff+1)/2
+						#angle_diff = (angle_diff+1)/2
+
+						#This makes it so that it only returns values from 0 to 180, and always gets the smallest distance 
+						angle_diff = 180 - abs(180 - abs(mfish_angle-ofish_angle))
+
+						#Then maps it so that 0 is worst and 1 is best
+						angle_diff = 1-(angle_diff/180)
+
+						fish_angles = np.append(fish_angles,angle_diff)
 
 						#This order is so that the heatmap faces correctly upstream
 						x_diff = (main_fish_x - other_fish_x)/cnvrt_pix_bl[f]
@@ -182,8 +274,13 @@ for flow in flows:
 							# all_ys.append(y_diff)
 
 							# -1 * log(x+1)+1
-							all_cs.append(-1*math.log(slope_array[f][j][i]+1)+1)
+
+							#12/14
+							#e^(-x/4)
 							#all_cs.append(-1*math.log(slope_array[f][j][i]+1)+1)
+							#all_cs.append(-1*math.log(slope_array[f][j][i]+1)+1)
+
+							all_cs.append(np.power(2,slope_array[f][j][i]*-1))
 
 							all_hs.append(angle_diff[i])
 
@@ -197,5 +294,9 @@ for flow in flows:
 				np.save(f, all_ys)
 				np.save(f, all_cs)
 				np.save(f, all_hs)
+
+			#sns.distplot(fish_angles)
+			#sns.distplot(fish_angles_2)
+			#plt.show()
 
 	

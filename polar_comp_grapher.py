@@ -40,12 +40,6 @@ with open(save_file_2, 'rb') as f_2:
 	all_cs_2 = np.load(f_2)
 	all_hs_2 = np.load(f_2)
 
-sns.distplot(all_hs_1,kde = False)
-plt.show()
-
-sns.distplot(all_hs_2,kde = False)
-plt.show()
-
 #Making polar plots
 
 angles_1 = (np.arctan2(all_ys_1,all_xs_1) * 180 / np.pi)
@@ -77,6 +71,12 @@ polar_array_1 = np.zeros((int(360/angle_bin_size), len(d_axis), len(angles_1)))
 polar_density_array_1 = np.zeros((int(360/angle_bin_size), len(d_axis), len(angles_1)))
 polar_heading_array_1 = np.zeros((int(360/angle_bin_size), len(d_axis), len(angles_1)))
 
+#Saving data to CSV for r power analysis 
+outStr = "{cond},{distBin},{angleBin},{heading},{coord},{angleBinSize},{distBinSize}\n"
+
+f = open("r_power_data.csv", "w")
+f.write(outStr.format(cond="cond",distBin="distBin",angleBin="angleBin",heading="heading",coord="coord",angleBinSize="angleBinSize",distBinSize="distBinSize"))
+
 for i in range(len(angles_1)):
 	a = int(angles_1[i]/angle_bin_size)
 	r = int(round_down(all_dists_1[i],base=dist_bin_size)/dist_bin_size)
@@ -84,6 +84,8 @@ for i in range(len(angles_1)):
 	polar_array_1[a][r][i] = all_cs_1[i]
 	polar_density_array_1[a][r][i] = 1
 	polar_heading_array_1[a][r][i] = all_hs_1[i]
+
+	f.write(outStr.format(cond=flow_1,distBin=r,angleBin=a,heading=all_hs_1[i],coord=all_cs_1[i],angleBinSize=angle_bin_size,distBinSize=dist_bin_size))
 
 
 polar_array_2 = np.zeros((int(360/angle_bin_size), len(d_axis), len(angles_2)))
@@ -97,6 +99,10 @@ for i in range(len(angles_2)):
 	polar_array_2[a][r][i] = all_cs_2[i]
 	polar_density_array_2[a][r][i] = 1
 	polar_heading_array_2[a][r][i] = all_hs_2[i]
+
+	f.write(outStr.format(cond=flow_2,distBin=r,angleBin=a,heading=all_hs_2[i],coord=all_cs_2[i],angleBinSize=angle_bin_size,distBinSize=dist_bin_size))
+
+f.close()
 
 #Looking at synchonzaion differences.
 polar_array_1[polar_array_1 == 0] = 'nan'
@@ -131,11 +137,11 @@ sig_diff_array = sig_diff_array.astype('float')
 
 #Makes data for density plots
 polar_density_1 = np.sum(polar_density_array_1, axis=2)
-polar_density_1 = polar_density_1/np.amax(polar_density_1)
+polar_density_1 = polar_density_1/np.sum(polar_density_1)*100
 polar_density_1 = np.append(polar_density_1,polar_density_1[0].reshape(1, (len(d_axis))),axis=0)
 
 polar_density_2 = np.sum(polar_density_array_2, axis=2)
-polar_density_2 = polar_density_2/np.amax(polar_density_2)
+polar_density_2 = polar_density_2/np.sum(polar_density_2)*100
 polar_density_2 = np.append(polar_density_2,polar_density_2[0].reshape(1, (len(d_axis))),axis=0)
 
 
@@ -182,9 +188,9 @@ heading_vals_diff = polar_headings_2 - polar_headings_1
 data = [polar_vals_diff,sig_diff_array,polar_vals_1,polar_density_1,polar_vals_2,polar_density_2,polar_headings_1,polar_headings_2,heading_vals_diff,sig_diff_headings]
 names = [flow_1+"_"+flow_2+"_diff.png",flow_1+"_"+flow_2+"_sig_diff.png",flow_1+"_sync.png",flow_1+"_density.png",flow_2+"_sync.png",flow_2+"_density.png",flow_1+"_headings.png",flow_2+"_headings.png",flow_1+"_"+flow_2+"_heading_diff.png",flow_1+"_"+flow_2+"_heading_sig_diff.png"]
 titles = ["No Flow - Flow Synchronization", "No Flow - Flow Synchronization","No Flow Synchronization","No Flow Density","Flow Synchronization","Flow Density","No Flow Headings","Flow Headings","No Flow - Flow Headings", "No Flow - Flow Headings"]
-color = ["bwr","bwr","GnBu","GnBu","GnBu","GnBu","GnBu","GnBu","bwr","bwr"]
-vmins = [-1,-1,-1,0,-1,0,0,0,-1,-1]
-vmaxs = [1,1,1,1,1,1,1,1,1,1]
+color = ["bwr","bwr","GnBu","GnBu","GnBu","GnBu","RdYlGn","RdYlGn","bwr","bwr"]
+vmins = [-0.25,-1,0.75,0,0.75,0,0,0,-1,-1]
+vmaxs = [0.25,1,1,10,1,10,1,1,1,1]
 
 for i in range(len(data)):
 	print(names[i])
@@ -193,14 +199,19 @@ for i in range(len(data)):
 	ax = fig.add_subplot(111, projection='polar')
 	plt.pcolormesh(th, r, data[i], cmap = color[i], vmin=vmins[i], vmax=vmaxs[i])
 	plt.title(titles[i],pad = -40)
+	plt.xlabel("Distance (BL)",labelpad = -40)
 
-	arr_png = mpimg.imread('fish.png')
-	imagebox = OffsetImage(arr_png, zoom = 0.55)
+	arr_png = mpimg.imread('fish_V.png')
+	imagebox = OffsetImage(arr_png, zoom = 0.65)
 	ab = AnnotationBbox(imagebox, (0, 0), frameon = False)
 	ax.add_artist(ab)
 
 	ax.set_xticks(polar_axis)
 	ax.set_yticks(d_axis)
+
+	if i in [3,5]:
+		ax.set_ylim(0,3)
+
 	ax.set_theta_zero_location("W")
 	ax.set_theta_direction(-1)
 	ax.set_thetamin(0)
@@ -208,7 +219,9 @@ for i in range(len(data)):
 
 	plt.plot(polar_axis, r, ls='none', color = 'k') 
 	plt.grid()
-	plt.colorbar(pad = 0.1, shrink = 0.65)
+
+	if i not in [1,9]: 
+		plt.colorbar(pad = 0.1, shrink = 0.65)
 	#plt.show()
 
 	plt.savefig("Heatmaps/"+names[i])
