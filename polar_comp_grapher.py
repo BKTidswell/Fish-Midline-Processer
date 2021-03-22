@@ -2,7 +2,7 @@ import os
 import math
 import seaborn as sns
 from scipy import stats
-from fish_core import *
+from fish_core_4P import *
 from PIL import Image
 import matplotlib.image as mpimg
 from matplotlib.offsetbox import OffsetImage, AnnotationBbox
@@ -56,7 +56,7 @@ angles_2 = np.mod(angles_2+90,360)
 
 
 angle_bin_size = 30
-polar_axis = np.linspace(0,360,int(360/angle_bin_size)+1) - angle_bin_size/2
+polar_axis = np.linspace(0,180,int(180/angle_bin_size)+1) - angle_bin_size/2
 polar_axis = (polar_axis+angle_bin_size/2) * np.pi /180
 
 all_dists_1 = get_dist_np(0,0,all_xs_1,all_ys_1)
@@ -67,9 +67,9 @@ d_range = round_down(max(np.max(all_dists_1),np.max(all_dists_2)),base=dist_bin_
 d_axis = np.linspace(0,d_range,int(d_range/dist_bin_size)+1)
 
 
-polar_array_1 = np.zeros((int(360/angle_bin_size), len(d_axis), len(angles_1)))
-polar_density_array_1 = np.zeros((int(360/angle_bin_size), len(d_axis), len(angles_1)))
-polar_heading_array_1 = np.zeros((int(360/angle_bin_size), len(d_axis), len(angles_1)))
+polar_array_1 = np.zeros((int(180/angle_bin_size), len(d_axis), len(angles_1)))
+polar_density_array_1 = np.zeros((int(180/angle_bin_size), len(d_axis), len(angles_1)))
+polar_heading_array_1 = np.zeros((int(180/angle_bin_size), len(d_axis), len(angles_1)))
 
 #Saving data to CSV for r power analysis 
 outStr = "{cond},{distBin},{angleBin},{heading},{coord},{angleBinSize},{distBinSize}\n"
@@ -88,9 +88,9 @@ for i in range(len(angles_1)):
 	f.write(outStr.format(cond=flow_1,distBin=r,angleBin=a,heading=all_hs_1[i],coord=all_cs_1[i],angleBinSize=angle_bin_size,distBinSize=dist_bin_size))
 
 
-polar_array_2 = np.zeros((int(360/angle_bin_size), len(d_axis), len(angles_2)))
-polar_density_array_2 = np.zeros((int(360/angle_bin_size), len(d_axis), len(angles_1)))
-polar_heading_array_2 = np.zeros((int(360/angle_bin_size), len(d_axis), len(angles_1)))
+polar_array_2 = np.zeros((int(180/angle_bin_size), len(d_axis), len(angles_2)))
+polar_density_array_2 = np.zeros((int(180/angle_bin_size), len(d_axis), len(angles_1)))
+polar_heading_array_2 = np.zeros((int(180/angle_bin_size), len(d_axis), len(angles_1)))
 
 for i in range(len(angles_2)):
 	a = int(angles_2[i]/angle_bin_size)
@@ -108,6 +108,8 @@ f.close()
 polar_array_1[polar_array_1 == 0] = 'nan'
 polar_vals_1 = np.nanmean(polar_array_1, axis=2)
 polar_vals_1 = np.append(polar_vals_1,polar_vals_1[0].reshape(1, (len(d_axis))),axis=0)
+
+print(polar_vals_1)
 
 polar_array_2[polar_array_2 == 0] = 'nan'
 polar_vals_2 = np.nanmean(polar_array_2, axis=2)
@@ -224,7 +226,7 @@ for i in range(len(data)):
 		plt.colorbar(pad = 0.1, shrink = 0.65)
 	#plt.show()
 
-	plt.savefig("Heatmaps/"+names[i])
+	plt.savefig("Heatmaps_4P_tailbeats/"+names[i])
 	plt.close()
 
 # fig = plt.figure()

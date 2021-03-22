@@ -23,7 +23,7 @@ eHead <- abs(mean(power_data_close_flow$heading) - mean(power_data_close_no_flow
 n1Head <- length(power_data_close_flow$cond)
 n2Head <- length(power_data_close_no_flow$cond)
 
-pwr.t2n.test(n1 = as.integer(n1Head/30), n2 = as.integer(n2Head/30), d = eHead, sig.level = 0.05)
+pwr.t2n.test(n1 = as.integer(n1Head), n2 = as.integer(n2Head), d = eHead, sig.level = 0.05)
 
 
 #Coord next
@@ -32,7 +32,7 @@ eCord <- abs(mean(power_data_close_flow$coord) - mean(power_data_close_no_flow$c
 n1Cord <- length(power_data_close_flow$cond)
 n2Cord <- length(power_data_close_no_flow$cond)
 
-pwr.t2n.test(n1 = as.integer(n1Cord/30), n2 = as.integer(n2Cord/30), d = eCord, sig.level = 0.05)
+pwr.t2n.test(n1 = as.integer(n1Cord), n2 = as.integer(n2Cord), d = eCord, sig.level = 0.05)
 
 
 #Anova??
@@ -90,7 +90,7 @@ joined_df <- left_join(joined_df,
 #Okay so now calculate the power for each bin
 
 joined_df_final <- joined_df %>%
-                    mutate(n_F2 = as.integer(n_F2/30)+2, n_F0 = as.integer(n_F0/30)+2) %>%
+                    mutate(n_F2 = as.integer(n_F2), n_F0 = as.integer(n_F0)) %>%
                     mutate(e = abs(mean_F2 - mean_F0)/var) %>%
                     mutate(power = 100*pwr.t2n.test(n1 = n_F2, n2 = n_F0, d = e, sig.level = 0.05)$power)
 
@@ -111,3 +111,8 @@ ggplot(joined_df_final %>% filter(data_type=="coord"), aes(angleBin, distBin, fi
 #Okay so basically in every place there is more than enough power
 
 #Actually there is not when I normalize for framerate :(
+
+model <- aov(coord ~ distBin*angleBin*cond, data = power_data)
+summary(model)
+
+
