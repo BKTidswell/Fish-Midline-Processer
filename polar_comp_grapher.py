@@ -40,6 +40,7 @@ with open(save_file_2, 'rb') as f_2:
 	all_cs_2 = np.load(f_2)
 	all_hs_2 = np.load(f_2)
 
+
 #Making polar plots
 
 angles_1 = (np.arctan2(all_ys_1,all_xs_1) * 180 / np.pi)
@@ -109,8 +110,6 @@ polar_array_1[polar_array_1 == 0] = 'nan'
 polar_vals_1 = np.nanmean(polar_array_1, axis=2)
 polar_vals_1 = np.append(polar_vals_1,polar_vals_1[0].reshape(1, (len(d_axis))),axis=0)
 
-print(polar_vals_1)
-
 polar_array_2[polar_array_2 == 0] = 'nan'
 polar_vals_2 = np.nanmean(polar_array_2, axis=2)
 polar_vals_2 = np.append(polar_vals_2,polar_vals_2[0].reshape(1, (len(d_axis))),axis=0)
@@ -171,6 +170,7 @@ se_polar_headings_2 = np.append(se_polar_headings_2,se_polar_headings_2[0].resha
 polar_mean_diff_headings = abs(polar_headings_2 - polar_headings_1)
 polar_comp_error_headings = se_polar_headings_1 + se_polar_headings_2
 
+
 #See if the total difference is less than combined error
 diff_headings = polar_mean_diff_headings > polar_comp_error_headings
 pos_neg_diff_headings = np.where(polar_headings_2 - polar_headings_1 < 0, -1, 1)
@@ -191,7 +191,7 @@ data = [polar_vals_diff,sig_diff_array,polar_vals_1,polar_density_1,polar_vals_2
 names = [flow_1+"_"+flow_2+"_diff.png",flow_1+"_"+flow_2+"_sig_diff.png",flow_1+"_sync.png",flow_1+"_density.png",flow_2+"_sync.png",flow_2+"_density.png",flow_1+"_headings.png",flow_2+"_headings.png",flow_1+"_"+flow_2+"_heading_diff.png",flow_1+"_"+flow_2+"_heading_sig_diff.png"]
 titles = ["No Flow - Flow Synchronization", "No Flow - Flow Synchronization","No Flow Synchronization","No Flow Density","Flow Synchronization","Flow Density","No Flow Headings","Flow Headings","No Flow - Flow Headings", "No Flow - Flow Headings"]
 color = ["bwr","bwr","GnBu","GnBu","GnBu","GnBu","RdYlGn","RdYlGn","bwr","bwr"]
-vmins = [-0.25,-1,0.75,0,0.75,0,0,0,-1,-1]
+vmins = [-0.25,-1,0.5,0,0.5,0,0,0,-1,-1]
 vmaxs = [0.25,1,1,10,1,10,1,1,1,1]
 
 for i in range(len(data)):

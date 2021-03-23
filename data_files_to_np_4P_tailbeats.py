@@ -127,19 +127,19 @@ for flow in flows:
 
 				tailbeat_lens = np.asarray(tailbeat_lens)
 
-				print(tailbeat_lens)
-				print(np.mean(tailbeat_lens))
-				print(np.median(tailbeat_lens))
+				# print(tailbeat_lens)
+				# print(np.mean(tailbeat_lens))
+				# print(np.median(tailbeat_lens))
 
 
 				med_tailbeat_len = int(np.median(tailbeat_lens))
 
 				#Get a reduced length number of points
-				tailbeat_points = time_points - time_points%med_tailbeat_len
+				tailbeat_points = (time_points - time_points%med_tailbeat_len)//med_tailbeat_len
 
-				slope_array = np.zeros((n_fish,n_fish,time_points))
+				slope_array = np.zeros((n_fish,n_fish,tailbeat_points))
 
-				print(slope_array.shape)
+				#print(slope_array.shape)
 
 				for i in range(n_fish):
 					for j in range(i+1,n_fish):
@@ -231,39 +231,44 @@ for flow in flows:
 
 						# 	mean_sync_beats[k] = np.mean(sync_slope[start:end])
 
-						mean_sync_beats = moving_average(sync_slope,med_tailbeat_len)
+						mean_sync_beats = mean_tailbeat_chunk(sync_slope,med_tailbeat_len)
 						norm_sync = np.power(2,mean_sync_beats*-1)
-						sync_no_avg = np.power(2,sync_slope*-1)
+						# #sync_no_avg = np.power(2,sync_slope*-1)
 
-						fig, axs = plt.subplots(7)
-						fig.suptitle('Vertically stacked subplots')
-						axs[0].plot(range(len(short_signal_1)), short_signal_1)
-						axs[0].plot(range(len(mv_avg_1)), mv_avg_1, "g")
-						#axs[0].plot(peaks_1, short_signal_1[peaks_1], "x")
+						#This is the code I use to graph things when things go wrong
+						# Or when I need to show code and new processes to Eric
+						# fig, axs = plt.subplots(7)
+						# fig.suptitle('Vertically stacked subplots')
+						# axs[0].plot(range(len(short_signal_1)), short_signal_1)
+						# axs[0].plot(range(len(mv_avg_1)), mv_avg_1, "g")
+						# #axs[0].plot(peaks_1, short_signal_1[peaks_1], "x")
 
-						axs[1].plot(range(len(short_signal_2)), short_signal_2,"r")
-						axs[1].plot(range(len(mv_avg_2)), mv_avg_2, "m")
-						#axs[1].plot(peaks_2, short_signal_2[peaks_2], "x")
+						# axs[1].plot(range(len(short_signal_2)), short_signal_2,"r")
+						# axs[1].plot(range(len(mv_avg_2)), mv_avg_2, "m")
+						# #axs[1].plot(peaks_2, short_signal_2[peaks_2], "x")
 
-						axs[2].plot(range(len(pn_signal_1)), pn_signal_1)
-						axs[2].plot(range(len(pn_signal_2)), pn_signal_2,"r")
-						axs[2].plot(peaks_1, pn_signal_1[peaks_1], "x")
-						axs[2].plot(peaks_2, pn_signal_2[peaks_2], "x")
+						# axs[2].plot(range(len(pn_signal_1)), pn_signal_1)
+						# axs[2].plot(range(len(pn_signal_2)), pn_signal_2,"r")
+						# axs[2].plot(peaks_1, pn_signal_1[peaks_1], "x")
+						# axs[2].plot(peaks_2, pn_signal_2[peaks_2], "x")
 
-						axs[3].plot(range(len(instantaneous_phase_1)), instantaneous_phase_1)
-						axs[3].plot(range(len(instantaneous_phase_2)), instantaneous_phase_2,"r")
+						# axs[3].plot(range(len(instantaneous_phase_1)), instantaneous_phase_1)
+						# axs[3].plot(range(len(instantaneous_phase_2)), instantaneous_phase_2,"r")
 
-						axs[4].plot(range(len(abs_diff_smooth)), abs_diff_smooth)
+						# axs[4].plot(range(len(abs_diff_smooth)), abs_diff_smooth)
 
-						axs[5].plot(range(len(sync_slope)), sync_slope)
-						axs[5].plot(range(len(mean_sync_beats)), mean_sync_beats)
-						axs[5].set_ylim(-0.1,2)
+						# axs[5].plot(range(len(sync_slope)), sync_slope)
+						# axs[5].plot(range(len(mean_sync_beats)), mean_sync_beats)
+						# axs[5].set_ylim(-0.1,2)
 
-						axs[6].plot(range(len(sync_no_avg)), sync_no_avg,)
-						axs[6].plot(range(len(norm_sync)), norm_sync,)
+						# #axs[6].plot(range(len(sync_no_avg)), sync_no_avg,)
+						# axs[6].plot(range(len(norm_sync)), norm_sync,)
 
-						plt.show()
-						sys.exit()
+						# if norm_sync[-1] == 0:
+						# 	plt.show()
+
+						# plt.close()
+						#sys.exit()
 
 						#norm_sync_out = norm_sync[::med_tailbeat_len]
 
@@ -271,8 +276,10 @@ for flow in flows:
 						for t in range(len(norm_sync)):
 							slope_array[i][j][t] = norm_sync[t]
 
-				#sys.exit()
 
+				#sys.exit()
+				#print(slope_array)
+				#print(slope_array.shape)
 
 				#Now all of these need to also be done in means by the tailbeat length of time
 
@@ -303,8 +310,8 @@ for flow in flows:
 
 				for f in range(n_fish):
 					#This prevents perfect symetry and doubling up on fish
-					main_fish_x = moving_average(fish_head_xs[f],med_tailbeat_len)
-					main_fish_y = moving_average(fish_head_ys[f],med_tailbeat_len)
+					main_fish_x = mean_tailbeat_chunk(fish_head_xs[f],med_tailbeat_len)
+					main_fish_y = mean_tailbeat_chunk(fish_head_ys[f],med_tailbeat_len)
 
 					main_fish_n_x = np.roll(main_fish_x, -1)
 					main_fish_n_y = np.roll(main_fish_y, -1)
@@ -323,8 +330,8 @@ for flow in flows:
 						# n is for "next"
 						# roll by 1 so the last pair value is not good, but that's why I use "range(len(x_diff)-1)" later
 					
-						other_fish_x = moving_average(fish_head_xs[g],med_tailbeat_len)
-						other_fish_y = moving_average(fish_head_ys[g],med_tailbeat_len)
+						other_fish_x = mean_tailbeat_chunk(fish_head_xs[g],med_tailbeat_len)
+						other_fish_y = mean_tailbeat_chunk(fish_head_ys[g],med_tailbeat_len)
 
 						other_fish_n_x = np.roll(other_fish_x, -1)
 						other_fish_n_y = np.roll(other_fish_y, -1)
@@ -355,7 +362,15 @@ for flow in flows:
 						y_diff = (other_fish_y - main_fish_y)/cnvrt_pix_bl[f]
 
 						#This -1 is so that the last value pair (which is wrong bc of roll) is not counted.
-						for i in range(len(x_diff)-1):
+
+						#3/22
+						#So the norm_sync is 1 smaller than the xdiff-1 array so we're using it instead
+						# this is becuase with all the smoothing and stuff more data gets clipped
+						#I thought abotu using the slope array but I can't becasue it is to long
+						# Because it is made with timepoints in length and so has trailing zeros
+						#Someday I need to clean up this code and also use better iterators
+						#Not today though!
+						for i in range(len(norm_sync)):
 							# print()
 							# print(main_fish_x[i],main_fish_y[i],main_fish_m1_x[i],main_fish_m1_y[i])
 							# #print(main_fish_m1_x[i]-main_fish_x[i],main_fish_m1_y[i]-main_fish_y[i])
@@ -375,7 +390,11 @@ for flow in flows:
 							#all_cs.append(-1*math.log(slope_array[f][j][i]+1)+1)
 							#all_cs.append(-1*math.log(slope_array[f][j][i]+1)+1)
 
-							all_cs.append(np.power(2,slope_array[f][j][i]*-1))
+
+							#3/22 This had been j instead of g for a long time.
+							# This is a mess and idk how that may have messed things up
+							# I guess we'll see what the data actually looks like!!!
+							all_cs.append(slope_array[f][g][i])
 
 							all_hs.append(angle_diff[i])
 

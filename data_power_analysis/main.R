@@ -2,7 +2,7 @@ library(ggplot2)
 library(tidyverse)
 library(pwr)
 
-power_data <- read.csv("r_power_data.csv")
+power_data <- read.csv("r_power_data_mean.csv")
 
 power_data_close <- power_data %>% filter(distBin < 3 & angleBin != 6)
 
@@ -116,3 +116,18 @@ model <- aov(coord ~ distBin*angleBin*cond, data = power_data)
 summary(model)
 
 
+#Alright I'm going to try summarizing using paired t tests for each bin
+# wish me luck 
+
+t_test_sum <- power_data_close_reshape %>% group_by(data_type,distBin,angleBin) %>%
+                                           summarise(funs(t.test(.[cond == "F2"], .[cond == "F0"], paired = TRUE)$p.value))
+
+power_data_close_reshape %>%
+  summarise_each(funs(t.test(.[cond == "F0"], .[cond == "F2"])$p.value), vars = data_type:distBin:angleBin)
+
+t.test(power_data_close_reshape$value ~ power_data_close_reshape$cond)
+
+#Sending to avalon
+write.csv(power_data_close_reshape,"Ben_Fish_Data.csv")
+
+glm(value ~ cond+distBin+angleBin, data = power_data_close_reshape%>%filter(data_type=="coord"))
