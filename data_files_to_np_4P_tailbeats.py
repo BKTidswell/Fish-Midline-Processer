@@ -310,8 +310,8 @@ for flow in flows:
 
 				for f in range(n_fish):
 					#This prevents perfect symetry and doubling up on fish
-					main_fish_x = mean_tailbeat_chunk(fish_head_xs[f],med_tailbeat_len)
-					main_fish_y = mean_tailbeat_chunk(fish_head_ys[f],med_tailbeat_len)
+					main_fish_x = fish_head_xs[f]
+					main_fish_y = fish_head_ys[f]
 
 					main_fish_n_x = np.roll(main_fish_x, -1)
 					main_fish_n_y = np.roll(main_fish_y, -1)
@@ -330,8 +330,8 @@ for flow in flows:
 						# n is for "next"
 						# roll by 1 so the last pair value is not good, but that's why I use "range(len(x_diff)-1)" later
 					
-						other_fish_x = mean_tailbeat_chunk(fish_head_xs[g],med_tailbeat_len)
-						other_fish_y = mean_tailbeat_chunk(fish_head_ys[g],med_tailbeat_len)
+						other_fish_x = fish_head_xs[g]
+						other_fish_y = fish_head_ys[g]
 
 						other_fish_n_x = np.roll(other_fish_x, -1)
 						other_fish_n_y = np.roll(other_fish_y, -1)
@@ -362,6 +362,11 @@ for flow in flows:
 						y_diff = (other_fish_y - main_fish_y)/cnvrt_pix_bl[f]
 
 						#This -1 is so that the last value pair (which is wrong bc of roll) is not counted.
+
+						#3/23 Here is where I should be taking tailbeat averages, not before
+						x_diff = mean_tailbeat_chunk(x_diff,med_tailbeat_len)
+						y_diff = mean_tailbeat_chunk(y_diff,med_tailbeat_len)
+						angle_diff = mean_tailbeat_chunk(angle_diffs,med_tailbeat_len)
 
 						#3/22
 						#So the norm_sync is 1 smaller than the xdiff-1 array so we're using it instead

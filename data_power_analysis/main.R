@@ -2,7 +2,7 @@ library(ggplot2)
 library(tidyverse)
 library(pwr)
 
-power_data <- read.csv("r_power_data_mean.csv")
+power_data <- read.csv("r_power_data_TB.csv")
 
 power_data_close <- power_data %>% filter(distBin < 3 & angleBin != 6)
 
@@ -131,3 +131,14 @@ t.test(power_data_close_reshape$value ~ power_data_close_reshape$cond)
 write.csv(power_data_close_reshape,"Ben_Fish_Data.csv")
 
 glm(value ~ cond+distBin+angleBin, data = power_data_close_reshape%>%filter(data_type=="coord"))
+
+ggplot(power_data_close_reshape %>% filter(data_type=="coord"), aes(x=value, fill = cond))+
+  geom_histogram(color="black")+
+  facet_wrap(~cond)+
+  theme_light()
+
+ggplot(power_data_close_reshape %>% filter(data_type=="heading"), aes(x=value, fill = cond))+
+  geom_histogram(color="black")+
+  facet_wrap(~cond)+
+  theme_light()
+
