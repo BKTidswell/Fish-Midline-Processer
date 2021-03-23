@@ -320,6 +320,7 @@ for flow in flows:
 					mfish_vecx = main_fish_n_x - main_fish_x
 					mfish_vecy = main_fish_n_y - main_fish_y
 
+					#Then turn the x and y vector to get the angle
 					mfish_angle = np.rad2deg(np.arctan2(mfish_vecy,mfish_vecx))
 					#sns.distplot(mfish_angle)
 
@@ -339,6 +340,7 @@ for flow in flows:
 						ofish_vecx = other_fish_n_x - other_fish_x
 						ofish_vecy = other_fish_n_y - other_fish_y
 
+						#Then turn the x and y vector to get the angle
 						ofish_angle = np.rad2deg(np.arctan2(ofish_vecy,ofish_vecx))
 
 						#fish_angles_2 = np.append(fish_angles_2,ofish_angle)
@@ -366,7 +368,7 @@ for flow in flows:
 						#3/23 Here is where I should be taking tailbeat averages, not before
 						x_diff = mean_tailbeat_chunk(x_diff,med_tailbeat_len)
 						y_diff = mean_tailbeat_chunk(y_diff,med_tailbeat_len)
-						angle_diff = mean_tailbeat_chunk(angle_diffs,med_tailbeat_len)
+						angle_diff = mean_tailbeat_chunk(angle_diff,med_tailbeat_len)
 
 						#3/22
 						#So the norm_sync is 1 smaller than the xdiff-1 array so we're using it instead
@@ -414,8 +416,8 @@ for flow in flows:
 				np.save(f, all_cs)
 				np.save(f, all_hs)
 
-			#sns.distplot(fish_angles)
-			#sns.distplot(fish_angles_2)
-			#plt.show()
+			# sns.distplot(all_hs)
+			# #sns.distplot(fish_angles_2)
+			# plt.show()
 
 	

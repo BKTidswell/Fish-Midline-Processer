@@ -55,7 +55,6 @@ angles_2 = np.mod(abs(angles_2-360),360)
 #This rotates it so that 0 is at the top and 180 is below the fish
 angles_2 = np.mod(angles_2+90,360)
 
-
 angle_bin_size = 30
 polar_axis = np.linspace(0,180,int(180/angle_bin_size)+1) - angle_bin_size/2
 polar_axis = (polar_axis+angle_bin_size/2) * np.pi /180
