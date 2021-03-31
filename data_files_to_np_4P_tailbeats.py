@@ -16,28 +16,28 @@ turbs = ["TN"]
 
 ##DO MOVING AVERAGE OF DATA INSTEAD OF CHUNKS
 
+## Actually don't
+
 def moving_average(x, w):
     return np.convolve(x, np.ones(w), 'valid') / w
 
 def mean_tailbeat_chunk(data,tailbeat_len):
-	max_tb_frame = len(data)-len(data)%med_tailbeat_len
+	max_tb_frame = len(data)-len(data)%tailbeat_len
 	mean_data = np.zeros(max_tb_frame)
 
 	for k in range(max_tb_frame):
-		start = k//med_tailbeat_len * med_tailbeat_len
-		end = (k//med_tailbeat_len + 1) * med_tailbeat_len
+		start = k//tailbeat_len * tailbeat_len
+		end = (k//tailbeat_len + 1) * tailbeat_len
 
 		mean_data[k] = np.mean(data[start:end])
 
-	return mean_data[::med_tailbeat_len]
+	return mean_data[::tailbeat_len]
 
 for flow in flows:
 	for dark in darks:
 		for turb in turbs:
 
 			save_file = "data_{}_{}_{}.npy".format(flow,dark,turb)
-
-			new = False
 
 			num_data = 0
 			data_files = []
@@ -59,6 +59,7 @@ for flow in flows:
 			all_ys = []
 			all_cs = []
 			all_hs = []
+			all_hs_old = []
 
 			for file_name in data_files:
 
@@ -341,6 +342,8 @@ for flow in flows:
 						ofish_vecy = other_fish_n_y - other_fish_y
 
 						#Then turn the x and y vector to get the angle
+
+						#3/29 use dot product?
 						ofish_angle = np.rad2deg(np.arctan2(ofish_vecy,ofish_vecx))
 
 						#fish_angles_2 = np.append(fish_angles_2,ofish_angle)
@@ -355,9 +358,8 @@ for flow in flows:
 						angle_diff = 180 - abs(180 - abs(mfish_angle-ofish_angle))
 
 						#Then maps it so that 0 is worst and 1 is best
-						angle_diff = 1-(angle_diff/180)
-
-						fish_angles = np.append(fish_angles,angle_diff)
+						#3/30 commenting this out so it's just degrees off. 0 degrees of to 180
+						#angle_diff = 1-(angle_diff/180)
 
 						#This order is so that the heatmap faces correctly upstream
 						x_diff = (main_fish_x - other_fish_x)/cnvrt_pix_bl[f]
@@ -365,10 +367,58 @@ for flow in flows:
 
 						#This -1 is so that the last value pair (which is wrong bc of roll) is not counted.
 
+						old_angle_diff = angle_diff
+
 						#3/23 Here is where I should be taking tailbeat averages, not before
 						x_diff = mean_tailbeat_chunk(x_diff,med_tailbeat_len)
 						y_diff = mean_tailbeat_chunk(y_diff,med_tailbeat_len)
 						angle_diff = mean_tailbeat_chunk(angle_diff,med_tailbeat_len)
+
+						all_hs_old.extend(old_angle_diff)
+
+						#3/30 In graphing this I see that arctan2 does mean there is bouncing between 180 and -180
+						# However the 180 - abs(180 - abs(mfish_angle-ofish_angle)) makes it not matter as 180
+						# and -180 giving a result of 0 degrees apart. Which is why I did that so long ago
+						fig, axs = plt.subplots(6)
+						fig.tight_layout()
+
+						axs[0].plot(mfish_angle)
+						axs[0].set_ylim(-200,200)
+						axs[0].set_xlabel("Frame #")
+						axs[0].set_ylabel("Heading Angle")
+						axs[0].title.set_text("Fish 1 Heading")
+
+						axs[1].plot(ofish_angle)
+						axs[1].set_ylim(-200,200)
+						axs[1].set_xlabel("Frame #")
+						axs[1].set_ylabel("Heading Angle")
+						axs[1].title.set_text("Fish 2 Heading")
+
+						axs[2].plot(old_angle_diff)
+						axs[2].set_xlabel("Frame #")
+						axs[2].set_ylabel("Heading Angle")
+						axs[2].title.set_text("Fish Heading Difference")
+
+						axs[3].set_ylim(-200,200)
+						axs[3].plot(np.repeat(mean_tailbeat_chunk(old_angle_diff,med_tailbeat_len),med_tailbeat_len))
+						axs[3].set_ylim(-20,200)
+						axs[3].set_xlabel("Tailbeat Bins in Frame #")
+						axs[3].set_ylabel("Heading Angle")
+						axs[3].title.set_text("Mean Over Tailbeats")
+						
+						axs[4].hist(old_angle_diff)
+						axs[4].set_xlim(-20,200)
+						axs[4].set_xlabel("Heading Bins")
+						axs[4].set_ylabel("Count")
+						axs[4].title.set_text("Histogram Over Frames")
+						
+						axs[5].hist(mean_tailbeat_chunk(old_angle_diff,med_tailbeat_len))
+						axs[5].set_xlim(-20,200)
+						axs[5].set_xlabel("Heading Bins")
+						axs[5].set_ylabel("Count")
+						axs[5].title.set_text("Histogram Over Tailbeats")
+
+						plt.show() 
 
 						#3/22
 						#So the norm_sync is 1 smaller than the xdiff-1 array so we're using it instead
@@ -405,10 +455,22 @@ for flow in flows:
 
 							all_hs.append(angle_diff[i])
 
+
 			all_xs = np.asarray(all_xs)
 			all_ys = np.asarray(all_ys)
 			all_cs = np.asarray(all_cs)
 			all_hs = np.asarray(all_hs)
+			all_hs_old = np.asarray(all_hs_old)
+
+			fig, axs = plt.subplots(5)
+			axs[0].hist(all_hs_old)
+			axs[1].hist(all_hs)
+			axs[2].hist(moving_average(all_hs_old,med_tailbeat_len))
+			np.random.shuffle(all_hs_old)
+			axs[3].hist(moving_average(all_hs_old,med_tailbeat_len))
+			np.random.shuffle(all_hs_old)
+			axs[4].hist(moving_average(all_hs_old,med_tailbeat_len))	
+			plt.show() 
 
 			with open(save_file, 'wb') as f:
 				np.save(f, all_xs)

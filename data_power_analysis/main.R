@@ -233,3 +233,4 @@ coord_emeans_df <- coord_emeans_df %>% mutate(sig_dir = sig_dir(p.value,z.ratio)
 
 ggplot(coord_emeans_df, aes(x=angle,y=distance,fill=sig_dir))+
   geom_tile()
+
