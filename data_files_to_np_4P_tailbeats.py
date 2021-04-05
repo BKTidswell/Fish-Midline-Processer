@@ -9,6 +9,9 @@ import matplotlib.image as mpimg
 from matplotlib.offsetbox import OffsetImage, AnnotationBbox
 from scipy.signal import savgol_filter, resample, find_peaks
 
+#Matplotlib breaks with Qt now in big sur :(
+mpl.use('tkagg')
+
 data_folder = os.getcwd()+"/Finished_Fish_Data_4P/"
 flows = ["F0","F2"]
 darks = ["DN"]
@@ -32,6 +35,27 @@ def mean_tailbeat_chunk(data,tailbeat_len):
 		mean_data[k] = np.mean(data[start:end])
 
 	return mean_data[::tailbeat_len]
+
+
+def angular_mean_tailbeat_chunk(data,tailbeat_len):
+	max_tb_frame = len(data)-len(data)%tailbeat_len
+	mean_data = np.zeros(max_tb_frame)
+
+	for k in range(max_tb_frame):
+		start = k//tailbeat_len * tailbeat_len
+		end = (k//tailbeat_len + 1) * tailbeat_len
+
+		data_range = data[start:end]
+
+		cos_mean = np.mean(np.cos(data_range))
+		sin_mean = np.mean(np.sin(data_range))
+
+		angular_mean = np.rad2deg(np.arctan2(cos_mean, sin_mean))
+
+		mean_data[k] = np.mod(angular_mean,360)
+
+	return mean_data[::tailbeat_len]
+
 
 for flow in flows:
 	for dark in darks:
@@ -325,6 +349,10 @@ for flow in flows:
 					mfish_angle = np.rad2deg(np.arctan2(mfish_vecy,mfish_vecx))
 					#sns.distplot(mfish_angle)
 
+					#4/2 Addition. Should not be in the inner look as then it just gets
+					# smaller and smaller over time
+					mfish_angle = np.deg2rad(np.where(mfish_angle < 0, 360 - abs(mfish_angle), mfish_angle))
+
 					#fish_angles = np.append(fish_angles,mfish_angle)
 
 					for g in range(f+1,n_fish):
@@ -355,11 +383,27 @@ for flow in flows:
 						#angle_diff = (angle_diff+1)/2
 
 						#This makes it so that it only returns values from 0 to 180, and always gets the smallest distance 
-						angle_diff = 180 - abs(180 - abs(mfish_angle-ofish_angle))
+						#angle_diff = 180 - abs(180 - abs(mfish_angle-ofish_angle))
 
 						#Then maps it so that 0 is worst and 1 is best
 						#3/30 commenting this out so it's just degrees off. 0 degrees of to 180
 						#angle_diff = 1-(angle_diff/180)
+
+						#4/2 Going off Eric's suggestions to have them both from 0 to 360 and then get the
+						# angular mean. This means going from -180 to 180 and turning that to 0 to 360.
+						# Where -179 is 181 and -1 is 359
+						# Sooooooo
+						# for negative numbers only:
+						# 180 - abs(val) make -179 into 1 and -1 into 179
+						# Then just add 180?
+						# Okay so this is actually just 360 - abs(val)
+						# and then back to rad
+
+						ofish_angle = np.deg2rad(np.where(ofish_angle < 0, 360 - abs(ofish_angle), ofish_angle))
+
+						angle_diff = mfish_angle-ofish_angle #np.arctan2(np.sin(mfish_angle-ofish_angle), np.cos(mfish_angle-ofish_angle))
+
+						#And then we use the new angular_mean_tailbeat_chunk instead 
 
 						#This order is so that the heatmap faces correctly upstream
 						x_diff = (main_fish_x - other_fish_x)/cnvrt_pix_bl[f]
@@ -367,58 +411,69 @@ for flow in flows:
 
 						#This -1 is so that the last value pair (which is wrong bc of roll) is not counted.
 
-						old_angle_diff = angle_diff
+						old_angle_diff = np.mod(np.rad2deg(mfish_angle-ofish_angle),360)
+
+						#old_angle_diff = abs(np.rad2deg(np.arctan2(np.sin(mfish_angle-ofish_angle), np.cos(mfish_angle-ofish_angle))))
 
 						#3/23 Here is where I should be taking tailbeat averages, not before
 						x_diff = mean_tailbeat_chunk(x_diff,med_tailbeat_len)
 						y_diff = mean_tailbeat_chunk(y_diff,med_tailbeat_len)
-						angle_diff = mean_tailbeat_chunk(angle_diff,med_tailbeat_len)
+
+						#4/2 New angular_mean_tailbeat_chunk function 
+						angle_diff = angular_mean_tailbeat_chunk(angle_diff,med_tailbeat_len)
 
 						all_hs_old.extend(old_angle_diff)
 
 						#3/30 In graphing this I see that arctan2 does mean there is bouncing between 180 and -180
 						# However the 180 - abs(180 - abs(mfish_angle-ofish_angle)) makes it not matter as 180
 						# and -180 giving a result of 0 degrees apart. Which is why I did that so long ago
-						fig, axs = plt.subplots(6)
+						
+
+						print(np.rad2deg(mfish_angle)[med_tailbeat_len:med_tailbeat_len*2])
+						print(np.rad2deg(ofish_angle)[med_tailbeat_len:med_tailbeat_len*2])
+						print(old_angle_diff[med_tailbeat_len:med_tailbeat_len*2])
+						print(angle_diff[1])
+
+						fig, axs = plt.subplots(5)
 						fig.tight_layout()
 
-						axs[0].plot(mfish_angle)
-						axs[0].set_ylim(-200,200)
+						axs[0].plot(np.rad2deg(mfish_angle))
+						axs[0].set_ylim(-20,380)
 						axs[0].set_xlabel("Frame #")
 						axs[0].set_ylabel("Heading Angle")
-						axs[0].title.set_text("Fish 1 Heading")
+						axs[0].title.set_text("Fish {f} Heading".format(f=f))
 
-						axs[1].plot(ofish_angle)
-						axs[1].set_ylim(-200,200)
+						axs[1].plot(np.rad2deg(ofish_angle))
+						axs[1].set_ylim(-20,380)
 						axs[1].set_xlabel("Frame #")
 						axs[1].set_ylabel("Heading Angle")
-						axs[1].title.set_text("Fish 2 Heading")
+						axs[1].title.set_text("Fish {g} Heading".format(g=g))
 
 						axs[2].plot(old_angle_diff)
+						#axs[2].set_ylim(-20,200)
 						axs[2].set_xlabel("Frame #")
 						axs[2].set_ylabel("Heading Angle")
 						axs[2].title.set_text("Fish Heading Difference")
 
-						axs[3].set_ylim(-200,200)
-						axs[3].plot(np.repeat(mean_tailbeat_chunk(old_angle_diff,med_tailbeat_len),med_tailbeat_len))
-						axs[3].set_ylim(-20,200)
-						axs[3].set_xlabel("Tailbeat Bins in Frame #")
-						axs[3].set_ylabel("Heading Angle")
-						axs[3].title.set_text("Mean Over Tailbeats")
+						axs[2].plot(np.repeat(angle_diff,med_tailbeat_len))
+						# axs[3].set_ylim(-20,200)
+						# axs[3].set_xlabel("Tailbeat Bins in Frame #")
+						# axs[3].set_ylabel("Heading Angle")
+						# axs[3].title.set_text("Mean Over Tailbeats")
 						
-						axs[4].hist(old_angle_diff)
-						axs[4].set_xlim(-20,200)
+						axs[3].hist(old_angle_diff)
+						#axs[4].set_xlim(-20,200)
+						axs[3].set_xlabel("Heading Bins")
+						axs[3].set_ylabel("Count")
+						axs[3].title.set_text("Histogram Over Frames")
+						
+						axs[4].hist(angle_diff)
+						#axs[5].set_xlim(-20,200)
 						axs[4].set_xlabel("Heading Bins")
 						axs[4].set_ylabel("Count")
-						axs[4].title.set_text("Histogram Over Frames")
-						
-						axs[5].hist(mean_tailbeat_chunk(old_angle_diff,med_tailbeat_len))
-						axs[5].set_xlim(-20,200)
-						axs[5].set_xlabel("Heading Bins")
-						axs[5].set_ylabel("Count")
-						axs[5].title.set_text("Histogram Over Tailbeats")
+						axs[4].title.set_text("Histogram Over Tailbeats")
 
-						plt.show() 
+						plt.show()
 
 						#3/22
 						#So the norm_sync is 1 smaller than the xdiff-1 array so we're using it instead
@@ -462,14 +517,9 @@ for flow in flows:
 			all_hs = np.asarray(all_hs)
 			all_hs_old = np.asarray(all_hs_old)
 
-			fig, axs = plt.subplots(5)
+			fig, axs = plt.subplots(2)
 			axs[0].hist(all_hs_old)
-			axs[1].hist(all_hs)
-			axs[2].hist(moving_average(all_hs_old,med_tailbeat_len))
-			np.random.shuffle(all_hs_old)
-			axs[3].hist(moving_average(all_hs_old,med_tailbeat_len))
-			np.random.shuffle(all_hs_old)
-			axs[4].hist(moving_average(all_hs_old,med_tailbeat_len))	
+			axs[1].hist(all_hs)	
 			plt.show() 
 
 			with open(save_file, 'wb') as f:
