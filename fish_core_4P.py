@@ -30,8 +30,8 @@ def get_slope(x,y):
 
 #normalizes between -1 and 1
 def normalize_signal(data):
-	min_val = np.min(data)
-	max_val = np.max(data)
+	min_val = np.nanmin(data)
+	max_val = np.nanmax(data)
 
 	divisor = max(max_val,abs(min_val))
 
@@ -107,6 +107,8 @@ def DLC_CSV_to_dict(num_fish,fish_parts,file):
 		data_point = data_points[i%3]
 		#Store the column data in the dict
 		#Ignore the first 3 rows as those are column labels
+		#print(fish_num,fish_part,data_point)
+
 		fish_dict[fish_num][fish_part][data_point] = fish_data[cols[i+1]][3:time_points].astype(float).to_numpy()
 
 	return(fish_dict,time_points-3)

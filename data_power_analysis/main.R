@@ -2,7 +2,7 @@ library(ggplot2)
 library(tidyverse)
 library(pwr)
 
-power_data <- read.csv("r_power_data_TB.csv")
+power_data <- read.csv("r_power_data.csv")
 
 power_data_close <- power_data %>% filter(distBin < 3 & angleBin != 6)
 

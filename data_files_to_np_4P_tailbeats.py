@@ -50,9 +50,10 @@ def angular_mean_tailbeat_chunk(data,tailbeat_len):
 		cos_mean = np.mean(np.cos(data_range))
 		sin_mean = np.mean(np.sin(data_range))
 
-		angular_mean = np.rad2deg(np.arctan2(cos_mean, sin_mean))
+		#SIN then COSINE
+		angular_mean = np.rad2deg(np.arctan2(sin_mean,cos_mean))
 
-		mean_data[k] = np.mod(angular_mean,360)
+		mean_data[k] = angular_mean
 
 	return mean_data[::tailbeat_len]
 
@@ -84,6 +85,7 @@ for flow in flows:
 			all_cs = []
 			all_hs = []
 			all_hs_old = []
+			all_tbf = []			
 
 			for file_name in data_files:
 
@@ -137,6 +139,8 @@ for flow in flows:
 				peak_width = 5
 				tailbeat_lens = []
 
+				out_tbf = []
+
 				for i in range(n_fish):
 					cvn_n = 15
 					signal_1 = normalize_signal(fish_perp[i][:,b_parts.index("tailtip")])
@@ -146,13 +150,15 @@ for flow in flows:
 					peaks_1, _ = find_peaks(pn_signal_1, width = peak_width)
 					dist_between = np.diff(peaks_1)
 
+					out_tbf.append(dist_between)
+
 					for d in dist_between:
 						tailbeat_lens.append(d)
-
 
 				tailbeat_lens = np.asarray(tailbeat_lens)
 
 				# print(tailbeat_lens)
+				# print(tailbeat_lens.shape)
 				# print(np.mean(tailbeat_lens))
 				# print(np.median(tailbeat_lens))
 
@@ -163,6 +169,7 @@ for flow in flows:
 				tailbeat_points = (time_points - time_points%med_tailbeat_len)//med_tailbeat_len
 
 				slope_array = np.zeros((n_fish,n_fish,tailbeat_points))
+				tailbeat_freq_array = np.zeros((n_fish,n_fish,tailbeat_points))
 
 				#print(slope_array.shape)
 
@@ -189,8 +196,17 @@ for flow in flows:
 						# It does smooth well though
 						cvn_n = 15
 
+						# cut_data_1 = fish_perp[i][:,b_parts.index("tailtip")]
+						# cut_data_2 = fish_perp[j][:,b_parts.index("tailtip")]
+
+						# cut_data_1[50:100] = np.nan
+						# cut_data_2[50:100] = np.nan
+
 						signal_1 = normalize_signal(fish_perp[i][:,b_parts.index("tailtip")])
 						signal_2 = normalize_signal(fish_perp[j][:,b_parts.index("tailtip")])
+
+						# signal_1 = normalize_signal(cut_data_1)
+						# signal_2 = normalize_signal(cut_data_2)
 
 						mv_avg_1 = moving_average(moving_average(signal_1,cvn_n),cvn_n)
 						mv_avg_2 = moving_average(moving_average(signal_2,cvn_n),cvn_n)
@@ -204,12 +220,32 @@ for flow in flows:
 						peaks_1, _ = find_peaks(pn_signal_1, width = peak_width)
 						peaks_2, _ = find_peaks(pn_signal_2, width = peak_width)
 
+						pn_signal_1_trim = pn_signal_1[~np.isnan(pn_signal_1)]
+						pn_signal_2_trim = pn_signal_2[~np.isnan(pn_signal_2)]
+
 						#Get the signal for each with Hilbert phase
-						analytic_signal_1 = hilbert(pn_signal_1)
+						analytic_signal_1 = hilbert(pn_signal_1_trim)
 						instantaneous_phase_1 = np.unwrap(np.angle(analytic_signal_1))
 
-						analytic_signal_2 = hilbert(pn_signal_2)
+						analytic_signal_2 = hilbert(pn_signal_2_trim)
 						instantaneous_phase_2 = np.unwrap(np.angle(analytic_signal_2))
+
+						#60 for 60 fps
+						instantaneous_freq_2 = (np.diff(instantaneous_phase_2) / (2.0*np.pi) * 60)
+						mean_tailbeat_freq_2 = mean_tailbeat_chunk(instantaneous_freq_2,med_tailbeat_len)
+
+						# out_array_1 = np.empty(len(instantaneous_phase_1)+50)
+						# out_array_1[:] = np.NaN
+						# out_array_1[0:50] = instantaneous_phase_1[0:50]
+						# out_array_1[100:] = instantaneous_phase_1[50:]
+						# instantaneous_phase_1 = out_array_1
+
+
+						# out_array_2 = np.empty(len(instantaneous_phase_2)+50)
+						# out_array_2[:] = np.NaN
+						# out_array_2[0:50] = instantaneous_phase_2[0:50]
+						# out_array_2[100:] = instantaneous_phase_2[50:]
+						# instantaneous_phase_2 = out_array_2
 
 						# #Now get the slope
 						# dx = np.diff(instantaneous_phase_main)
@@ -238,7 +274,11 @@ for flow in flows:
 						# So it's not perfect on doubling, but it is on the total times faster from base.
 						# But why is the base the base?? Unclear to me at least. Still it works. 
 						abs_diff_smooth = savgol_filter(abs(instantaneous_phase_2 - instantaneous_phase_1),11,1)
-						sync_slope = abs(np.gradient(abs_diff_smooth))*2
+						# sync_slope = abs(np.gradient(abs_diff_smooth))*2
+
+
+						#4/5 Okay not trying this without the abs
+						sync_slope = np.gradient(abs_diff_smooth)*2
 
 						#So now we're going to find the mean sync over each of the tailbeat_len chunks
 						#We find here the max frame we'll go to in sync slope to get even beats
@@ -257,8 +297,13 @@ for flow in flows:
 						# 	mean_sync_beats[k] = np.mean(sync_slope[start:end])
 
 						mean_sync_beats = mean_tailbeat_chunk(sync_slope,med_tailbeat_len)
-						norm_sync = np.power(2,mean_sync_beats*-1)
-						# #sync_no_avg = np.power(2,sync_slope*-1)
+
+						#4/5 Okay so like with the angles we move the abs here, after I take the mean
+						# This allows for values >0 so that the mean can *be* 0 when things are reveresed, so 
+						# It doesn't all just move to the middle. 
+						norm_sync = np.power(2,abs(mean_sync_beats)*-1)
+						
+						#sync_no_avg = np.power(2,abs(sync_slope)*-1)
 
 						#This is the code I use to graph things when things go wrong
 						# Or when I need to show code and new processes to Eric
@@ -283,23 +328,25 @@ for flow in flows:
 						# axs[4].plot(range(len(abs_diff_smooth)), abs_diff_smooth)
 
 						# axs[5].plot(range(len(sync_slope)), sync_slope)
-						# axs[5].plot(range(len(mean_sync_beats)), mean_sync_beats)
-						# axs[5].set_ylim(-0.1,2)
+						# axs[5].plot(range(len(mean_sync_beats)*med_tailbeat_len), np.repeat(mean_sync_beats,med_tailbeat_len))
+						# axs[5].set_ylim(-2,2)
 
-						# #axs[6].plot(range(len(sync_no_avg)), sync_no_avg,)
-						# axs[6].plot(range(len(norm_sync)), norm_sync,)
+						# ##axs[6].plot(range(len(sync_no_avg)), sync_no_avg)
+						# axs[6].plot(range(len(norm_sync)*med_tailbeat_len), np.repeat(norm_sync,med_tailbeat_len))
 
-						# if norm_sync[-1] == 0:
-						# 	plt.show()
+						# plt.show()
 
-						# plt.close()
-						#sys.exit()
+						#plt.close()
 
 						#norm_sync_out = norm_sync[::med_tailbeat_len]
 
 						#Now copy it all over. Time is reduced becuase diff makes it shorter
 						for t in range(len(norm_sync)):
 							slope_array[i][j][t] = norm_sync[t]
+							tailbeat_freq_array[i][j][t] = mean_tailbeat_freq_2[t]
+
+						# print(mean_tailbeat_freq_2)
+						# sys.exit()
 
 
 				#sys.exit()
@@ -411,69 +458,68 @@ for flow in flows:
 
 						#This -1 is so that the last value pair (which is wrong bc of roll) is not counted.
 
-						old_angle_diff = np.mod(np.rad2deg(mfish_angle-ofish_angle),360)
+						#old_angle_diff = np.mod(np.rad2deg(mfish_angle-ofish_angle),360)
 
-						#old_angle_diff = abs(np.rad2deg(np.arctan2(np.sin(mfish_angle-ofish_angle), np.cos(mfish_angle-ofish_angle))))
+						old_angle_diff = abs(np.rad2deg(np.arctan2(np.sin(mfish_angle-ofish_angle), np.cos(mfish_angle-ofish_angle))))
 
 						#3/23 Here is where I should be taking tailbeat averages, not before
 						x_diff = mean_tailbeat_chunk(x_diff,med_tailbeat_len)
 						y_diff = mean_tailbeat_chunk(y_diff,med_tailbeat_len)
 
 						#4/2 New angular_mean_tailbeat_chunk function 
-						angle_diff = angular_mean_tailbeat_chunk(angle_diff,med_tailbeat_len)
+						angle_diff = abs(angular_mean_tailbeat_chunk(angle_diff,med_tailbeat_len))
 
 						all_hs_old.extend(old_angle_diff)
 
 						#3/30 In graphing this I see that arctan2 does mean there is bouncing between 180 and -180
 						# However the 180 - abs(180 - abs(mfish_angle-ofish_angle)) makes it not matter as 180
 						# and -180 giving a result of 0 degrees apart. Which is why I did that so long ago
+
+						# print(np.rad2deg(mfish_angle)[med_tailbeat_len:med_tailbeat_len*2])
+						# print(np.rad2deg(ofish_angle)[med_tailbeat_len:med_tailbeat_len*2])
+						# print(old_angle_diff[med_tailbeat_len:med_tailbeat_len*2])
+						# print(angle_diff[1])
+
+						# fig, axs = plt.subplots(5)
+						# fig.tight_layout()
+
+						# axs[0].plot(np.rad2deg(mfish_angle))
+						# axs[0].set_ylim(-20,380)
+						# axs[0].set_xlabel("Frame #")
+						# axs[0].set_ylabel("Heading Angle")
+						# axs[0].title.set_text("Fish {f} Heading".format(f=f))
+
+						# axs[1].plot(np.rad2deg(ofish_angle))
+						# axs[1].set_ylim(-20,380)
+						# axs[1].set_xlabel("Frame #")
+						# axs[1].set_ylabel("Heading Angle")
+						# axs[1].title.set_text("Fish {g} Heading".format(g=g))
+
+						# axs[2].plot(old_angle_diff)
+						# #axs[2].set_ylim(-20,200)
+						# axs[2].set_xlabel("Frame #")
+						# axs[2].set_ylabel("Heading Angle")
+						# axs[2].title.set_text("Fish Heading Difference")
+
+						# axs[2].plot(np.repeat(angle_diff,med_tailbeat_len))
+						# # axs[3].set_ylim(-20,200)
+						# # axs[3].set_xlabel("Tailbeat Bins in Frame #")
+						# # axs[3].set_ylabel("Heading Angle")
+						# # axs[3].title.set_text("Mean Over Tailbeats")
 						
-
-						print(np.rad2deg(mfish_angle)[med_tailbeat_len:med_tailbeat_len*2])
-						print(np.rad2deg(ofish_angle)[med_tailbeat_len:med_tailbeat_len*2])
-						print(old_angle_diff[med_tailbeat_len:med_tailbeat_len*2])
-						print(angle_diff[1])
-
-						fig, axs = plt.subplots(5)
-						fig.tight_layout()
-
-						axs[0].plot(np.rad2deg(mfish_angle))
-						axs[0].set_ylim(-20,380)
-						axs[0].set_xlabel("Frame #")
-						axs[0].set_ylabel("Heading Angle")
-						axs[0].title.set_text("Fish {f} Heading".format(f=f))
-
-						axs[1].plot(np.rad2deg(ofish_angle))
-						axs[1].set_ylim(-20,380)
-						axs[1].set_xlabel("Frame #")
-						axs[1].set_ylabel("Heading Angle")
-						axs[1].title.set_text("Fish {g} Heading".format(g=g))
-
-						axs[2].plot(old_angle_diff)
-						#axs[2].set_ylim(-20,200)
-						axs[2].set_xlabel("Frame #")
-						axs[2].set_ylabel("Heading Angle")
-						axs[2].title.set_text("Fish Heading Difference")
-
-						axs[2].plot(np.repeat(angle_diff,med_tailbeat_len))
-						# axs[3].set_ylim(-20,200)
-						# axs[3].set_xlabel("Tailbeat Bins in Frame #")
-						# axs[3].set_ylabel("Heading Angle")
-						# axs[3].title.set_text("Mean Over Tailbeats")
+						# axs[3].hist(old_angle_diff)
+						# #axs[4].set_xlim(-20,200)
+						# axs[3].set_xlabel("Heading Bins")
+						# axs[3].set_ylabel("Count")
+						# axs[3].title.set_text("Histogram Over Frames")
 						
-						axs[3].hist(old_angle_diff)
-						#axs[4].set_xlim(-20,200)
-						axs[3].set_xlabel("Heading Bins")
-						axs[3].set_ylabel("Count")
-						axs[3].title.set_text("Histogram Over Frames")
-						
-						axs[4].hist(angle_diff)
-						#axs[5].set_xlim(-20,200)
-						axs[4].set_xlabel("Heading Bins")
-						axs[4].set_ylabel("Count")
-						axs[4].title.set_text("Histogram Over Tailbeats")
+						# axs[4].hist(angle_diff)
+						# #axs[5].set_xlim(-20,200)
+						# axs[4].set_xlabel("Heading Bins")
+						# axs[4].set_ylabel("Count")
+						# axs[4].title.set_text("Histogram Over Tailbeats")
 
-						plt.show()
+						# plt.show()
 
 						#3/22
 						#So the norm_sync is 1 smaller than the xdiff-1 array so we're using it instead
@@ -510,23 +556,27 @@ for flow in flows:
 
 							all_hs.append(angle_diff[i])
 
+							all_tbf.append(tailbeat_freq_array[f][g][i])
+
 
 			all_xs = np.asarray(all_xs)
 			all_ys = np.asarray(all_ys)
 			all_cs = np.asarray(all_cs)
 			all_hs = np.asarray(all_hs)
-			all_hs_old = np.asarray(all_hs_old)
+			all_tbf = np.asarray(all_tbf)
+			#all_hs_old = np.asarray(all_hs_old)
 
-			fig, axs = plt.subplots(2)
-			axs[0].hist(all_hs_old)
-			axs[1].hist(all_hs)	
-			plt.show() 
+			# fig, axs = plt.subplots(2)
+			# axs[0].hist(all_hs_old)
+			# axs[1].hist(all_hs)	
+			# plt.show() 
 
 			with open(save_file, 'wb') as f:
 				np.save(f, all_xs)
 				np.save(f, all_ys)
 				np.save(f, all_cs)
 				np.save(f, all_hs)
+				np.save(f, all_tbf)
 
 			# sns.distplot(all_hs)
 			# #sns.distplot(fish_angles_2)
