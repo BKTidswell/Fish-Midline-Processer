@@ -1,4 +1,4 @@
-import os
+import os, sys
 import math
 import seaborn as sns
 from scipy import stats
@@ -38,6 +38,7 @@ with open(save_file_1, 'rb') as f_1:
 	all_cs_1 = np.load(f_1)
 	all_hs_1 = np.load(f_1)
 	all_tbf_1 = np.load(f_1)
+	all_spd_1 = np.load(f_1)
 
 with open(save_file_2, 'rb') as f_2:
 	all_xs_2 = np.load(f_2)
@@ -45,6 +46,7 @@ with open(save_file_2, 'rb') as f_2:
 	all_cs_2 = np.load(f_2)
 	all_hs_2 = np.load(f_2)
 	all_tbf_2 = np.load(f_2)
+	all_spd_2 = np.load(f_2)
 
 
 #Making polar plots
@@ -78,12 +80,13 @@ polar_array_1 = np.zeros((int(180/angle_bin_size), max_dist, len(angles_1)))
 polar_density_array_1 = np.zeros((int(180/angle_bin_size), max_dist, len(angles_1)))
 polar_heading_array_1 = np.zeros((int(180/angle_bin_size), max_dist, len(angles_1)))
 polar_tbf_array_1 = np.zeros((int(180/angle_bin_size), max_dist, len(angles_1)))
+polar_spd_array_1 = np.zeros((int(180/angle_bin_size), max_dist, len(angles_1)))
 
 #Saving data to CSV for r power analysis 
-outStr = "{cond},{distBin},{angleBin},{heading},{coord},{tbf},{angleBinSize},{distBinSize}\n"
+outStr = "{cond},{distBin},{angleBin},{dist},{angle},{heading},{coord},{tbf},{spd_diff},{angleBinSize},{distBinSize}\n"
 
 f = open("data_power_analysis/r_power_data.csv", "w")
-f.write(outStr.format(cond="cond",distBin="distBin",angleBin="angleBin",heading="heading",coord="coord",tbf="tbf",angleBinSize="angleBinSize",distBinSize="distBinSize"))
+f.write(outStr.format(cond="cond",distBin="distBin",angleBin="angleBin",dist="dist_v",angle="angle_v",heading="heading",coord="coord",tbf="tbf",spd_diff="spd_diff",angleBinSize="angleBinSize",distBinSize="distBinSize"))
 
 for i in range(len(angles_1)):
 	a = int(angles_1[i]/angle_bin_size)
@@ -95,13 +98,17 @@ for i in range(len(angles_1)):
 		polar_density_array_1[a][r][i] = 1
 		polar_heading_array_1[a][r][i] = all_hs_1[i]
 		polar_tbf_array_1[a][r][i] = all_tbf_1[i]
+		polar_spd_array_1[a][r][i] = all_spd_1[i]
 
-	f.write(outStr.format(cond=flow_1,distBin=r,angleBin=a,heading=all_hs_1[i],coord=all_cs_1[i],tbf=all_tbf_1[i],angleBinSize=angle_bin_size,distBinSize=dist_bin_size))
+	f.write(outStr.format(cond=flow_1,distBin=r,angleBin=a,dist=all_dists_1[i],angle=angles_1[i],heading=all_hs_1[i],coord=all_cs_1[i],tbf=all_tbf_1[i],spd_diff=all_spd_1[i],angleBinSize=angle_bin_size,distBinSize=dist_bin_size))
+
+
 
 polar_array_2 = np.zeros((int(180/angle_bin_size), max_dist, len(angles_2)))
 polar_density_array_2 = np.zeros((int(180/angle_bin_size), max_dist, len(angles_1)))
 polar_heading_array_2 = np.zeros((int(180/angle_bin_size), max_dist, len(angles_1)))
 polar_tbf_array_2 = np.zeros((int(180/angle_bin_size), max_dist, len(angles_1)))
+polar_spd_array_2 = np.zeros((int(180/angle_bin_size), max_dist, len(angles_1)))
 
 for i in range(len(angles_2)):
 	a = int(angles_2[i]/angle_bin_size)
@@ -112,8 +119,9 @@ for i in range(len(angles_2)):
 		polar_density_array_2[a][r][i] = 1
 		polar_heading_array_2[a][r][i] = all_hs_2[i]
 		polar_tbf_array_2[a][r][i] = all_tbf_2[i]
+		polar_spd_array_2[a][r][i] = all_spd_2[i]
 
-	f.write(outStr.format(cond=flow_2,distBin=r,angleBin=a,heading=all_hs_2[i],coord=all_cs_2[i],tbf=all_tbf_2[i],angleBinSize=angle_bin_size,distBinSize=dist_bin_size))
+	f.write(outStr.format(cond=flow_2,distBin=r,angleBin=a,dist=all_dists_2[i],angle=angles_2[i],heading=all_hs_2[i],coord=all_cs_2[i],tbf=all_tbf_2[i],spd_diff=all_spd_2[i],angleBinSize=angle_bin_size,distBinSize=dist_bin_size))
 
 f.close()
 
@@ -161,20 +169,28 @@ polar_density_2 = np.append(polar_density_2,polar_density_2[0].reshape(1, max_di
 
 #get the mean headings in each area
 #Fix the mean here to work for circ mean
+#
+circ_multi = 2
+
 polar_heading_array_1[polar_heading_array_1 == 0] = 'nan'
-polar_headings_1 = stats.circmean(polar_heading_array_1, axis=2, nan_policy = "omit")
+polar_headings_1 = np.rad2deg(stats.circmean(np.deg2rad(polar_heading_array_1), axis=2, nan_policy = "omit"))
 polar_headings_1 = np.append(polar_headings_1,polar_headings_1[0].reshape(1, max_dist),axis=0)
+#Take it from 0 to 360 to 0 to 180
+polar_headings_1 = np.where(polar_headings_1 > 180,  abs(polar_headings_1 - 360), polar_headings_1) 
+
 
 polar_heading_array_2[polar_heading_array_2 == 0] = 'nan'
-polar_headings_2 = stats.circmean(polar_heading_array_2, axis=2, nan_policy = "omit")
+polar_headings_2 = np.rad2deg(stats.circmean(np.deg2rad(polar_heading_array_2), axis=2, nan_policy = "omit"))
 polar_headings_2 = np.append(polar_headings_2,polar_headings_2[0].reshape(1, max_dist),axis=0)
+#Take it from 0 to 360 to 0 to 180
+polar_headings_2 = np.where(polar_headings_2 > 180,  abs(polar_headings_2 - 360), polar_headings_2) 
 
 #Get SE of heading arrays
-se_polar_headings_1 = stats.circstd(polar_heading_array_1, axis=2, nan_policy = "omit")
+se_polar_headings_1 = np.rad2deg(stats.circstd(np.deg2rad(polar_heading_array_1), axis=2, nan_policy = "omit"))
 se_polar_headings_1 = np.nan_to_num(np.asarray(se_polar_headings_1))
 se_polar_headings_1 = np.append(se_polar_headings_1,se_polar_headings_1[0].reshape(1, max_dist),axis=0)
 
-se_polar_headings_2 = stats.circstd(polar_heading_array_2, axis=2, nan_policy = "omit")
+se_polar_headings_2 = np.rad2deg(stats.circstd(np.deg2rad(polar_heading_array_2), axis=2, nan_policy = "omit"))
 se_polar_headings_2 = np.nan_to_num(np.asarray(se_polar_headings_2))
 se_polar_headings_2 = np.append(se_polar_headings_2,se_polar_headings_2[0].reshape(1, max_dist),axis=0)
 
@@ -191,8 +207,6 @@ pos_neg_diff_headings = np.where(polar_headings_2 - polar_headings_1 < 0, -1, 1)
 sig_diff_headings = pos_neg_diff_headings*diff_headings
 sig_diff_headings = sig_diff_headings.astype('float')
 
-
-
 #sig_diff_array[sig_diff_array == 0] = 'nan'
 
 #print(sig_diff_array)
@@ -207,8 +221,8 @@ data = [polar_vals_diff,sig_diff_array,polar_vals_1,polar_density_1,polar_vals_2
 names = [flow_1+"_"+flow_2+"_sync_diff.png",flow_1+"_"+flow_2+"_sync_sig_diff.png",flow_1+"_sync.png",flow_1+"_density.png",flow_2+"_sync.png",flow_2+"_density.png",flow_1+"_headings.png",flow_2+"_headings.png",flow_1+"_"+flow_2+"_heading_diff.png",flow_1+"_"+flow_2+"_heading_sig_diff.png",flow_1+"_"+flow_2+"_density_diff.png"]
 titles = ["No Flow - Flow Synchronization", "No Flow - Flow Synchronization","No Flow Synchronization","No Flow Density","Flow Synchronization","Flow Density","No Flow Headings","Flow Headings","No Flow - Flow Headings", "No Flow - Flow Headings", "No Flow - Flow density"]
 color = ["bwr","bwr","GnBu","GnBu","GnBu","GnBu","RdYlGn","RdYlGn","bwr","bwr","bwr"]
-vmins = [-0.25,-1,0.75,0,0.75,0,0,0,-45,-1,-10]
-vmaxs = [0.25,1,1,10,1,10,180,180,45,1,10]
+vmins = [-0.25,-1,0.75,0,0.75,0,0,0,-180,-1,-10]
+vmaxs = [0.25,1,1,12,1,12,180,180,180,1,12]
 
 
 x_data = np.asarray([polar_density_1.flatten(), polar_density_2.flatten()]).flatten()

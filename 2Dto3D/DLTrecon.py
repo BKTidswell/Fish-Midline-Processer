@@ -238,11 +238,11 @@ print(df["Fish"][0])
 print(df["BodyPart"][0])
 print(df["Frame"][0])
 
-# fig.update_layout(
-# 	scene = dict(
-# 		xaxis = dict(nticks=4, range=[-0.6,0.6],),
-# 		yaxis = dict(nticks=4, range=[-0.2,0.2],),
-# 		zaxis = dict(nticks=4, range=[-0.3,0.3],),))
+fig.update_layout(
+	scene = dict(
+		xaxis = dict(nticks=4, range=[-0.2,0.2],),
+		yaxis = dict(nticks=4, range=[-0.2,0.2],),
+		zaxis = dict(nticks=4, range=[-1,1],),))
 
 fig.show()
 

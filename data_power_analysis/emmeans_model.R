@@ -13,8 +13,7 @@ power_data_close <- power_data %>% filter(distBin < 3 & angleBin != 6)
 
 power_data_close_reshape <- power_data_close %>% 
   select(-c(angleBinSize,distBinSize)) %>%
-  pivot_longer(!c(cond,distBin,angleBin), names_to = "data_type", values_to = "value")
-
+  pivot_longer(!c(cond,distBin,angleBin), names_to = "data_type", values_to = "value") 
 # data wrangling 
 
 fish <- power_data_close_reshape %>%

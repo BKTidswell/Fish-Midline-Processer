@@ -52,11 +52,15 @@ def angular_mean_tailbeat_chunk(data,tailbeat_len):
 
 		#SIN then COSINE
 		angular_mean = np.rad2deg(np.arctan2(sin_mean,cos_mean))
-
 		mean_data[k] = angular_mean
 
 	return mean_data[::tailbeat_len]
 
+def two_p_zero_y_intercept(x1,y1,x2,y2):
+	m = (y2-y1)/(x2-x1)
+	intercept = (-1*y1)/m + x1
+
+	return intercept
 
 for flow in flows:
 	for dark in darks:
@@ -85,7 +89,8 @@ for flow in flows:
 			all_cs = []
 			all_hs = []
 			all_hs_old = []
-			all_tbf = []			
+			all_tbf = []
+			all_spd = []			
 
 			for file_name in data_files:
 
@@ -108,6 +113,8 @@ for flow in flows:
 
 				for i in range(n_fish):
 					cnvrt_pix_bl.append(median_fish_len(fish_dict,i))
+
+				median_pix_bl = np.median(cnvrt_pix_bl)
 
 				#For each fish get the para and perp distances and append to the array
 				for i in range(n_fish):
@@ -134,6 +141,10 @@ for flow in flows:
 				# length between them? But it would be good to keep it constant over all trials
 				# But I don't want it to change everytime I put in new data. Well let's just see what that average might be
 
+				# 6/16
+				#Changed the tailbeat length calcualtion to use zero crossings instead of peaks
+				# I also made sure that zero crossings are only going from negative to positive, and not both
+
 				#First create an n_fish x n_fish x timepoints array to store the slopes in
 
 				peak_width = 5
@@ -147,8 +158,17 @@ for flow in flows:
 					mv_avg_1 = moving_average(moving_average(signal_1,cvn_n),cvn_n)
 					short_signal_1 = signal_1[cvn_n:-cvn_n+2]
 					pn_signal_1 = short_signal_1-mv_avg_1
-					peaks_1, _ = find_peaks(pn_signal_1, width = peak_width)
-					dist_between = np.diff(peaks_1)
+					#peaks_1, _ = find_peaks(pn_signal_1, width = peak_width)
+					zero_crossings = np.where(np.diff(np.sign(pn_signal_1)) > 0)[0]
+					dist_between = np.diff(zero_crossings)
+
+					# fig, axs = plt.subplots(2)
+					# fig.suptitle('Vertically stacked subplots')
+					# axs[0].plot(range(len(short_signal_1)), short_signal_1)
+					# axs[0].plot(range(len(mv_avg_1)), mv_avg_1, "g")
+
+					# axs[1].plot(range(len(pn_signal_1)), pn_signal_1)
+					# axs[1].plot(zero_crossings, pn_signal_1[zero_crossings], "x")
 
 					out_tbf.append(dist_between)
 
@@ -170,6 +190,7 @@ for flow in flows:
 
 				slope_array = np.zeros((n_fish,n_fish,tailbeat_points))
 				tailbeat_freq_array = np.zeros((n_fish,n_fish,tailbeat_points))
+				spd_diff_array = np.zeros((n_fish,n_fish,tailbeat_points))
 
 				#print(slope_array.shape)
 
@@ -182,15 +203,27 @@ for flow in flows:
 						#End result is that it is very different and maybe also useful
 						# but isn't a replacement for it 1 to 1
 
-						# speed_1 = get_dist_np(fish_dict[i]["head"]["x"][:-1],
-						# 					  fish_dict[i]["head"]["y"][:-1],
-						# 					  fish_dict[i]["head"]["x"][1:],
-						# 					  fish_dict[i]["head"]["y"][1:])
+						#6/9: We're doing this again. Make it into BL/s as well
+						#60 for 60 fps
 
-						# speed_2 = get_dist_np(fish_dict[j]["head"]["x"][:-1],
-						# 					  fish_dict[j]["head"]["y"][:-1],
-						# 					  fish_dict[j]["head"]["x"][1:],
-						# 					  fish_dict[j]["head"]["y"][1:])
+						#6/16 Now doing it using the median BL for fish so that it isn't different for all fish
+						#  and we're getting the relative speed between fish instead of their own speed
+						# So it's a measure of how fast the distance between them is changing
+
+						speed_1 = get_dist_np(fish_dict[i]["head"]["x"][:-1],
+											  fish_dict[i]["head"]["y"][:-1],
+											  fish_dict[i]["head"]["x"][1:],
+											  fish_dict[i]["head"]["y"][1:])/median_pix_bl*60
+
+						speed_2 = get_dist_np(fish_dict[j]["head"]["x"][:-1],
+											  fish_dict[j]["head"]["y"][:-1],
+											  fish_dict[j]["head"]["x"][1:],
+											  fish_dict[j]["head"]["y"][1:])/median_pix_bl*60
+
+						between_speed = np.diff(get_dist_np(fish_dict[i]["head"]["x"],
+															fish_dict[i]["head"]["y"],
+															fish_dict[j]["head"]["x"],
+															fish_dict[j]["head"]["y"])/median_pix_bl)*60
 
 						#I don't like that this is such a magic number but here we are
 						# It does smooth well though
@@ -231,8 +264,16 @@ for flow in flows:
 						instantaneous_phase_2 = np.unwrap(np.angle(analytic_signal_2))
 
 						#60 for 60 fps
+						#Only for the second fish since these aren't compared
 						instantaneous_freq_2 = (np.diff(instantaneous_phase_2) / (2.0*np.pi) * 60)
 						mean_tailbeat_freq_2 = mean_tailbeat_chunk(instantaneous_freq_2,med_tailbeat_len)
+
+
+						#6/9 Calculatng Speed Diffs
+						#Make it bodylength/s by the average between their 
+						#No abs() here so it doesn't cut at zero
+						spd_diff = speed_1-speed_2
+						mean_tailbeat_spd_diff = mean_tailbeat_chunk(spd_diff,med_tailbeat_len)
 
 						# out_array_1 = np.empty(len(instantaneous_phase_1)+50)
 						# out_array_1[:] = np.NaN
@@ -305,22 +346,66 @@ for flow in flows:
 						
 						#sync_no_avg = np.power(2,abs(sync_slope)*-1)
 
+						#6/11 Working to do tailbeat sync based on zero crossing difference instead of hilbert
+						# so that I don't need totally continuous data for this.
+
+						#6/16 I realized that I was doubling up on zero crossings, counting both over and under,
+						#  which was throwing things off, now it seems to be correct and matches up better.
+						# The two options are so that the most data is captured, so that we get the first crossing
+						#either from positive to negative or negaive to positive
+
+						if pn_signal_1[0] > 0:
+							zero_crossings_1 = np.where(np.diff(np.sign(pn_signal_1)) < 0)[0]
+							zero_crossings_2 = np.where(np.diff(np.sign(pn_signal_2)) < 0)[0]
+						else:
+							zero_crossings_1 = np.where(np.diff(np.sign(pn_signal_1)) > 0)[0]
+							zero_crossings_2 = np.where(np.diff(np.sign(pn_signal_2)) > 0)[0]
+
+						tailbeat_offsets = np.zeros((len(zero_crossings_1),len(zero_crossings_2)))
+						tailbeat_offsets[:] = np.nan
+
+						#Can't use i and j here!!!
+						for k in range(len(zero_crossings_1)-1):
+							next_point = np.where((zero_crossings_2 >= zero_crossings_1[k]) & (zero_crossings_2 < zero_crossings_1[k+1]))[0]
+							for l in next_point:
+								#So here I get the points and find when they actually cross to zero in terms of time, not frames
+								# So get the time of each frame, and then find the intercept between the two points
+								z_cross_time_1 = two_p_zero_y_intercept(zero_crossings_1[k]+1,
+																		pn_signal_1[zero_crossings_1[k]+1],
+																		zero_crossings_1[k],
+																		pn_signal_1[zero_crossings_1[k]])/60
+
+								z_cross_time_2 = two_p_zero_y_intercept(zero_crossings_2[l]+1,
+																		pn_signal_2[zero_crossings_2[l]+1],
+																		zero_crossings_2[l],
+																		pn_signal_1[zero_crossings_2[l]])/60
+
+								tailbeat_offsets[k][l] = z_cross_time_2 - z_cross_time_1
+
+						#6/16 I am taking the absolute value here as a negative difference isn't important, and I would want the mean of a 
+						# -3 and 3 offset here to be 3, not 0.
+						tailbeat_means = abs(np.nanmean(tailbeat_offsets, axis=1))
+						tailbeat_repeats = abs(np.diff(np.append(zero_crossings_1,len(pn_signal_1))))
+						tailbeat_chunked_means = mean_tailbeat_chunk(np.repeat(tailbeat_means,tailbeat_repeats),med_tailbeat_len)
+
 						#This is the code I use to graph things when things go wrong
 						# Or when I need to show code and new processes to Eric
-						# fig, axs = plt.subplots(7)
+						# fig, axs = plt.subplots(8)
 						# fig.suptitle('Vertically stacked subplots')
 						# axs[0].plot(range(len(short_signal_1)), short_signal_1)
 						# axs[0].plot(range(len(mv_avg_1)), mv_avg_1, "g")
-						# #axs[0].plot(peaks_1, short_signal_1[peaks_1], "x")
+						# #axs[0].plot(zero_crossings_1, short_signal_1[zero_crossings_1], "x")
 
 						# axs[1].plot(range(len(short_signal_2)), short_signal_2,"r")
 						# axs[1].plot(range(len(mv_avg_2)), mv_avg_2, "m")
-						# #axs[1].plot(peaks_2, short_signal_2[peaks_2], "x")
+						# #axs[1].plot(zero_crossings_1, short_signal_2[zero_crossings_1], "x")
 
 						# axs[2].plot(range(len(pn_signal_1)), pn_signal_1)
 						# axs[2].plot(range(len(pn_signal_2)), pn_signal_2,"r")
-						# axs[2].plot(peaks_1, pn_signal_1[peaks_1], "x")
-						# axs[2].plot(peaks_2, pn_signal_2[peaks_2], "x")
+						# axs[2].plot(zero_crossings_1, pn_signal_1[zero_crossings_1], "x")
+						# axs[2].plot(zero_crossings_2, pn_signal_2[zero_crossings_2], "x")
+						# #axs[2].plot(peaks_1, pn_signal_1[peaks_1], "x")
+						# #axs[2].plot(peaks_2, pn_signal_2[peaks_2], "x")
 
 						# axs[3].plot(range(len(instantaneous_phase_1)), instantaneous_phase_1)
 						# axs[3].plot(range(len(instantaneous_phase_2)), instantaneous_phase_2,"r")
@@ -334,16 +419,20 @@ for flow in flows:
 						# ##axs[6].plot(range(len(sync_no_avg)), sync_no_avg)
 						# axs[6].plot(range(len(norm_sync)*med_tailbeat_len), np.repeat(norm_sync,med_tailbeat_len))
 
+						# axs[7].plot(range(len(tailbeat_chunked_means)*med_tailbeat_len), np.repeat(tailbeat_chunked_means,med_tailbeat_len))
+						# # axs[7].plot(range(len(spd_diff)), spd_diff)
+						# # axs[7].plot(range(len(between_speed)), between_speed, "r")
+
 						# plt.show()
+						# #norm_sync_out = norm_sync[::med_tailbeat_len]
 
-						#plt.close()
+						# #Now copy it all over. Time is reduced becuase diff makes it shorter
+						# sys.exit()
 
-						#norm_sync_out = norm_sync[::med_tailbeat_len]
-
-						#Now copy it all over. Time is reduced becuase diff makes it shorter
-						for t in range(len(norm_sync)):
-							slope_array[i][j][t] = norm_sync[t]
+						for t in range(len(tailbeat_chunked_means)):
+							slope_array[i][j][t] = tailbeat_chunked_means[t]
 							tailbeat_freq_array[i][j][t] = mean_tailbeat_freq_2[t]
+							spd_diff_array[i][j][t] = mean_tailbeat_spd_diff[t]
 
 						# print(mean_tailbeat_freq_2)
 						# sys.exit()
@@ -446,15 +535,17 @@ for flow in flows:
 						# Okay so this is actually just 360 - abs(val)
 						# and then back to rad
 
-						ofish_angle = np.deg2rad(np.where(ofish_angle < 0, 360 - abs(ofish_angle), ofish_angle))
+						ofish_angle = np.where(ofish_angle < 0, 360 - abs(ofish_angle), ofish_angle)
+
 
 						angle_diff = mfish_angle-ofish_angle #np.arctan2(np.sin(mfish_angle-ofish_angle), np.cos(mfish_angle-ofish_angle))
 
 						#And then we use the new angular_mean_tailbeat_chunk instead 
 
 						#This order is so that the heatmap faces correctly upstream
-						x_diff = (main_fish_x - other_fish_x)/cnvrt_pix_bl[f]
-						y_diff = (other_fish_y - main_fish_y)/cnvrt_pix_bl[f]
+						#6/16 Changed so that it uses the median body length of fish
+						x_diff = (main_fish_x - other_fish_x)/median_pix_bl
+						y_diff = (other_fish_y - main_fish_y)/median_pix_bl
 
 						#This -1 is so that the last value pair (which is wrong bc of roll) is not counted.
 
@@ -467,7 +558,7 @@ for flow in flows:
 						y_diff = mean_tailbeat_chunk(y_diff,med_tailbeat_len)
 
 						#4/2 New angular_mean_tailbeat_chunk function 
-						angle_diff = abs(angular_mean_tailbeat_chunk(angle_diff,med_tailbeat_len))
+						angle_diff = angular_mean_tailbeat_chunk(np.deg2rad(angle_diff),med_tailbeat_len)
 
 						all_hs_old.extend(old_angle_diff)
 
@@ -554,9 +645,15 @@ for flow in flows:
 							# I guess we'll see what the data actually looks like!!!
 							all_cs.append(slope_array[f][g][i])
 
-							all_hs.append(angle_diff[i])
+
+							#5/27, so here the values are from -180 to 180, and that is the same as 180 to 180, with 0 and 360 ant 0
+							#So I want it to be 0 to 360 so I can do circular stats on it
+							# %360 works since a % 360 = a if a is positive
+							# And for negatives -1 %360 = 359 and -180 % 360 = 180
+							all_hs.append(angle_diff[i] % 360)
 
 							all_tbf.append(tailbeat_freq_array[f][g][i])
+							all_spd.append(spd_diff_array[f][g][i])
 
 
 			all_xs = np.asarray(all_xs)
@@ -564,7 +661,7 @@ for flow in flows:
 			all_cs = np.asarray(all_cs)
 			all_hs = np.asarray(all_hs)
 			all_tbf = np.asarray(all_tbf)
-			#all_hs_old = np.asarray(all_hs_old)
+			all_hs_old = np.asarray(all_hs_old)
 
 			# fig, axs = plt.subplots(2)
 			# axs[0].hist(all_hs_old)
@@ -577,6 +674,7 @@ for flow in flows:
 				np.save(f, all_cs)
 				np.save(f, all_hs)
 				np.save(f, all_tbf)
+				np.save(f, all_spd)
 
 			# sns.distplot(all_hs)
 			# #sns.distplot(fish_angles_2)
