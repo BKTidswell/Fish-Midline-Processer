@@ -133,7 +133,7 @@ Anova(heading_mean_dBin_fit)
 ICtab(heading_mean_p_fit,heading_mean_dBin_fit)
 
 
-coord_data <- density_data %>% filter(data_type == "coord") %>% filter(value < 1) 
+coord_data <- density_data %>% filter(data_type == "spd_diff") %>% filter(value < 1) 
 
 coord_sum <- coord_data %>% group_by(cond, distBin, angleBin, percent) %>%
                             summarise(mean_coord = mean(value), sd_coord = sd(value))
@@ -157,7 +157,7 @@ ggplot(coord_sum, aes(x = as.factor(distBin), y = mean_coord, color = cond)) +
   geom_smooth(method = "lm", se = FALSE) +
   #geom_errorbar(aes(ymin=mean_coord-sd_coord, ymax=mean_coord+sd_coord),width=.2) +
   theme_light()+
-  ylab("Tailbeat Synchonization") +
+  ylab("Tailbeat Synchonization (Speed)") +
   xlab("Distance (BL)") +
   scale_x_discrete(labels = c("0 to 1", "1 to 2", "2 to 3")) +
   labs(colour = "Flow Speed\n(BL/s)") +

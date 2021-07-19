@@ -39,6 +39,7 @@ with open(save_file_1, 'rb') as f_1:
 	all_hs_1 = np.load(f_1)
 	all_tbf_1 = np.load(f_1)
 	all_spd_1 = np.load(f_1)
+	all_tb_off_1 = np.load(f_1)
 
 with open(save_file_2, 'rb') as f_2:
 	all_xs_2 = np.load(f_2)
@@ -47,6 +48,7 @@ with open(save_file_2, 'rb') as f_2:
 	all_hs_2 = np.load(f_2)
 	all_tbf_2 = np.load(f_2)
 	all_spd_2 = np.load(f_2)
+	all_tb_off_2 = np.load(f_2)
 
 
 #Making polar plots
@@ -81,12 +83,13 @@ polar_density_array_1 = np.zeros((int(180/angle_bin_size), max_dist, len(angles_
 polar_heading_array_1 = np.zeros((int(180/angle_bin_size), max_dist, len(angles_1)))
 polar_tbf_array_1 = np.zeros((int(180/angle_bin_size), max_dist, len(angles_1)))
 polar_spd_array_1 = np.zeros((int(180/angle_bin_size), max_dist, len(angles_1)))
+polar_tb_off_array_1 = np.zeros((int(180/angle_bin_size), max_dist, len(angles_1)))
 
 #Saving data to CSV for r power analysis 
-outStr = "{cond},{distBin},{angleBin},{dist},{angle},{heading},{coord},{tbf},{spd_diff},{angleBinSize},{distBinSize}\n"
+outStr = "{cond},{distBin},{angleBin},{dist},{angle},{heading},{coord},{tbf},{spd_diff},{tb_off},{angleBinSize},{distBinSize}\n"
 
 f = open("data_power_analysis/r_power_data.csv", "w")
-f.write(outStr.format(cond="cond",distBin="distBin",angleBin="angleBin",dist="dist_v",angle="angle_v",heading="heading",coord="coord",tbf="tbf",spd_diff="spd_diff",angleBinSize="angleBinSize",distBinSize="distBinSize"))
+f.write(outStr.format(cond="cond",distBin="distBin",angleBin="angleBin",dist="dist_v",angle="angle_v",heading="heading",coord="coord",tbf="tbf",spd_diff="spd_diff",tb_off="tb_off",angleBinSize="angleBinSize",distBinSize="distBinSize"))
 
 for i in range(len(angles_1)):
 	a = int(angles_1[i]/angle_bin_size)
@@ -99,9 +102,9 @@ for i in range(len(angles_1)):
 		polar_heading_array_1[a][r][i] = all_hs_1[i]
 		polar_tbf_array_1[a][r][i] = all_tbf_1[i]
 		polar_spd_array_1[a][r][i] = all_spd_1[i]
+		polar_tb_off_array_1[a][r][i] = all_tb_off_1[i]
 
-	f.write(outStr.format(cond=flow_1,distBin=r,angleBin=a,dist=all_dists_1[i],angle=angles_1[i],heading=all_hs_1[i],coord=all_cs_1[i],tbf=all_tbf_1[i],spd_diff=all_spd_1[i],angleBinSize=angle_bin_size,distBinSize=dist_bin_size))
-
+	f.write(outStr.format(cond=flow_1,distBin=r,angleBin=a,dist=all_dists_1[i],angle=angles_1[i],heading=all_hs_1[i],coord=all_cs_1[i],tbf=all_tbf_1[i],spd_diff=all_spd_1[i],tb_off=all_tb_off_1[i],angleBinSize=angle_bin_size,distBinSize=dist_bin_size))
 
 
 polar_array_2 = np.zeros((int(180/angle_bin_size), max_dist, len(angles_2)))
@@ -109,6 +112,7 @@ polar_density_array_2 = np.zeros((int(180/angle_bin_size), max_dist, len(angles_
 polar_heading_array_2 = np.zeros((int(180/angle_bin_size), max_dist, len(angles_1)))
 polar_tbf_array_2 = np.zeros((int(180/angle_bin_size), max_dist, len(angles_1)))
 polar_spd_array_2 = np.zeros((int(180/angle_bin_size), max_dist, len(angles_1)))
+polar_tb_off_array_2 = np.zeros((int(180/angle_bin_size), max_dist, len(angles_1)))
 
 for i in range(len(angles_2)):
 	a = int(angles_2[i]/angle_bin_size)
@@ -120,8 +124,9 @@ for i in range(len(angles_2)):
 		polar_heading_array_2[a][r][i] = all_hs_2[i]
 		polar_tbf_array_2[a][r][i] = all_tbf_2[i]
 		polar_spd_array_2[a][r][i] = all_spd_2[i]
+		polar_tb_off_array_2[a][r][i] = all_tb_off_2[i]
 
-	f.write(outStr.format(cond=flow_2,distBin=r,angleBin=a,dist=all_dists_2[i],angle=angles_2[i],heading=all_hs_2[i],coord=all_cs_2[i],tbf=all_tbf_2[i],spd_diff=all_spd_2[i],angleBinSize=angle_bin_size,distBinSize=dist_bin_size))
+	f.write(outStr.format(cond=flow_2,distBin=r,angleBin=a,dist=all_dists_2[i],angle=angles_2[i],heading=all_hs_2[i],coord=all_cs_2[i],tbf=all_tbf_2[i],spd_diff=all_spd_2[i],tb_off=all_tb_off_2[i],angleBinSize=angle_bin_size,distBinSize=dist_bin_size))
 
 f.close()
 

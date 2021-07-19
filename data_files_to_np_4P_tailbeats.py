@@ -90,7 +90,8 @@ for flow in flows:
 			all_hs = []
 			all_hs_old = []
 			all_tbf = []
-			all_spd = []			
+			all_spd = []
+			all_tb_off = []			
 
 			for file_name in data_files:
 
@@ -114,7 +115,7 @@ for flow in flows:
 				for i in range(n_fish):
 					cnvrt_pix_bl.append(median_fish_len(fish_dict,i))
 
-				median_pix_bl = np.median(cnvrt_pix_bl)
+				median_pix_bl = np.nanmedian(cnvrt_pix_bl)
 
 				#For each fish get the para and perp distances and append to the array
 				for i in range(n_fish):
@@ -183,12 +184,13 @@ for flow in flows:
 				# print(np.median(tailbeat_lens))
 
 
-				med_tailbeat_len = int(np.median(tailbeat_lens))
+				med_tailbeat_len = int(np.nanmedian(tailbeat_lens))
 
 				#Get a reduced length number of points
 				tailbeat_points = (time_points - time_points%med_tailbeat_len)//med_tailbeat_len
 
 				slope_array = np.zeros((n_fish,n_fish,tailbeat_points))
+				tailbeat_offset_array = np.zeros((n_fish,n_fish,tailbeat_points))
 				tailbeat_freq_array = np.zeros((n_fish,n_fish,tailbeat_points))
 				spd_diff_array = np.zeros((n_fish,n_fish,tailbeat_points))
 
@@ -250,8 +252,8 @@ for flow in flows:
 						pn_signal_1 = short_signal_1-mv_avg_1
 						pn_signal_2 = short_signal_2-mv_avg_2
 
-						peaks_1, _ = find_peaks(pn_signal_1, width = peak_width)
-						peaks_2, _ = find_peaks(pn_signal_2, width = peak_width)
+						# peaks_1, _ = find_peaks(pn_signal_1, width = peak_width)
+						# peaks_2, _ = find_peaks(pn_signal_2, width = peak_width)
 
 						pn_signal_1_trim = pn_signal_1[~np.isnan(pn_signal_1)]
 						pn_signal_2_trim = pn_signal_2[~np.isnan(pn_signal_2)]
@@ -273,7 +275,7 @@ for flow in flows:
 						#Make it bodylength/s by the average between their 
 						#No abs() here so it doesn't cut at zero
 						spd_diff = speed_1-speed_2
-						mean_tailbeat_spd_diff = mean_tailbeat_chunk(spd_diff,med_tailbeat_len)
+						mean_tailbeat_spd_diff = mean_tailbeat_chunk(between_speed,med_tailbeat_len)
 
 						# out_array_1 = np.empty(len(instantaneous_phase_1)+50)
 						# out_array_1[:] = np.NaN
@@ -314,7 +316,13 @@ for flow in flows:
 						# it up. Also if one signal is 2x and the other is 4x, then then value difference is 2. 
 						# So it's not perfect on doubling, but it is on the total times faster from base.
 						# But why is the base the base?? Unclear to me at least. Still it works. 
-						abs_diff_smooth = savgol_filter(abs(instantaneous_phase_2 - instantaneous_phase_1),11,1)
+						instantaneous_phase_1_nan = np.zeros(pn_signal_1.shape)
+						instantaneous_phase_1_nan[~np.isnan(pn_signal_1)] = instantaneous_phase_1
+
+						instantaneous_phase_2_nan = np.zeros(pn_signal_2.shape)
+						instantaneous_phase_2_nan[~np.isnan(pn_signal_2)] = instantaneous_phase_2
+
+						abs_diff_smooth = savgol_filter(abs(instantaneous_phase_2_nan - instantaneous_phase_1_nan),11,1)
 						# sync_slope = abs(np.gradient(abs_diff_smooth))*2
 
 
@@ -385,12 +393,15 @@ for flow in flows:
 						#6/16 I am taking the absolute value here as a negative difference isn't important, and I would want the mean of a 
 						# -3 and 3 offset here to be 3, not 0.
 						tailbeat_means = abs(np.nanmean(tailbeat_offsets, axis=1))
+						#This gets the length of each tailbeat and then repeats it each time
 						tailbeat_repeats = abs(np.diff(np.append(zero_crossings_1,len(pn_signal_1))))
 						tailbeat_chunked_means = mean_tailbeat_chunk(np.repeat(tailbeat_means,tailbeat_repeats),med_tailbeat_len)
+						#Then we add nan to the front so it matches up with speed and hilbert
+						tailbeat_chunked_means = np.append(np.nan,tailbeat_chunked_means)
 
 						#This is the code I use to graph things when things go wrong
 						# Or when I need to show code and new processes to Eric
-						# fig, axs = plt.subplots(8)
+						# fig, axs = plt.subplots(9)
 						# fig.suptitle('Vertically stacked subplots')
 						# axs[0].plot(range(len(short_signal_1)), short_signal_1)
 						# axs[0].plot(range(len(mv_avg_1)), mv_avg_1, "g")
@@ -414,14 +425,18 @@ for flow in flows:
 
 						# axs[5].plot(range(len(sync_slope)), sync_slope)
 						# axs[5].plot(range(len(mean_sync_beats)*med_tailbeat_len), np.repeat(mean_sync_beats,med_tailbeat_len))
-						# axs[5].set_ylim(-2,2)
+						# #axs[5].set_ylim(-2,2)
 
 						# ##axs[6].plot(range(len(sync_no_avg)), sync_no_avg)
-						# axs[6].plot(range(len(norm_sync)*med_tailbeat_len), np.repeat(norm_sync,med_tailbeat_len))
+						# #axs[6].plot(range(len(norm_sync)*med_tailbeat_len), np.repeat(norm_sync,med_tailbeat_len))
+						# axs[6].plot(range(len(norm_sync)), norm_sync)
 
-						# axs[7].plot(range(len(tailbeat_chunked_means)*med_tailbeat_len), np.repeat(tailbeat_chunked_means,med_tailbeat_len))
-						# # axs[7].plot(range(len(spd_diff)), spd_diff)
-						# # axs[7].plot(range(len(between_speed)), between_speed, "r")
+						# #axs[7].plot(range(len(tailbeat_chunked_means)*med_tailbeat_len), np.repeat(tailbeat_chunked_means,med_tailbeat_len))
+						# axs[7].plot(range(len(tailbeat_chunked_means)), tailbeat_chunked_means)
+
+						# #axs[8].plot(range(len(between_speed)), between_speed)
+						# #axs[8].plot(range(len(mean_tailbeat_spd_diff)*med_tailbeat_len), np.repeat(mean_tailbeat_spd_diff,med_tailbeat_len))
+						# axs[8].plot(range(len(mean_tailbeat_spd_diff)), mean_tailbeat_spd_diff)
 
 						# plt.show()
 						# #norm_sync_out = norm_sync[::med_tailbeat_len]
@@ -429,13 +444,14 @@ for flow in flows:
 						# #Now copy it all over. Time is reduced becuase diff makes it shorter
 						# sys.exit()
 
-						for t in range(len(tailbeat_chunked_means)):
-							slope_array[i][j][t] = tailbeat_chunked_means[t]
+						for t in range(len(norm_sync)):
+							slope_array[i][j][t] = norm_sync[t]
+							tailbeat_offset_array[i][j][t] = tailbeat_chunked_means[t]
 							tailbeat_freq_array[i][j][t] = mean_tailbeat_freq_2[t]
 							spd_diff_array[i][j][t] = mean_tailbeat_spd_diff[t]
 
 						# print(mean_tailbeat_freq_2)
-						# sys.exit()
+						#sys.exit()
 
 
 				#sys.exit()
@@ -654,6 +670,7 @@ for flow in flows:
 
 							all_tbf.append(tailbeat_freq_array[f][g][i])
 							all_spd.append(spd_diff_array[f][g][i])
+							all_tb_off.append(tailbeat_offset_array[f][g][i])
 
 
 			all_xs = np.asarray(all_xs)
@@ -662,6 +679,8 @@ for flow in flows:
 			all_hs = np.asarray(all_hs)
 			all_tbf = np.asarray(all_tbf)
 			all_hs_old = np.asarray(all_hs_old)
+			all_spd = np.asarray(all_spd)
+			all_tb_off = np.asarray(all_tb_off)
 
 			# fig, axs = plt.subplots(2)
 			# axs[0].hist(all_hs_old)
@@ -675,6 +694,7 @@ for flow in flows:
 				np.save(f, all_hs)
 				np.save(f, all_tbf)
 				np.save(f, all_spd)
+				np.save(f, all_tb_off)
 
 			# sns.distplot(all_hs)
 			# #sns.distplot(fish_angles_2)
