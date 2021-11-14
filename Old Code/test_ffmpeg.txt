@@ -1,0 +1,11 @@
+for min in {0..100..10}; for max in {00..100..10}; do ffmpeg -r 10 -i 2021_07_01_01_TN_DY_F2_V1.cine -c:v libx264 -preset slow -crf 20 -pix_fmt yuvj420p -vf colorlevels=rimin=0.$min%:gimin=0.$min%:bimin=0.$min%:rimax=0.$max%:gimax=0.$max%:bimax=0.$max% "out_$min%_$max%.mp4"; done
+
+for min in {0..100..10}; for max in {00..100..10}; do echo colorlevels=rimin=0.$min:gimin=0.$min:bimin=0.$min:rimax=0.$max:gimax=0.$max:bimax=0.$max; done
+
+for min in {0..1}; for max in {0..1}; do ffmpeg -r 10 -i 2021_07_01_01_TN_DY_F2_V1.cine -vframes 10 -c:v libx264 -preset slow -crf 20 -pix_fmt yuvj420p -vf colorlevels=rimin=0.$min,colorlevels=gimin=0.$min -vf colorlevels=bimin=0.$min -vf colorlevels=rimax=0.$max -vf colorlevels=gimax=0.$max -vf colorlevels=bimax=0.$max "out_{$min}_{$max}.mp4"; done
+
+for min in {0..9..1}; for max in {0..9..1}; for omin in {0..9..1}; for omax in {0..9..1}; do ffmpeg -r 10 -i 2021_07_01_01_TN_DY_F2_V1.cine -vframes 5 -c:v libx264 -preset slow -crf 20 -pix_fmt yuvj420p -vf colorlevels=rimin=0."$min":gimin=0."$min":bimin=0."$min":rimax=0."$max":gimax=0."$max":bimax=0."$max":romin=0."$omin":gomin=0."$omin":bomin=0."$omin":romax=0."$omax":gomax=0."$omax":bomax=0."$omax" "out_"$min"_"$max"_"$omin"_"$omax".mp4"; done
+
+for min in {0..1}; for max in {0..1}; do echo "out_"$min"_"$max".mp4"; done
+
+for min in {6..9..1}; for max in {0..9..1}; for omin in {0..9..1}; for omax in {0..9..1}; do ffmpeg -r 10 -i 2021_07_01_01_TN_DY_F2_V1.cine -vframes 5 -c:v libx264 -preset slow -crf 20 -pix_fmt yuvj420p -vf colorlevels=rimin=0."$min":gimin=0."$min":bimin=0."$min":rimax=0."$max":gimax=0."$max":bimax=0."$max":romin=0."$omin":gomin=0."$omin":bomin=0."$omin":romax=0."$omax":gomax=0."$omax":bomax=0."$omax" "out_"$min"_"$max"_"$omin"_"$omax".mp4"; done

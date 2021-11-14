@@ -165,10 +165,14 @@ b_parts_csv = ["head","tailbase","midline2","tailtip"]
 n_b_parts = len(b_parts_csv)
 b_parts = ["head","midline2","tailbase","tailtip"]
 
-fish_dict_V1,time_points_V1 = DLC_CSV_to_dict(num_fish = n_fish, fish_parts = b_parts_csv, file = "2020_07_28_11_TN_DN_F0_V1DLC_resnet50_L8FVJul4shuffle1_100000_bx_filtered.csv")
-fish_dict_V2,time_points_V2 = DLC_CSV_to_dict(num_fish = n_fish, fish_parts = b_parts_csv, file = "2020_07_28_11_TN_DN_F0_V2DLC_resnet50_L8FV4PFeb22shuffle1_100000_bx_filtered.csv")
+#fish_dict_V1,time_points_V1 = DLC_CSV_to_dict(num_fish = n_fish, fish_parts = b_parts_csv, file = "2020_07_28_11_TN_DN_F0_V1DLC_resnet50_L8FVJul4shuffle1_100000_bx_filtered.csv")
+#fish_dict_V2,time_points_V2 = DLC_CSV_to_dict(num_fish = n_fish, fish_parts = b_parts_csv, file = "2020_07_28_11_TN_DN_F0_V2DLC_resnet50_L8FV4PFeb22shuffle1_100000_bx_filtered.csv")
 
-calib_csv = pd.read_csv("4_22_21_easy_wand_calib_dltCoefs.csv")
+fish_dict_V1,time_points_V1 = DLC_CSV_to_dict(num_fish = n_fish, fish_parts = b_parts_csv, file = "2020_07_28/2020_7_28_11_TN_DN_F0_V1DLC_dlcrnetms5_DLC_2-2_4P_8F_Light_VentralMay10shuffle1_100000_el_filtered.csv")
+fish_dict_V2,time_points_V2 = DLC_CSV_to_dict(num_fish = n_fish, fish_parts = b_parts_csv, file = "2020_07_28/2020_7_28_11_TN_DN_F0_V2DLC_dlcrnetms5_DLC_2-2_4P_8F_Light_VentralMay10shuffle1_100000_el_filtered.csv")
+
+#calib_csv = pd.read_csv("4_22_21_easy_wand_calib_dltCoefs.csv")
+calib_csv = pd.read_csv("2020_07_28/4_22_21_easy_wand_calib_dltCoefs.csv")
 calib_cols = calib_csv.columns
 
 camera_coeffs = np.zeros((2,11))
@@ -199,11 +203,16 @@ for i in range(n_fish):
 for fish in range(n_fish):
 	for part in b_parts:
 		for i in range(time_points_V1):
-			points_3D = DLTdvRecon(camera_coeffs,[[fish_dict_V1[fish][part]["x"][i],fish_dict_V1[fish][part]["y"][i]] , [fish_dict_V2[fish][part]["x"][i],fish_dict_V2[fish][part]["y"][i]]])
 
-			fish_dict_3D[fish][part]["x"][i] = points_3D[0]
-			fish_dict_3D[fish][part]["y"][i] = points_3D[1]
-			fish_dict_3D[fish][part]["z"][i] = points_3D[2]
+			uvs = [[fish_dict_V1[fish][part]["x"][i],fish_dict_V1[fish][part]["y"][i]],[fish_dict_V2[fish][part]["x"][i],fish_dict_V2[fish][part]["y"][i]]]
+
+			if not np.isnan(np.sum(uvs)):
+
+				points_3D = DLTdvRecon(camera_coeffs,uvs)
+
+				fish_dict_3D[fish][part]["x"][i] = points_3D[0]
+				fish_dict_3D[fish][part]["y"][i] = points_3D[1]
+				fish_dict_3D[fish][part]["z"][i] = points_3D[2]
 
 #Okay so for plotly we want a n_fish*n_b_parts by 5 (fish,bp,x,y,z) by timepoints array
 
@@ -222,7 +231,10 @@ for t in range(time_points_V1):
 
 df = pd.DataFrame(plotly_data)
 
-fig = px.scatter_3d(df,x="x", y="y", z="z", color="Fish", animation_frame="Frame", hover_data = ["BodyPart"])
+fig = px.scatter_3d(df,x="x", y="y", z="z", color="Fish", animation_frame="Frame", hover_data = ["BodyPart"],
+						range_x=[-0.25,0.25], range_y=[-0.15,0.15], range_z=[-0.15,0.15], color_continuous_scale = "rainbow")
+
+fig.update_layout(margin=dict(l=0, r=0, b=0, t=0))
 
 xmin = df["x"].min()
 xmax = df["x"].max()
@@ -231,18 +243,27 @@ ymax = df["y"].max()
 zmin = df["z"].min()
 zmax = df["z"].max()
 
-print(df["x"][0])
-print(df["y"][0])
-print(df["z"][0])
-print(df["Fish"][0])
-print(df["BodyPart"][0])
-print(df["Frame"][0])
+print(xmin)
+print(xmax)
+print(ymin)
+print(ymax)
+print(zmin)
+print(zmax)
 
-fig.update_layout(
-	scene = dict(
-		xaxis = dict(nticks=4, range=[-0.2,0.2],),
-		yaxis = dict(nticks=4, range=[-0.2,0.2],),
-		zaxis = dict(nticks=4, range=[-1,1],),))
+df.to_csv("some_data.csv")
+# print()
+# print(df["x"][0])
+# print(df["y"][0])
+# print(df["z"][0])
+# print(df["Fish"][0])
+# print(df["BodyPart"][0])
+# print(df["Frame"][0])
+
+# fig.update_layout(
+# 	scene = dict(
+# 		xaxis = dict(nticks=4, range=[-0.25,0.25],),
+# 		yaxis = dict(nticks=4, range=[-0.2,0.2],),
+# 		zaxis = dict(nticks=4, range=[-0.15,0.15],),))
 
 fig.show()
 

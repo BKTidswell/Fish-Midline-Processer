@@ -276,3 +276,4 @@ Anova(spd_mean_p_fit)
 spd_mean_dBin_fit <- glm(mean_spd~distBin*cond, data=spd_sum)
 Anova(spd_mean_dBin_fit)
 ICtab(spd_mean_p_fit,spd_mean_dBin_fit)
+
