@@ -69,6 +69,8 @@ def mean_tailbeat_chunk(data,tailbeat_len):
     return mean_data[::tailbeat_len]
 
 def angular_mean_tailbeat_chunk(data,tailbeat_len):
+    data = np.deg2rad(data)
+
     max_tb_frame = len(data)-len(data)%tailbeat_len
     mean_data = np.zeros(max_tb_frame)
 
@@ -78,8 +80,8 @@ def angular_mean_tailbeat_chunk(data,tailbeat_len):
 
         data_range = data[start:end]
 
-        cos_mean = np.mean(np.cos(np.deg2rad(data_range)))
-        sin_mean = np.mean(np.sin(np.deg2rad(data_range)))
+        cos_mean = np.mean(np.cos(data_range))
+        sin_mean = np.mean(np.sin(data_range))
 
         #SIN then COSINE
         angular_mean = np.rad2deg(np.arctan2(sin_mean,cos_mean))
@@ -158,8 +160,8 @@ class fish_data:
         head_y_next = np.roll(self.head_y, -1)
 
         #You exclude the last value becuase of how it gets rolled over
-        #It is divided in order to get it in body lengths
-        self.speed = get_dist_np(self.head_x,self.head_y,head_x_next,head_y_next)[:-1]/fish_len
+        #It is divided in order to get it in body lengths and then times fps to get BL/s
+        self.speed = get_dist_np(self.head_x,self.head_y,head_x_next,head_y_next)[:-1]/fish_len * fps
 
     def calc_tailtip_perp(self):
 
@@ -262,11 +264,11 @@ class fish_comp:
 
     def calc_dist(self):        
         #Divided to get it into bodylengths
-        self.x_diff = self.f1.head_x - self.f2.head_x/fish_len
+        self.x_diff = (self.f1.head_x - self.f2.head_x)/fish_len
          #the y_diff is negated so it faces correctly upstream
         self.y_diff = -1*(self.f1.head_y - self.f2.head_y)/fish_len
 
-        self.dist = get_dist_np(0,0,self.x_diff,self.y_diff)/fish_len
+        self.dist = get_dist_np(0,0,self.x_diff,self.y_diff)
 
     def calc_angle(self):
         #Calculate the angle of the x and y difference in degrees
@@ -277,12 +279,11 @@ class fish_comp:
         self.angle = np.mod(angles_diff_360+90,360)
 
     def calc_heading_diff(self):
-        #Absolute value since -180 and 180 are the same
-        self.heading_diff = abs(np.rad2deg(np.arctan2(np.sin(self.f1.heading-self.f2.heading),
-                                                      np.cos(self.f1.heading-self.f2.heading))))
+        self.heading_diff = np.rad2deg(np.arctan2(np.sin(self.f1.heading-self.f2.heading),
+                                                  np.cos(self.f1.heading-self.f2.heading)))
 
     def calc_speed_diff(self):
-        self.speed_diff = abs(self.f1.speed - self.f2.speed)
+        self.speed_diff = self.f1.speed - self.f2.speed
 
     def calc_tailbeat_offset(self):
         #Setup an array to hold all the zero crossing differences
@@ -493,7 +494,7 @@ class trial:
                 chunked_y_diifs = mean_tailbeat_chunk(current_comp.y_diff,tailbeat_len)
                 chunked_dists = mean_tailbeat_chunk(current_comp.dist,tailbeat_len)
                 chunked_angles = mean_tailbeat_chunk(current_comp.angle,tailbeat_len)
-                chunked_heading_diffs = angular_mean_tailbeat_chunk(np.deg2rad(current_comp.heading_diff),tailbeat_len)
+                chunked_heading_diffs = angular_mean_tailbeat_chunk(current_comp.heading_diff,tailbeat_len)
                 chunked_speed_diffs = mean_tailbeat_chunk(current_comp.speed_diff,tailbeat_len)
                 chunked_tailbeat_offsets = mean_tailbeat_chunk(current_comp.tailbeat_offset_reps,tailbeat_len)
 
@@ -516,7 +517,7 @@ class trial:
                      'Angle': chunked_angles[:short_data_length],
                      'Heading_Diff': chunked_heading_diffs[:short_data_length],
                      'Speed_Diff': chunked_speed_diffs[:short_data_length],
-                     'Tailbeat_Offset_Change': chunked_tailbeat_offsets[:short_data_length]}
+                     'Synchonization': chunked_tailbeat_offsets[:short_data_length]}
 
                 if firstfish:
                     out_data = pd.DataFrame(data=d)
@@ -536,21 +537,9 @@ for file_name in os.listdir(data_folder):
 
         trials.append(trial(file_name,data_folder))
 
-#Recalculate when new data is added
-# all_trials_tailbeat_lens = []
-# all_trials_fish_lens = []
-
-# for trial in trials:
-#     all_trials_tailbeat_lens.extend(trial.return_tailbeat_lens())
-#     all_trials_fish_lens.extend(trial.return_fish_lens())
-
-# print("Tailbeat Len Median")
-# print(np.nanmedian(all_trials_tailbeat_lens)) #19
-
-# print("Fish Len Median")
-# print(np.nanmedian(all_trials_fish_lens)) #193
-
 first_trial = True
+
+print("Creating CSVs...")
 
 for trial in trials:
     if first_trial:
@@ -567,6 +556,18 @@ fish_comp_dataframe.to_csv("Fish_Comp_Values.csv")
 
 
 
+#Recalculate when new data is added
+# all_trials_tailbeat_lens = []
+# all_trials_fish_lens = []
 
+# for trial in trials:
+#     all_trials_tailbeat_lens.extend(trial.return_tailbeat_lens())
+#     all_trials_fish_lens.extend(trial.return_fish_lens())
+
+# print("Tailbeat Len Median")
+# print(np.nanmedian(all_trials_tailbeat_lens)) #19
+
+# print("Fish Len Median")
+# print(np.nanmedian(all_trials_fish_lens)) #193
 
 
