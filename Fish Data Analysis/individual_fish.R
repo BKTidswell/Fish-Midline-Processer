@@ -7,11 +7,10 @@ indiv_data <- read.csv("Fish_Individual_Values.csv")
 indiv_data <- na.omit(indiv_data)
 
 indiv_data <- indiv_data %>% mutate(Flow = ifelse(Flow == "0", "Flow 0", "Flow 2")) %>%
-                             mutate(Abalation = ifelse(Abalation == "N", "No Ablation", "Ablated")) %>%
-                             mutate(Darkness = ifelse(Darkness == "N", "Light", "Dark")) %>%
-                             rename(Ablation = Abalation)
+                             mutate(Ablation = ifelse(Ablation == "N", "No Ablation", "Ablated")) %>%
+                             mutate(Darkness = ifelse(Darkness == "N", "Light", "Dark"))
 
-m_speed <- aov(Speed ~ Flow + Ablation + Darkness + Flow*Ablation + Flow*Darkness, data = indiv_data)
+m_speed <- aov(Speed ~ Flow + Ablation + Darkness + Flow:Ablation + Flow:Darkness, data = indiv_data)
 Anova(m_speed)
 TukeyHSD(m_speed)
 

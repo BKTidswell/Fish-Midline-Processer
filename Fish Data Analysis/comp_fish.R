@@ -50,10 +50,22 @@ predict_df <- na.omit(predict_df)
 
 ## Speed Differences
 
-speed_gam <- gam(Speed_Diff ~ s(Distance)+s(Angle)+Flow+Darkness+Ablation, data = comp_data)
+speed_gam <- gam(Speed_Diff ~ s(Distance)+s(Angle)+s(Distance,Angle)+Flow+Darkness+Ablation, data = comp_data)
 summary(speed_gam)
 plot(speed_gam,pages=1,residuals=TRUE)
 speed_pred <- predict_df %>% mutate(Speed_Diff = predict.gam(speed_gam,predict_df))
+
+ggplot(speed_pred, aes(x = Distance, y = Speed_Diff))+
+  geom_smooth()+
+  scale_fill_viridis() +
+  facet_wrap(~ Flow + Ablation + Darkness) +
+  theme_light()
+
+ggplot(speed_pred, aes(x = Angle, y = Speed_Diff))+
+  geom_smooth()+
+  scale_fill_viridis() +
+  facet_wrap(~ Flow + Ablation + Darkness) +
+  theme_light()
 
 ggplot(speed_pred, aes(x = X_Distance, y = Y_Distance, fill = Speed_Diff))+
   geom_tile()+
@@ -71,10 +83,22 @@ ggplot(sum_comp_data , aes(x = X_Distance, y = Y_Distance, fill = Speed_Diff))+
 
 ## Heading Differences
 
-heading_gam <- gam(Heading_Diff ~ s(Distance)+s(Angle)+Flow+Darkness+Ablation, data = comp_data)
+heading_gam <- gam(Heading_Diff ~ s(Distance)+s(Angle)+s(Distance,Angle)+Flow+Darkness+Ablation, data = comp_data)
 summary(heading_gam)
 plot(heading_gam,pages=1,residuals=TRUE)
 heading_pred <- predict_df %>% mutate(Heading_Diff = predict.gam(heading_gam,predict_df))
+
+ggplot(heading_pred, aes(x = Distance, y = Heading_Diff))+
+  geom_smooth()+
+  scale_fill_viridis() +
+  facet_wrap(~ Flow + Ablation + Darkness) +
+  theme_light()
+
+ggplot(heading_pred, aes(x = Angle, y = Heading_Diff))+
+  geom_smooth()+
+  scale_fill_viridis() +
+  facet_wrap(~ Flow + Ablation + Darkness) +
+  theme_light()
 
 ggplot(heading_pred, aes(x = X_Distance, y = Y_Distance, fill = Heading_Diff))+
   geom_tile()+
@@ -92,10 +116,22 @@ ggplot(sum_comp_data , aes(x = X_Distance, y = Y_Distance, fill = abs(Heading_Di
 
 ## Sync Differences
 
-sync_gam <- gam(Sync ~ s(Distance)+s(Angle)+Flow+Darkness+Ablation, data = comp_data)
+sync_gam <- gam(Sync ~ s(Distance)+s(Angle)+s(Distance,Angle)+Flow+Darkness+Ablation, data = comp_data)
 summary(sync_gam)
 plot(sync_gam,pages=1,residuals=TRUE)
 sync_pred <- predict_df %>% mutate(Sync = predict.gam(sync_gam,predict_df))
+
+ggplot(sync_pred, aes(x = Distance, y = Sync))+
+  geom_smooth()+
+  scale_fill_viridis() +
+  facet_wrap(~ Flow + Ablation + Darkness) +
+  theme_light()
+
+ggplot(sync_pred, aes(x = Angle, y = Sync))+
+  geom_smooth()+
+  scale_fill_viridis() +
+  facet_wrap(~ Flow + Ablation + Darkness) +
+  theme_light()
 
 ggplot(sync_pred, aes(x = X_Distance, y = Y_Distance, fill = Sync))+
   geom_tile()+

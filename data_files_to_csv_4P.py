@@ -17,6 +17,7 @@ import matplotlib as mpl
 from matplotlib import gridspec 
 import pandas as pd
 import numpy as np
+import random
 import math
 import os
 
@@ -108,7 +109,7 @@ def x_intercept(x1,y1,x2,y2):
     return intercept
 
 class fish_data:
-    def __init__(self, name, data, scorer):
+    def __init__(self, name, data, scorer, flow):
         #This sets up all of the datapoints that I will need from this fish
         self.name = name
         self.head_x = data[scorer][name]["head"]["x"].to_numpy() 
@@ -123,6 +124,8 @@ class fish_data:
         self.tailtip_x = data[scorer][name]["tailtip"]["x"].to_numpy() 
         self.tailtip_y = data[scorer][name]["tailtip"]["y"].to_numpy()
         self.tailtip_perp = [] 
+
+        self.flow = flow
         
         #These are all blank and will be used for graphing
         self.normalized_tailtip = []
@@ -152,16 +155,26 @@ class fish_data:
         vec_y = head_y_next - self.head_y
 
         #Then we use arctan to calculate the heading based on the x and y point vectors
-        self.heading = np.rad2deg(np.arctan2(vec_y,vec_x))
+        #Becasue of roll we don't want to the last value since it will be wrong
+        self.heading = np.rad2deg(np.arctan2(vec_y,vec_x))[:-1]
 
     def calc_speed(self):
         #First we get the next points on the fish
         head_x_next = np.roll(self.head_x, -1)
         head_y_next = np.roll(self.head_y, -1)
 
-        #You exclude the last value becuase of how it gets rolled over
+        #Then we create a vector of the future point minus the last one
+        vec_x = head_x_next - self.head_x
+        vec_y = head_y_next - self.head_y
+
+        #Then we add the flow to the x value
+        #Since (0,0) is in the upper left a positive vec_x value value means it is moving downstream
+        #so I should subtract the flow value 
+        #The flow value is mutliplied by the fish length since the vec_x values are in pixels, but it is in BLS so divide by fps
+        vec_x_flow = vec_x - (self.flow*fish_len)/fps
+
         #It is divided in order to get it in body lengths and then times fps to get BL/s
-        self.speed = get_dist_np(self.head_x,self.head_y,head_x_next,head_y_next)[:-1]/fish_len * fps
+        self.speed = np.sqrt(vec_x_flow**2+vec_y**2)[:-1]/fish_len * fps
 
     def calc_tailtip_perp(self):
 
@@ -258,7 +271,7 @@ class fish_comp:
         self.calc_angle()
         self.calc_heading_diff()
         self.calc_speed_diff()
-        self.calc_tailbeat_hilbert()
+        self.calc_rayleigh_r()
 
         #self.graph_values()
 
@@ -283,7 +296,8 @@ class fish_comp:
                                                   np.cos(self.f1.heading-self.f2.heading)))
 
     def calc_speed_diff(self):
-        self.speed_diff = self.f1.speed - self.f2.speed
+        #I want to absolute value so that -1 and 1 average to 1, not 0
+        self.speed_diff = abs(self.f1.speed - self.f2.speed)
 
     def calc_tailbeat_offset(self):
         #Setup an array to hold all the zero crossing differences
@@ -324,15 +338,18 @@ class fish_comp:
 
     def calc_tailbeat_hilbert(self):
 
+        #First we remove the NAs from the arrays
         f1_tailtip_na_rm = self.f1.tailtip_zero_centered[~np.isnan(self.f1.tailtip_zero_centered)]
         f2_tailtip_na_rm = self.f2.tailtip_zero_centered[~np.isnan(self.f2.tailtip_zero_centered)]
 
+        #Then we get the hilbert signal and phase for both fish
         f1_analytic_signal = hilbert(f1_tailtip_na_rm)
         f1_instantaneous_phase = np.unwrap(np.angle(f1_analytic_signal))
 
         f2_analytic_signal = hilbert(f2_tailtip_na_rm)
         f2_instantaneous_phase = np.unwrap(np.angle(f2_analytic_signal))
 
+        #Then we put the NAs back into the arrays in the right places
         f1_instantaneous_phase_nan = np.zeros(self.f1.tailtip_zero_centered.shape)
         f1_instantaneous_phase_nan[f1_instantaneous_phase_nan == 0] = np.nan
         f1_instantaneous_phase_nan[~np.isnan(self.f1.tailtip_zero_centered)] = f1_instantaneous_phase
@@ -341,13 +358,79 @@ class fish_comp:
         f2_instantaneous_phase_nan[f2_instantaneous_phase_nan == 0] = np.nan
         f2_instantaneous_phase_nan[~np.isnan(self.f2.tailtip_zero_centered)] = f2_instantaneous_phase
 
+        #We smooth the signal and take the absolute values
         abs_diff_smooth = savgol_filter(abs(f2_instantaneous_phase_nan - f1_instantaneous_phase_nan),11,1)
 
-        sync_slope = np.gradient(abs_diff_smooth)*2
+        #Then we find the slope of the signal
+        sync_slope = np.gradient(abs_diff_smooth)
 
+        #We would do this, but instead we do it after averaging instead since the abs and the pwoer messes that up 
         #norm_sync = np.power(2,abs(sync_slope)*-1)
 
         self.tailbeat_offset_reps = sync_slope
+
+    def calc_rayleigh_r(self):
+        #We do the same first thing to calculate the phase offsets
+
+        #Setup an array to hold all the zero crossing differences
+        tailbeat_offsets = np.zeros((len(self.f1.zero_crossings),len(self.f2.zero_crossings)))
+        tailbeat_offsets[:] = np.nan
+
+        for i in range(len(self.f1.zero_crossings)-2):
+            #First we find all the points between each of the fish1 zero crossings
+            next_point = np.where((self.f2.zero_crossings >= self.f1.zero_crossings[i]) & (self.f2.zero_crossings < self.f1.zero_crossings[i+1]))[0]
+
+            #Then for each point we find the time intercept be calculating the x intercept
+            # You find the slope between the point before and after the zero crossing, and get the
+            # intercept from there.
+            for j in next_point:
+                f1_zero_cross_time = x_intercept(self.f1.zero_crossings[i]+1,
+                                                 self.f1.tailtip_zero_centered[self.f1.zero_crossings[i]+1],
+                                                 self.f1.zero_crossings[i],
+                                                 self.f1.tailtip_zero_centered[self.f1.zero_crossings[i]])
+
+                f2_zero_cross_time = x_intercept(self.f2.zero_crossings[j]+1,
+                                                 self.f2.tailtip_zero_centered[self.f2.zero_crossings[j]+1],
+                                                 self.f2.zero_crossings[j],
+                                                 self.f2.tailtip_zero_centered[self.f2.zero_crossings[j]])
+
+                #The Fish 2 value will be larger so we substract Fish 1 from it to make it positive
+                tailbeat_offsets[i][j] = f2_zero_cross_time - f1_zero_cross_time
+
+        #Then we take the mean in case there are multiple Fish 2 tailbeats within 1 fish 1 tailbeat
+        tailbeat_offset_means = np.nanmean(tailbeat_offsets, axis=1)
+
+        #Now take these offset means and turn them into an angle from 0 to 2pi
+        #Divide by the tailbeat length they were in and then multiply by 2pi
+        tailbeat_offset_circ_scaled = (tailbeat_offset_means/tailbeat_len)*2*np.pi
+
+        #Now stepping through by 5 we see calculate Rayleigh's R
+        window = 5
+        rayleigh_out = []
+
+        for i in range(len(tailbeat_offset_circ_scaled)-window):
+
+            #Get the window
+            rayleigh_window = tailbeat_offset_circ_scaled[i:i+window]
+
+            #Calcualte the x and y coordinates on the unit circle from the angle
+            xs = np.cos(rayleigh_window)
+            ys = np.sin(rayleigh_window)
+
+            #Take the mean of x and of y
+            mean_xs = np.nanmean(xs)
+            mean_ys = np.nanmean(ys)
+
+            #Find the magnitude of this new vector
+            magnitude = np.sqrt(mean_xs**2 + mean_ys**2)
+
+            #Append this value
+            rayleigh_out.append(magnitude)
+
+        tailbeat_lengths = abs(np.diff(np.append(self.f1.zero_crossings,len(self.f1.tailtip_zero_centered))))
+
+        self.tailbeat_offset_reps = np.repeat(rayleigh_out,tailbeat_lengths[:len(rayleigh_out)])
+
 
 
     def graph_values(self):
@@ -423,12 +506,20 @@ class trial:
         self.data = pd.read_csv(data_folder+file_name, index_col=0, header=header)
         self.scorer = self.data.keys()[0][0]
 
-        self.fishes = [fish_data("individual"+str(i+1),self.data,self.scorer) for i in range(n_fish)]
+        self.fishes = [fish_data("individual"+str(i+1),self.data,self.scorer,int(self.flow)) for i in range(n_fish)]
+
+        #This sets the indexes so I can avoid any issues with having Fish 1 always be compared first 
+        # and so on and so forth
+        self.fish_comp_indexes = [[i,j] for i in range(n_fish) for j in range(i+1,n_fish)]
+
+        for pair in self.fish_comp_indexes:
+            random.shuffle(pair)
+
         self.fish_comps = [[0 for j in range(self.n_fish)] for i in range(self.n_fish)]
 
-        for i in range(self.n_fish):
-            for j in range(i+1,self.n_fish):
-                self.fish_comps[i][j] = fish_comp(self.fishes[i],self.fishes[j])
+        #Now we fill in based on the randomized pairs
+        for pair in self.fish_comp_indexes:
+            self.fish_comps[pair[0]][pair[1]] = fish_comp(self.fishes[pair[0]],self.fishes[pair[1]])
 
     def return_trial_vals(self):
         print(self.year,self.month,self.day,self.trial,self.abalation,self.darkness,self.flow)
@@ -465,14 +556,15 @@ class trial:
                  'Month': np.repeat(self.month,short_data_length),
                  'Day': np.repeat(self.day,short_data_length),
                  'Trial': np.repeat(self.trial,short_data_length), 
-                 'Abalation': np.repeat(self.abalation,short_data_length), 
+                 'Ablation': np.repeat(self.abalation,short_data_length), 
                  'Darkness': np.repeat(self.darkness,short_data_length), 
                  'Flow': np.repeat(self.flow,short_data_length), 
                  'Fish': np.repeat(fish.name,short_data_length),
                  'Tailbeat Num': range(short_data_length),
                  'Heading': chunked_headings[:short_data_length], 
                  'Speed': chunked_speeds[:short_data_length], 
-                 'TB_Frequency': chunked_tb_freqs[:short_data_length]}
+                 'TB_Frequency': chunked_tb_freqs[:short_data_length],
+                 'Fish_Length': chunked_tb_freqs[:short_data_length]}
 
             if firstfish:
                 out_data = pd.DataFrame(data=d)
@@ -485,45 +577,44 @@ class trial:
     def return_comp_vals(self):
         firstfish = True
 
-        for i in range(self.n_fish):
-            for j in range(i+1,self.n_fish):
+        for pair in self.fish_comp_indexes:
 
-                current_comp = self.fish_comps[i][j]
+            current_comp = self.fish_comps[pair[0]][pair[1]]
 
-                chunked_x_diffs = mean_tailbeat_chunk(current_comp.x_diff,tailbeat_len)
-                chunked_y_diifs = mean_tailbeat_chunk(current_comp.y_diff,tailbeat_len)
-                chunked_dists = mean_tailbeat_chunk(current_comp.dist,tailbeat_len)
-                chunked_angles = mean_tailbeat_chunk(current_comp.angle,tailbeat_len)
-                chunked_heading_diffs = angular_mean_tailbeat_chunk(current_comp.heading_diff,tailbeat_len)
-                chunked_speed_diffs = mean_tailbeat_chunk(current_comp.speed_diff,tailbeat_len)
-                chunked_tailbeat_offsets = mean_tailbeat_chunk(current_comp.tailbeat_offset_reps,tailbeat_len)
+            chunked_x_diffs = mean_tailbeat_chunk(current_comp.x_diff,tailbeat_len)
+            chunked_y_diifs = mean_tailbeat_chunk(current_comp.y_diff,tailbeat_len)
+            chunked_dists = mean_tailbeat_chunk(current_comp.dist,tailbeat_len)
+            chunked_angles = mean_tailbeat_chunk(current_comp.angle,tailbeat_len)
+            chunked_heading_diffs = angular_mean_tailbeat_chunk(current_comp.heading_diff,tailbeat_len)
+            chunked_speed_diffs = mean_tailbeat_chunk(current_comp.speed_diff,tailbeat_len)
+            chunked_tailbeat_offsets = mean_tailbeat_chunk(current_comp.tailbeat_offset_reps,tailbeat_len)
 
-                short_data_length = min([len(chunked_x_diffs),len(chunked_y_diifs),len(chunked_dists),
-                                         len(chunked_angles),len(chunked_heading_diffs),len(chunked_speed_diffs),
-                                         len(chunked_tailbeat_offsets)])
+            short_data_length = min([len(chunked_x_diffs),len(chunked_y_diifs),len(chunked_dists),
+                                     len(chunked_angles),len(chunked_heading_diffs),len(chunked_speed_diffs),
+                                     len(chunked_tailbeat_offsets)])
 
-                d = {'Year': np.repeat(self.year,short_data_length),
-                     'Month': np.repeat(self.month,short_data_length),
-                     'Day': np.repeat(self.day,short_data_length),
-                     'Trial': np.repeat(self.trial,short_data_length), 
-                     'Abalation': np.repeat(self.abalation,short_data_length), 
-                     'Darkness': np.repeat(self.darkness,short_data_length), 
-                     'Flow': np.repeat(self.flow,short_data_length), 
-                     'Fish': np.repeat(current_comp.name,short_data_length),
-                     'Tailbeat Num': range(short_data_length),
-                     'X_Distance': chunked_x_diffs[:short_data_length], 
-                     'Y_Distance': chunked_y_diifs[:short_data_length], 
-                     'Distance': chunked_dists[:short_data_length],
-                     'Angle': chunked_angles[:short_data_length],
-                     'Heading_Diff': chunked_heading_diffs[:short_data_length],
-                     'Speed_Diff': chunked_speed_diffs[:short_data_length],
-                     'Synchonization': chunked_tailbeat_offsets[:short_data_length]}
+            d = {'Year': np.repeat(self.year,short_data_length),
+                 'Month': np.repeat(self.month,short_data_length),
+                 'Day': np.repeat(self.day,short_data_length),
+                 'Trial': np.repeat(self.trial,short_data_length), 
+                 'Ablation': np.repeat(self.abalation,short_data_length), 
+                 'Darkness': np.repeat(self.darkness,short_data_length), 
+                 'Flow': np.repeat(self.flow,short_data_length), 
+                 'Fish': np.repeat(current_comp.name,short_data_length),
+                 'Tailbeat Num': range(short_data_length),
+                 'X_Distance': chunked_x_diffs[:short_data_length], 
+                 'Y_Distance': chunked_y_diifs[:short_data_length], 
+                 'Distance': chunked_dists[:short_data_length],
+                 'Angle': chunked_angles[:short_data_length],
+                 'Heading_Diff': chunked_heading_diffs[:short_data_length],
+                 'Speed_Diff': chunked_speed_diffs[:short_data_length],
+                 'Sync': chunked_tailbeat_offsets[:short_data_length]}
 
-                if firstfish:
-                    out_data = pd.DataFrame(data=d)
-                    firstfish = False
-                else:
-                    out_data = out_data.append(pd.DataFrame(data=d))
+            if firstfish:
+                out_data = pd.DataFrame(data=d)
+                firstfish = False
+            else:
+                out_data = out_data.append(pd.DataFrame(data=d))
 
         return(out_data)
 
@@ -531,13 +622,18 @@ data_folder = "Finished_Fish_Data_4P_gaps/"
 
 trials = []
 
+single_file = "" #"2021_08_03_11_LY_DN_F2_V1DLC_dlcrnetms5_DLC_2-2_4P_8F_Light_VentralMay10shuffle1_100000_el_filtered.csv"
+
 for file_name in os.listdir(data_folder):
-    if file_name.endswith(".csv"):
+    if file_name.endswith(".csv") and single_file in file_name:
         print(file_name)
 
         trials.append(trial(file_name,data_folder))
 
 first_trial = True
+
+pair = trials[0].fish_comp_indexes[12]
+trials[0].fishes[0].graph_values()
 
 print("Creating CSVs...")
 
@@ -552,9 +648,6 @@ for trial in trials:
 
 fish_sigular_dataframe.to_csv("Fish_Individual_Values.csv")
 fish_comp_dataframe.to_csv("Fish_Comp_Values.csv")
-
-
-
 
 #Recalculate when new data is added
 # all_trials_tailbeat_lens = []

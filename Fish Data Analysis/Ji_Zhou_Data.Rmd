@@ -1,0 +1,90 @@
+---
+title: "Fish Data For Ji Zhou"
+output: html_notebook
+---
+
+```{r}
+library(tidyverse)
+library(ggplot2)
+library(car)
+library(viridis)
+library(boot)
+```
+
+```{r}
+comp_data <- read.csv("Fish_Comp_Values.csv")
+comp_data <- na.omit(comp_data)
+
+comp_data <- comp_data %>% mutate(Flow = ifelse(Flow == "0", "Flow 0", "Flow 2")) %>%
+                           mutate(Ablation = ifelse(Ablation == "N", "No Ablation", "Ablated")) %>%
+                           mutate(Darkness = ifelse(Darkness == "N", "Light", "Dark")) %>%
+                           mutate(Heading_Diff = abs(Heading_Diff)) %>%
+                           filter(Distance <= 4) %>%
+                           filter(Speed_Diff <= 6) %>% 
+                           mutate(quarter_heading_diff = abs(abs(Heading_Diff-90)-90)) %>%
+                           mutate(Is_Aligned = ifelse(Heading_Diff < 30, 1, 0)) %>%
+                           mutate(Is_Reversed = ifelse(Heading_Diff > 150, 1, 0)) %>%
+                           mutate(Angle = fold_angle_0_360_to_0_180(Angle))
+
+indiv_data <- indiv_data %>% mutate(Flow = ifelse(Flow == "0", "Flow 0", "Flow 2")) %>%
+                             mutate(Ablation = ifelse(Ablation == "N", "No Ablation", "Ablated")) %>%
+                             mutate(Darkness = ifelse(Darkness == "N", "Light", "Dark"))
+
+```
+
+
+Tank Size: 60cm long and 25cm wide
+
+Fish Size:
+
+  Small Fish: 
+    Length: 
+    Width:
+    Height:
+    
+  Big Fish: 
+    Length: 
+    Width:
+    Height:
+    
+Flow: 10.16 cm/s 
+
+```{r}
+comp_data %>% group_by(Flow, Ablation, Darkness) %>% summarise(mean_Dist = round(mean(Distance),2), 
+                                                                sd_Dist = round(sd(Distance),2))
+```
+
+NND:
+  Still Mean: 1.87
+  Still SD:   0.89
+  
+  Flow Mean:  1.90
+  Flow SD:    1.00
+  
+```{r}
+indiv_data %>% group_by(Flow, Ablation, Darkness) %>% summarise(mean_Dist = round(mean(Speed),2), 
+                                                                sd_Dist = round(sd(Speed),2))
+```
+  
+Speed:
+  Still Mean: 1.42
+  Still SD:   0.83
+  
+  Flow Mean:  2.38
+  Flow SD:    0.66
+  
+```{r}
+indiv_data %>% group_by(Flow, Ablation, Darkness) %>% summarise(mean_Dist = round(mean(TB_Frequency),2), 
+                                                                sd_Dist = round(sd(TB_Frequency),2))
+```
+  
+Tailbeat Frequency:
+  Still Mean: 2.29
+  Still SD:   1.15
+  
+  Flow Mean:  2.82
+  Flow SD:    1.43
+
+	
+
+
