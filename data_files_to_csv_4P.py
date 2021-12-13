@@ -230,7 +230,9 @@ class fish_data:
 
         ax0 = plt.subplot(gs[:,0])
         ax0.plot(self.head_x, self.head_y)
+        ax0.scatter(self.head_x[0], self.head_y[0])
         ax0.plot(self.tailtip_x, self.tailtip_y)
+        ax0.scatter(self.tailtip_x[0], self.tailtip_y[0])
         ax0.set_title("Fish Path (Blue = Head, Orange = Tailtip)")
 
         ax1 = plt.subplot(gs[0,1])
@@ -285,19 +287,21 @@ class fish_comp:
 
     def calc_angle(self):
         #Calculate the angle of the x and y difference in degrees
-        anglee_diff = np.rad2deg(np.arctan2(self.y_diff,self.x_diff))
+        angle_diff = np.rad2deg(np.arctan2(self.y_diff,self.x_diff))
         #This makes it from 0 to 360
-        angles_diff_360 = np.mod(abs(anglee_diff-360),360)
+        #angle_diff_360 = np.mod(abs(angle_diff-360),360)
         #This rotates it so that 0 is at the top and 180 is below the fish for a sideways swimming fish model
-        self.angle = np.mod(angles_diff_360+90,360)
+        #self.angle = np.mod(angle_diff_360+90,360)
+
+        #12/1/21: Back to making change notes. Now keeping it as the raw -180 to 180
+        self.angle = angle_diff
 
     def calc_heading_diff(self):
-        self.heading_diff = np.rad2deg(np.arctan2(np.sin(self.f1.heading-self.f2.heading),
-                                                  np.cos(self.f1.heading-self.f2.heading)))
+        self.heading_diff = np.rad2deg(np.arctan2(np.sin(np.deg2rad(self.f1.heading-self.f2.heading)),
+                                                  np.cos(np.deg2rad(self.f1.heading-self.f2.heading))))
 
     def calc_speed_diff(self):
-        #I want to absolute value so that -1 and 1 average to 1, not 0
-        self.speed_diff = abs(self.f1.speed - self.f2.speed)
+        self.speed_diff = self.f1.speed - self.f2.speed
 
     def calc_tailbeat_offset(self):
         #Setup an array to hold all the zero crossing differences
@@ -440,6 +444,8 @@ class fish_comp:
         ax0 = plt.subplot(gs[:,0])
         ax0.plot(self.f1.head_x, self.f1.head_y)
         ax0.plot(self.f2.head_x, self.f2.head_y)
+        ax0.scatter(self.f1.head_x[0], self.f1.head_y[0])
+        ax0.scatter(self.f2.head_x[0], self.f2.head_y[0])
         ax0.set_title("Fish Path (Blue = Fish 1, Orange = Fish 2)")
 
         ax1 = plt.subplot(gs[0,1])
@@ -582,14 +588,14 @@ class trial:
             current_comp = self.fish_comps[pair[0]][pair[1]]
 
             chunked_x_diffs = mean_tailbeat_chunk(current_comp.x_diff,tailbeat_len)
-            chunked_y_diifs = mean_tailbeat_chunk(current_comp.y_diff,tailbeat_len)
-            chunked_dists = mean_tailbeat_chunk(current_comp.dist,tailbeat_len)
+            chunked_y_diffs = mean_tailbeat_chunk(current_comp.y_diff,tailbeat_len)
+            chunked_dists = get_dist_np(0,0,chunked_x_diffs,chunked_y_diffs)
             chunked_angles = mean_tailbeat_chunk(current_comp.angle,tailbeat_len)
             chunked_heading_diffs = angular_mean_tailbeat_chunk(current_comp.heading_diff,tailbeat_len)
             chunked_speed_diffs = mean_tailbeat_chunk(current_comp.speed_diff,tailbeat_len)
             chunked_tailbeat_offsets = mean_tailbeat_chunk(current_comp.tailbeat_offset_reps,tailbeat_len)
 
-            short_data_length = min([len(chunked_x_diffs),len(chunked_y_diifs),len(chunked_dists),
+            short_data_length = min([len(chunked_x_diffs),len(chunked_y_diffs),len(chunked_dists),
                                      len(chunked_angles),len(chunked_heading_diffs),len(chunked_speed_diffs),
                                      len(chunked_tailbeat_offsets)])
 
@@ -603,7 +609,7 @@ class trial:
                  'Fish': np.repeat(current_comp.name,short_data_length),
                  'Tailbeat Num': range(short_data_length),
                  'X_Distance': chunked_x_diffs[:short_data_length], 
-                 'Y_Distance': chunked_y_diifs[:short_data_length], 
+                 'Y_Distance': chunked_y_diffs[:short_data_length], 
                  'Distance': chunked_dists[:short_data_length],
                  'Angle': chunked_angles[:short_data_length],
                  'Heading_Diff': chunked_heading_diffs[:short_data_length],
@@ -632,8 +638,8 @@ for file_name in os.listdir(data_folder):
 
 first_trial = True
 
-pair = trials[0].fish_comp_indexes[12]
-trials[0].fishes[0].graph_values()
+pair = trials[0].fish_comp_indexes[3]
+trials[0].fish_comps[pair[0]][pair[1]].graph_values()
 
 print("Creating CSVs...")
 

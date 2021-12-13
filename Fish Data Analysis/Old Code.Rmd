@@ -1,0 +1,299 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+
+```{r}
+ggplot(comp_data, aes(x = Distance, y = Speed_Diff, color = paste(Ablation,Darkness,sep="-"), fill = paste(Ablation,Darkness,sep="-")))+
+  geom_smooth(method = "gam", formula = y ~ s(x))+
+  facet_wrap(~ Flow) +
+  theme_light()
+
+ggplot(comp_data, aes(x = Distance, y = quarter_heading_diff, color = paste(Ablation,Darkness,sep="-"), fill = paste(Ablation,Darkness,sep="-")))+
+  geom_smooth(method = "gam", formula = y ~ s(x))+
+  facet_wrap(~ Flow) +
+  theme_light()
+
+ggplot(comp_data, aes(x = Distance, y = Sync, color = paste(Ablation,Darkness,sep="-"), fill = paste(Ablation,Darkness,sep="-")))+
+  geom_smooth(method = "gam", formula = y ~ s(x))+
+  facet_wrap(~ Flow) +
+  theme_light()
+```
+```{r}
+ggplot(comp_data, aes(x = Angle, y = Speed_Diff, color = paste(Ablation,Darkness,sep="-"), fill = paste(Ablation,Darkness,sep="-")))+
+  geom_smooth(method = "gam", formula = y ~ s(x))+
+  facet_wrap(~ Flow) +
+  theme_light()
+
+ggplot(comp_data, aes(x = Angle, y = quarter_heading_diff, color = paste(Ablation,Darkness,sep="-"), fill = paste(Ablation,Darkness,sep="-")))+
+  geom_smooth(method = "gam", formula = y ~ s(x))+
+  facet_wrap(~ Flow) +
+  theme_light()
+
+ggplot(comp_data, aes(x = Angle, y = Sync, color = paste(Ablation,Darkness,sep="-"), fill = paste(Ablation,Darkness,sep="-")))+
+  geom_smooth(method = "gam", formula = y ~ s(x))+
+  facet_wrap(~ Flow) +
+  theme_light()
+```
+
+This creates a dataframe that is used for making model predictions and graphing them
+```{r}
+d <- seq(from = 0, to = 4, by = 0.1)
+a <- seq(from = 0, to = 180, by = 10)
+
+flows <- c("Flow 0", "Flow 2")
+ablation <- c("No Ablation", "Ablated")
+dark <- c("Light","Dark")
+
+predict_df_da <- expand.grid(Distance = d, Angle = a, Flow = flows, Ablation = ablation, Darkness = dark)
+predict_df_da <- predict_df_da %>% mutate(X_Distance = Distance*(cos(deg2rad(Angle))), Y_Distance = Distance*(sin(deg2rad(Angle))))
+
+predict_df_da <- predict_df_da %>% filter(!(Ablation == "Ablated" & Darkness == 'Dark'))
+predict_df_da <- na.omit(predict_df_da)
+```
+
+
+### Speed Models
+
+So I want to make a model that tries to include both distance and angle. What I really need is to figure out what power works best for angle and distance, and then include that. The issue is stepwise selection can just remove one of them entirely. So I'm going to use cross validation to select the power for both of them, and then use that. I will also calculate the AICs to help in this decision making process
+
+```{r, warnings=F}
+set.seed(7)
+
+comp_data_speed_model <- comp_data %>% select(c(Flow,Darkness,Ablation,Angle,Distance,Speed_Diff))
+
+max_poly <- 10
+
+speed_dist_cv_error_10 <- rep(0,max_poly)
+speed_dist_AIC_10 <- rep(0,max_poly)
+
+
+for (i in 1:max_poly){
+  speed_dist_fit <- glm(Speed_Diff ~ poly(Distance,i)*(Ablation+Flow+Darkness+Ablation:Flow+Darkness:Flow),
+                        data = comp_data_speed_model)
+  speed_dist_cv_error_10[i] <- cv.glm(comp_data_speed_model, speed_dist_fit, K = 10)$delta[1]
+  speed_dist_AIC_10[i] <- AIC(speed_dist_fit)
+}
+
+speed_angle_cv_error_10 <- rep(0,max_poly)
+speed_angle_AIC_10 <- rep(0,max_poly)
+
+
+for (i in 1:max_poly){
+  speed_angle_fit <- glm(Speed_Diff ~ poly(Angle,i)*(Ablation+Flow+Darkness+Ablation:Flow+Darkness:Flow),
+                         data = comp_data_speed_model)
+  speed_angle_cv_error_10[i] <- cv.glm(comp_data_speed_model, speed_angle_fit, K = 10)$delta[1]
+  speed_angle_AIC_10[i] <- AIC(speed_angle_fit)
+}
+
+speed_poly_plot_df <- data.frame(c(seq(max_poly),seq(max_poly)),
+                                 c(speed_dist_cv_error_10,speed_angle_cv_error_10),
+                                 c(speed_dist_AIC_10,speed_angle_AIC_10),
+                                 c(rep("Distance",max_poly),rep("Angle",max_poly)))
+
+colnames(speed_poly_plot_df) <- c("Degree","Error","AIC","Predictor")
+
+speed_poly_plot_df <- speed_poly_plot_df %>% group_by(Predictor) %>%
+                                             mutate(minError = min(Error),minAIC = min(AIC)) %>%
+                                             ungroup() %>%
+                                             mutate(isMinEror = ifelse(Error == minError,3,1),isMinAIC = ifelse(AIC == minAIC,3,1))
+
+ggplot(speed_poly_plot_df, aes(x = Degree, y = Error, color = Predictor))+
+  geom_point(size = speed_poly_plot_df$isMinEror)+
+  geom_line()+
+  theme_light()+
+  facet_wrap(~ Predictor, scales = "free") +
+  scale_size(guide = "none")
+
+ggplot(speed_poly_plot_df, aes(x = Degree, y = AIC, color = Predictor))+
+  geom_point(size = speed_poly_plot_df$isMinAIC)+
+  geom_line()+
+  theme_light()+
+  facet_wrap(~ Predictor, scales = "free") +
+  scale_size(guide = "none")
+```
+Now let's use those polynomials to create the actual model
+
+While they not be the lowest, the big improvements happen at 4 for Distance, and 2 for Angle
+
+```{r}
+speed_diff_glm <- glm(Speed_Diff ~ poly(Distance,4)*poly(Angle,2)*(Ablation+Flow+Darkness+Ablation:Flow+Darkness:Flow),
+                        data = comp_data_speed_model)
+
+summary(speed_diff_glm)
+```
+
+Now let's make some predictions
+
+```{r}
+speed_pred <- predict_df_da %>% mutate(Speed_Diff = predict(speed_diff_glm,predict_df_da))
+
+comp_data <- comp_data %>% mutate(Round_Dist = as.factor(round_any(Distance,1)), Round_Angle = as.factor(round_any(Angle,30)))
+
+ggplot()+
+  geom_boxplot(data = comp_data, aes(x = Round_Dist, y = Speed_Diff))+
+  facet_wrap(~ Flow + Ablation + Darkness) +
+  theme_light()
+
+round_dist_aov <- aov(Speed_Diff ~ Round_Dist*(Flow + Ablation + Darkness + Flow:Ablation + Flow:Darkness), data = comp_data)
+Anova(round_dist_aov)
+
+ggplot()+
+  geom_boxplot(data = comp_data, aes(x = Round_Angle, y = Speed_Diff))+
+  facet_wrap(~ Flow + Ablation + Darkness) +
+  theme_light()
+
+round_angle_aov <- aov(Speed_Diff ~ Round_Angle*(Flow + Ablation + Darkness + Flow:Ablation + Flow:Darkness), data = comp_data)
+Anova(round_angle_aov)
+
+# ggplot()+
+#   geom_point(data = comp_data %>% filter(Speed_Diff <= 2), aes(x = Distance, y = Speed_Diff), alpha = 0.1)+
+#   geom_smooth(data = speed_pred, aes(x = Distance, y = Speed_Diff))+
+#   facet_wrap(~ Flow + Ablation + Darkness) +
+#   theme_light()
+
+# ggplot()+
+#   geom_density_2d_filled(data = comp_data %>% filter(Speed_Diff <= 2), aes(x = Distance, y = Speed_Diff), contour_var = "ndensity")+
+#   geom_smooth(data = speed_pred, aes(x = Distance, y = Speed_Diff, color = "red"))+
+#   facet_wrap(~ Flow + Ablation + Darkness) +
+#   theme_light()
+
+# ggplot()+
+#   geom_point(data = comp_data %>% filter(Speed_Diff <= 2), aes(x = Angle, y = Speed_Diff), alpha = 0.1)+
+#   geom_smooth(data = speed_pred, aes(x = Angle, y = Speed_Diff))+
+#   facet_wrap(~ Flow + Ablation + Darkness) +
+#   theme_light()
+
+# ggplot()+
+#   geom_density_2d_filled(data = comp_data %>% filter(Speed_Diff <= 2), aes(x = Angle, y = Speed_Diff), contour_var = "ndensity")+
+#   geom_smooth(data = speed_pred, aes(x = Angle, y = Speed_Diff, color = "red"))+
+#   facet_wrap(~ Flow + Ablation + Darkness) +
+#   theme_light()
+
+ggplot(data = comp_data, aes(x = Angle, y = Distance, z = Speed_Diff))+
+  stat_summary_2d() +
+  facet_wrap(~ Flow + Ablation + Darkness) +
+  scale_fill_viridis(direction = -1) +
+  theme_light()
+```
+You know let's just try stepwise as well. There's jsut way too many thing in that possible model
+
+```{r}
+
+speed_m_all <- glm(Speed_Diff ~ Distance*Angle*(Ablation+Flow+Darkness+Ablation:Flow+Darkness:Flow) +
+                                I(Distance^2)*I(Angle^2)*(Ablation+Flow+Darkness+Ablation:Flow+Darkness:Flow)+
+                                I(Distance^3)*I(Angle^3)*(Ablation+Flow+Darkness+Ablation:Flow+Darkness:Flow)+
+                                I(Distance^4)*I(Angle^4)*(Ablation+Flow+Darkness+Ablation:Flow+Darkness:Flow),
+                        data = comp_data_speed_model)
+
+speed_m_none <- glm(Speed_Diff ~ 1, data = comp_data_speed_model)
+
+speed_m_both <- step(speed_m_none, direction = "both", scope = formula(speed_m_all), trace = F)
+
+summary(speed_m_both)
+```
+
+### Sync Models
+
+Now let's try the same thing for sync values (Rayleigh's R)
+
+```{r, warnings=F}
+set.seed(7)
+
+comp_data_sync_model <- comp_data %>% select(c(Flow,Darkness,Ablation,Angle,Distance,Sync))
+
+max_poly <- 10
+
+sync_dist_cv_error_10 <- rep(0,max_poly)
+sybc_dist_AIC_10 <- rep(0,max_poly)
+
+
+for (i in 1:max_poly){
+  sync_dist_fit <- glm(Sync ~ poly(Distance,i)*(Ablation+Flow+Darkness+Ablation:Flow+Darkness:Flow),
+                        data = comp_data_sync_model)
+  sync_dist_cv_error_10[i] <- cv.glm(comp_data_sync_model, sync_dist_fit, K = 10)$delta[1]
+  sybc_dist_AIC_10[i] <- AIC(sync_dist_fit)
+}
+
+sync_angle_cv_error_10 <- rep(0,max_poly)
+sync_angle_AIC_10 <- rep(0,max_poly)
+
+
+for (i in 1:max_poly){
+  sync_angle_fit <- glm(Sync ~ poly(Angle,i)*(Ablation+Flow+Darkness+Ablation:Flow+Darkness:Flow),
+                         data = comp_data_sync_model)
+  sync_angle_cv_error_10[i] <- cv.glm(comp_data_sync_model, sync_angle_fit, K = 10)$delta[1]
+  sync_angle_AIC_10[i] <- AIC(sync_angle_fit)
+}
+
+sync_poly_plot_df <- data.frame(c(seq(max_poly),seq(max_poly)),
+                                 c(speed_dist_cv_error_10,speed_angle_cv_error_10),
+                                 c(speed_dist_AIC_10,speed_angle_AIC_10),
+                                 c(rep("Distance",max_poly),rep("Angle",max_poly)))
+
+colnames(sync_poly_plot_df) <- c("Degree","Error","AIC","Predictor")
+
+sync_poly_plot_df <- sync_poly_plot_df %>% group_by(Predictor) %>%
+                                             mutate(minError = min(Error),minAIC = min(AIC)) %>%
+                                             ungroup() %>%
+                                             mutate(isMinEror = ifelse(Error == minError,3,1),isMinAIC = ifelse(AIC == minAIC,3,1))
+
+ggplot(sync_poly_plot_df, aes(x = Degree, y = Error, color = Predictor))+
+  geom_point(size = sync_poly_plot_df$isMinEror)+
+  geom_line()+
+  theme_light()+
+  facet_wrap(~ Predictor, scales = "free") +
+  scale_size(guide = "none")
+
+ggplot(sync_poly_plot_df, aes(x = Degree, y = AIC, color = Predictor))+
+  geom_point(size = sync_poly_plot_df$isMinAIC)+
+  geom_line()+
+  theme_light()+
+  facet_wrap(~ Predictor, scales = "free") +
+  scale_size(guide = "none")
+```
+Now let's use those polynomials to create the actual model
+
+While they not be the lowest, the big improvements happen at 2 for Distance, and 2 for Angle
+
+```{r}
+sync_diff_glm <- glm(Sync ~ I(Distance^2)*I(Angle^2)*(Ablation+Flow+Darkness+Ablation:Flow+Darkness:Flow),
+                        data = comp_data_sync_model)
+
+summary(sync_diff_glm)
+```
+
+Now let's make some predictions
+
+```{r}
+sync_pred <- predict_df_da %>% mutate(Sync = predict(sync_diff_glm,predict_df_da))
+
+ggplot(comp_data, aes(x = Distance, y = Sync))+
+  geom_point(alpha = 0.1)+
+  geom_smooth(method = lm, formula = y ~ poly(x, 2)) +
+  facet_wrap(~ Flow + Ablation + Darkness) +
+  theme_light()
+
+ggplot(comp_data, aes(x = Angle, y = Sync))+
+  geom_point(alpha = 0.1)+
+  geom_smooth(method = glm, formula = y ~ poly(x, 2))+
+  facet_wrap(~ Flow + Ablation + Darkness) +
+  theme_light()
+
+ggplot(sync_pred, aes(x = Distance, y = Sync))+
+  geom_smooth()+
+  scale_fill_viridis() +
+  facet_wrap(~ Flow + Ablation + Darkness) +
+  theme_light()
+
+ggplot(sync_pred, aes(x = Angle, y = Sync))+
+  geom_smooth()+
+  scale_fill_viridis() +
+  facet_wrap(~ Flow + Ablation + Darkness) +
+  theme_light()
+```
+
+
+

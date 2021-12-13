@@ -35,17 +35,27 @@ indiv_data <- indiv_data %>% mutate(Flow = ifelse(Flow == "0", "Flow 0", "Flow 2
 
 Tank Size: 60cm long and 25cm wide
 
-Fish Size:
+Fish Size (cm):
 
-  Small Fish: 
-    Length: 
-    Width:
-    Height:
+  Fish 1: 
+    Length: 8.2
+    Width:  0.8
+    Height: 1.8
     
-  Big Fish: 
-    Length: 
-    Width:
-    Height:
+  Fish 2: 
+    Length: 6.7
+    Width:  0.8
+    Height: 1.7
+    
+  Fish 3: 
+    Length: 7.3
+    Width:  0.7
+    Height: 1.6
+    
+  Fish 4: 
+    Length: 6.6
+    Width:  0.7
+    Height: 1.4
     
 Flow: 10.16 cm/s 
 
