@@ -108,6 +108,30 @@ def x_intercept(x1,y1,x2,y2):
 
     return intercept
 
+#Calculates the uniformity of a distribution of phases or angles as a dimensionless number from 0 to 1
+#Data must be given already normalized between 0 and 2pi
+
+def rayleigh_cor(data):
+    #Make an empy array the length of long axis of data
+    out_cor = np.zeros(data.shape[0])
+
+    #Get each time point as an array
+    for i,d in enumerate(data):
+        #Calcualte the x and y coordinates on the unit circle from the angle
+        xs = np.cos(d)
+        ys = np.sin(d)
+
+        #Take the mean of x and of y
+        mean_xs = np.nanmean(xs)
+        mean_ys = np.nanmean(ys)
+
+        #Find the magnitude of this new vector
+        magnitude = np.sqrt(mean_xs**2 + mean_ys**2)
+
+        out_cor[i] = magnitude
+
+    return out_cor
+
 class fish_data:
     def __init__(self, name, data, scorer, flow):
         #This sets up all of the datapoints that I will need from this fish
@@ -183,7 +207,7 @@ class fish_data:
 
         out_tailtip_perps = []
 
-        #My old code does this frame by frame. THere may be a way to vectorize it, but I'm not sure about that yet
+        #My old code does this frame by frame. There may be a way to vectorize it, but I'm not sure about that yet
         for i in range(total_frames):
             #Create a vector from the head to the tailtip and from the head to the midline
             tailtip_vec = np.asarray([self.head_x[i]-self.tailtip_x[i],self.head_y[i]-self.tailtip_y[i],0])
@@ -220,8 +244,13 @@ class fish_data:
         tb_freq = 60/np.diff(self.zero_crossings)
 
         #Then we repeat it to match the length of the tailbeats
-        tailbeat_lengths = abs(np.diff(np.append(self.zero_crossings,len(self.tailtip_zero_centered))))
-        self.tb_freq_reps = np.repeat(tb_freq,tailbeat_lengths[:len(tb_freq)])
+        tailbeat_lengths = np.diff(np.append(self.zero_crossings,len(self.tailtip_zero_centered)))
+        #This is so that if the first one does start at zero, a bit gets added on so that they all end up the same length
+        #Some fish are gone entirely, and this breaks if I call an index when the fish don't have any points
+        if(len(self.zero_crossings) > 0):
+            tailbeat_lengths[0] += self.zero_crossings[0]
+            #Now we append this here so that they all stay the same length. This basically extends the last tailbeat.
+            self.tb_freq_reps = np.repeat(np.append(tb_freq,tb_freq[-1]),tailbeat_lengths) #[:len(tb_freq)])
 
     #Thsi function allows me to graph values for any fish without trying to cram it into a for loop somewhere
     def graph_values(self):
@@ -496,6 +525,108 @@ class fish_comp:
 
         plt.show()
 
+
+
+class school_comps:
+    def __init__(self, fishes, n_fish, flow):
+        self.fishes = fishes
+        self.n_fish = n_fish
+        self.flow = flow
+
+        self.school_center_x = []
+        self.school_center_y = []
+        self.school_x_sd = []
+        self.school_y_sd = []
+
+        self.group_speed = []
+        self.group_tb_freq =[]
+        self.polarization = []
+
+        self.correlation_strength = []
+        self.nearest_neighbor_distance = []
+        self.group_tailbeat_cor = []
+
+        self.calc_school_pos_stats()
+        self.calc_school_speed()
+        self.calc_school_tb_freq()
+        self.calc_school_polarization()
+        self.calc_nnd()
+        self.calc_tailbeat_cor()
+
+    def calc_school_pos_stats(self):
+        school_xs = [fish.head_x for fish in self.fishes]
+        school_ys = [fish.head_y for fish in self.fishes]
+
+        self.school_center_x = np.nanmean(school_xs, axis=0)
+        self.school_center_y = np.nanmean(school_ys, axis=0)
+
+        self.school_x_sd = np.nanstd(school_xs, axis=0)
+        self.school_y_sd = np.nanstd(school_xs, axis=0)
+
+    def calc_school_speed(self):
+        #Based on the movement of the center of the school, not the mean of all the fish speeds
+
+        #First we get the next points for the group
+        group_x_next = np.roll(self.school_center_x, -1)
+        group_y_next = np.roll(self.school_center_y, -1)
+
+        #Then we create a vector of the future point minus the last one
+        vec_x = group_x_next - self.school_center_x
+        vec_y = group_y_next - self.school_center_y
+
+        #Then we add the flow to the x value
+        #Since (0,0) is in the upper left a positive vec_x value value means it is moving downstream
+        #so I should subtract the flow value 
+        #The flow value is mutliplied by the fish length since the vec_x values are in pixels, but it is in BLS so divide by fps
+        vec_x_flow = vec_x - (self.flow*fish_len)/fps
+
+        #It is divided in order to get it in body lengths and then times fps to get BL/s
+        self.group_speed = np.sqrt(vec_x_flow**2+vec_y**2)[:-1]/fish_len * fps
+
+    def calc_school_tb_freq(self):
+        tb_collect = []
+
+        for fish in self.fishes:
+            if len(fish.tb_freq_reps) > 0:
+                tb_collect.append(fish.tb_freq_reps)
+
+        self.group_tb_freq = np.nanmean(tb_collect, axis=0) 
+
+    def calc_school_polarization(self):
+        #formula from McKee 2020
+        sin_headings = np.sin(np.deg2rad([fish.heading for fish in self.fishes]))
+        cos_headings = np.cos(np.deg2rad([fish.heading for fish in self.fishes]))
+
+        self.polarization = (1/self.n_fish)*np.sqrt(np.nansum(sin_headings, axis=0)**2 + np.nansum(cos_headings, axis=0))
+
+    def calc_nnd(self):
+        #first we make an array to fill with the NNDs 
+        nnd_array = np.asarray([[[999 for j in range(self.n_fish)] for i in range(self.n_fish)] for t in range(len(self.school_center_x))])
+
+        nnd_array  = np.zeros((len(self.school_center_x),self.n_fish,self.n_fish)) + 999
+
+        #now calculate all nnds
+        for i in range(self.n_fish):
+            for j in range(self.n_fish):
+
+                if i != j:
+                    fish1 = self.fishes[i]
+                    fish2 = self.fishes[j]
+
+                    dists = get_dist_np(fish1.head_x,fish1.head_y,fish2.head_x,fish2.head_y)
+
+                    for t in range(len(self.school_center_x)):
+                        nnd_array[t][i][j] = dists[t]
+
+        #Then we get the mins of each row (or column, they are the same), and then get the mean for the mean
+        # NND for that timepoint
+        self.nearest_neighbor_distance = np.nanmean(np.nanmin(nnd_array,axis = 1),axis = 1)
+
+    def calc_tailbeat_cor(self):
+        pass
+
+        #rayleigh_cor()
+
 class trial:
     def __init__(self, file_name, data_folder, n_fish = 8):
         self.file = file_name
@@ -527,6 +658,8 @@ class trial:
         for pair in self.fish_comp_indexes:
             self.fish_comps[pair[0]][pair[1]] = fish_comp(self.fishes[pair[0]],self.fishes[pair[1]])
 
+        self.school_comp = school_comps(self.fishes, n_fish = n_fish, flow = int(self.flow))
+
     def return_trial_vals(self):
         print(self.year,self.month,self.day,self.trial,self.abalation,self.darkness,self.flow)
 
@@ -545,7 +678,6 @@ class trial:
             all_fish_lens.extend(get_fish_length(fish))
 
         return all_fish_lens
-
 
     def return_fish_vals(self):
         firstfish = True
@@ -624,6 +756,39 @@ class trial:
 
         return(out_data)
 
+    def return_school_vals(self):
+
+        chunked_x_center = mean_tailbeat_chunk(self.school_comp.school_center_x,tailbeat_len)
+        chunked_y_center = mean_tailbeat_chunk(self.school_comp.school_center_y,tailbeat_len)
+        chunked_x_sd = mean_tailbeat_chunk(self.school_comp.school_x_sd,tailbeat_len)
+        chunked_y_sd = mean_tailbeat_chunk(self.school_comp.school_y_sd,tailbeat_len)
+        chunked_group_speed = mean_tailbeat_chunk(self.school_comp.group_speed,tailbeat_len)
+        chunked_group_tb_freq = mean_tailbeat_chunk(self.school_comp.group_tb_freq,tailbeat_len)
+        chunked_nnd = mean_tailbeat_chunk(self.school_comp.polarization,tailbeat_len)
+
+        short_data_length = min([len(chunked_x_center),len(chunked_y_center),len(chunked_x_sd),
+                                 len(chunked_y_sd),len(chunked_group_speed),len(chunked_group_tb_freq),
+                                 len(chunked_nnd)])
+
+        d = {'Year': np.repeat(self.year,short_data_length),
+             'Month': np.repeat(self.month,short_data_length),
+             'Day': np.repeat(self.day,short_data_length),
+             'Trial': np.repeat(self.trial,short_data_length), 
+             'Ablation': np.repeat(self.abalation,short_data_length), 
+             'Darkness': np.repeat(self.darkness,short_data_length), 
+             'Flow': np.repeat(self.flow,short_data_length), 
+             'X_Center': chunked_x_center[:short_data_length], 
+             'Y_Center': chunked_y_center[:short_data_length], 
+             'X_SD': chunked_x_sd[:short_data_length], 
+             'Y_SD': chunked_y_sd[:short_data_length], 
+             'School_Speed': chunked_group_speed[:short_data_length], 
+             'School_TB_Freq': chunked_group_tb_freq[:short_data_length], 
+             'NND': chunked_nnd[:short_data_length]}
+
+        out_data = pd.DataFrame(data=d)
+
+        return(out_data)
+
 data_folder = "Finished_Fish_Data_4P_gaps/"
 
 trials = []
@@ -638,8 +803,8 @@ for file_name in os.listdir(data_folder):
 
 first_trial = True
 
-pair = trials[0].fish_comp_indexes[3]
-trials[0].fish_comps[pair[0]][pair[1]].graph_values()
+#pair = trials[0].fish_comp_indexes[3]
+#trials[0].fish_comps[pair[0]][pair[1]].graph_values()
 
 print("Creating CSVs...")
 
@@ -647,13 +812,16 @@ for trial in trials:
     if first_trial:
         fish_sigular_dataframe = trial.return_fish_vals()
         fish_comp_dataframe = trial.return_comp_vals()
+        fish_school_dataframe = trial.return_school_vals()
         first_trial = False
     else:
         fish_sigular_dataframe = fish_sigular_dataframe.append(trial.return_fish_vals())
         fish_comp_dataframe = fish_comp_dataframe.append(trial.return_comp_vals())
+        fish_school_dataframe = fish_school_dataframe.append(trial.return_school_vals())
 
 fish_sigular_dataframe.to_csv("Fish_Individual_Values.csv")
 fish_comp_dataframe.to_csv("Fish_Comp_Values.csv")
+fish_school_dataframe.to_csv("Fish_School_Values.csv")
 
 #Recalculate when new data is added
 # all_trials_tailbeat_lens = []
