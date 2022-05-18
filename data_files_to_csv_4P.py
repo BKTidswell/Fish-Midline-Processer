@@ -169,15 +169,13 @@ class fish_data:
         self.calc_tailtip_perp()
         self.calc_tb_freq()
 
-    #This function clacualtes the heading of the fish at each timepoint
+    #This function calcualtes the pitch heading of the fish at each timepoint
+    #We are using body heading now, so midline to head, not head to next head
     def calc_heading(self):
-        #First we get the next points on the fish
-        head_x_next = np.roll(self.head_x, -1)
-        head_y_next = np.roll(self.head_y, -1)
 
-        #Then we create a vector of the future point minus the last one
-        vec_x = head_x_next - self.head_x
-        vec_y = head_y_next - self.head_y
+        #Then we create a vector of the head minus the midline 
+        vec_x = self.head_x - self.midline_x
+        vec_y = self.head_y - self.midline_y
 
         #Then we use arctan to calculate the heading based on the x and y point vectors
         #Becasue of roll we don't want to the last value since it will be wrong

@@ -36,13 +36,18 @@ moving_average_n = 35
 tailbeat_len = 19
 
 #Fish len is the median of all fish lengths in pixels
-fish_len = 193
+#Scale is different becasue of calibration
+fish_len = 0.07195
 
 #Header list for reading the raw location CSVs
 header = list(range(4))
 
 def get_dist_np(x1s,y1s,x2s,y2s):
     dist = np.sqrt((x1s-x2s)**2+(y1s-y2s)**2)
+    return dist
+
+def get_dist_np_3D(x1s,y1s,z1s,x2s,y2s,z2s):
+    dist = np.sqrt((x1s-x2s)**2+(y1s-y2s)**2+(z1s-z2s)**2)
     return dist
 
 def get_fish_length(fish):
@@ -141,15 +146,25 @@ class fish_data:
         self.name = name
         self.head_x = data[scorer][name]["head"]["x"].to_numpy() 
         self.head_y = data[scorer][name]["head"]["y"].to_numpy() 
+        self.head_z = data[scorer][name]["head"]["z"].to_numpy() 
 
         self.midline_x = data[scorer][name]["midline2"]["x"].to_numpy() 
         self.midline_y = data[scorer][name]["midline2"]["y"].to_numpy() 
+        self.midline_z = data[scorer][name]["midline2"]["z"].to_numpy() 
 
         self.tailbase_x = data[scorer][name]["tailbase"]["x"].to_numpy() 
         self.tailbase_y = data[scorer][name]["tailbase"]["y"].to_numpy() 
+        self.tailbase_z = data[scorer][name]["tailbase"]["z"].to_numpy()
 
         self.tailtip_x = data[scorer][name]["tailtip"]["x"].to_numpy() 
         self.tailtip_y = data[scorer][name]["tailtip"]["y"].to_numpy()
+        self.tailtip_z = data[scorer][name]["tailtip"]["z"].to_numpy()
+
+        self.vec_x = []
+        self.vec_y = []
+        self.vec_z = []
+        self.vec_xy = []
+
         self.tailtip_perp = [] 
 
         self.flow = flow
@@ -160,48 +175,69 @@ class fish_data:
         self.tailtip_zero_centered = []
 
         #These are the summary stats for the fish 
-        self.heading = []
+        self.yaw_heading = []
+        self.pitch_heading = []
         self.speed = []
         self.zero_crossings = []
         self.tb_freq_reps = []
 
         #This calcualtes the summary stats
-        self.calc_heading()
+        self.calc_yaw_heading()
+        self.calc_pitch_heading()
         self.calc_speed()
         self.calc_tailtip_perp()
         self.calc_tb_freq()
 
-    #This function clacualtes the heading of the fish at each timepoint
-    def calc_heading(self):
-        #First we get the next points on the fish
-        head_x_next = np.roll(self.head_x, -1)
-        head_y_next = np.roll(self.head_y, -1)
-
-        #Then we create a vector of the future point minus the last one
-        vec_x = head_x_next - self.head_x
-        vec_y = head_y_next - self.head_y
+    #This function calcualtes the yaw heading of the fish at each timepoint
+    #We are using body heading now, so midline to head, not head to next head
+    def calc_yaw_heading(self):
+        #Then we create a vector of the head minus the midline 
+        self.vec_x = self.head_x - self.midline_x
+        self.vec_y = self.head_y - self.midline_y
 
         #Then we use arctan to calculate the heading based on the x and y point vectors
         #Becasue of roll we don't want to the last value since it will be wrong
-        self.heading = np.rad2deg(np.arctan2(vec_y,vec_x))[:-1]
+        self.yaw_heading = np.rad2deg(np.arctan2(self.vec_y,self.vec_x))
+
+        # print(self.vec_x)
+        # print(self.vec_y)
+        # print(self.yaw_heading)
+
+        # sys.exit()
+
+    #This function calcualtes the pitch heading of the fish at each timepoint
+    #We are using body heading now, so midline to head, not head to next head
+    def calc_pitch_heading(self):
+        #Then we create a vector of the head minus the midline 
+        self.vec_x = self.head_x - self.midline_x
+        self.vec_y = self.head_y - self.midline_y
+        self.vec_z = self.head_z - self.midline_z
+
+        self.vec_xy = get_dist_np(0,0,self.vec_x,self.vec_y)
+
+        #Then we use arctan to calculate the heading based on the x and y point vectors
+        #Becasue of roll we don't want to the last value since it will be wrong
+        self.pitch_heading = np.rad2deg(np.arctan2(self.vec_xy,self.vec_z))
 
     def calc_speed(self):
         #First we get the next points on the fish
         head_x_next = np.roll(self.head_x, -1)
         head_y_next = np.roll(self.head_y, -1)
+        head_z_next = np.roll(self.head_z, -1)
 
         #Then we create a vector of the future point minus the last one
-        vec_x = head_x_next - self.head_x
-        vec_y = head_y_next - self.head_y
+        speed_vec_x = head_x_next - self.head_x
+        speed_vec_y = head_y_next - self.head_y
+        speed_vec_z = head_z_next - self.head_z
 
         #Then we add the flow to the x value
         #Since (0,0) is in the upper left a positive vec_x value value means it is moving downstream
         #so I should subtract the flow value 
         #The flow value is mutliplied by the fish length since the vec_x values are in pixels, but it is in BLS so divide by fps
-        vec_x_flow = vec_x - (self.flow*fish_len)/fps
+        vec_x_flow = speed_vec_x - (self.flow*fish_len)/fps
 
         #It is divided in order to get it in body lengths and then times fps to get BL/s
-        self.speed = np.sqrt(vec_x_flow**2+vec_y**2)[:-1]/fish_len * fps
+        self.speed = np.sqrt(vec_x_flow**2+speed_vec_y**2+speed_vec_z**2)[:-1]/fish_len * fps
 
     def calc_tailtip_perp(self):
 
@@ -213,11 +249,11 @@ class fish_data:
         #My old code does this frame by frame. There may be a way to vectorize it, but I'm not sure about that yet
         for i in range(total_frames):
             #Create a vector from the head to the tailtip and from the head to the midline
-            tailtip_vec = np.asarray([self.head_x[i]-self.tailtip_x[i],self.head_y[i]-self.tailtip_y[i],0])
-            midline_vec = np.asarray([self.head_x[i]-self.midline_x[i],self.head_y[i]-self.midline_y[i],0])
+            tailtip_vec = np.asarray([self.head_x[i]-self.tailtip_x[i],self.head_y[i]-self.tailtip_y[i],self.head_z[i]-self.tailtip_z[i]])
+            midline_vec = np.asarray([self.head_x[i]-self.midline_x[i],self.head_y[i]-self.midline_y[i],self.head_z[i]-self.midline_z[i]])
 
             #Then we make the midline vector a unit vector
-            vecDist = np.sqrt(midline_vec[0]**2 + midline_vec[1]**2)
+            vecDist = np.sqrt(midline_vec[0]**2 + midline_vec[1]**2 + midline_vec[2]**2)
             midline_unit_vec = midline_vec/vecDist
 
             #We take the cross product of the midline unit vecotr to get a vector perpendicular to it
@@ -295,15 +331,18 @@ class fish_comp:
 
         self.x_diff = []
         self.y_diff = []
+        self.z_diff = []
         self.dist = []
         self.angle = []
-        self.heading_diff = []
+        self.yaw_heading_diff = []
+        self.pitch_heading_diff = []
         self.speed_diff = []
         self.tailbeat_offset_reps = []
 
         self.calc_dist()
         self.calc_angle()
-        self.calc_heading_diff()
+        self.calc_yaw_heading_diff()
+        self.calc_pitch_heading_diff()
         self.calc_speed_diff()
         self.calc_rayleigh_r()
 
@@ -312,10 +351,11 @@ class fish_comp:
     def calc_dist(self):        
         #Divided to get it into bodylengths
         self.x_diff = (self.f1.head_x - self.f2.head_x)/fish_len
-         #the y_diff is negated so it faces correctly upstream
+        #the y_diff is negated so it faces correctly upstream
         self.y_diff = -1*(self.f1.head_y - self.f2.head_y)/fish_len
+        self.z_diff = (self.f1.head_z - self.f2.head_z)/fish_len
 
-        self.dist = get_dist_np(0,0,self.x_diff,self.y_diff)
+        self.dist = get_dist_np_3D(0,0,0,self.x_diff,self.y_diff,self.z_diff)
 
     def calc_angle(self):
         #Calculate the angle of the x and y difference in degrees
@@ -328,9 +368,33 @@ class fish_comp:
         #12/1/21: Back to making change notes. Now keeping it as the raw -180 to 180
         self.angle = angle_diff
 
-    def calc_heading_diff(self):
-        self.heading_diff = np.rad2deg(np.arctan2(np.sin(np.deg2rad(self.f1.heading-self.f2.heading)),
-                                                  np.cos(np.deg2rad(self.f1.heading-self.f2.heading))))
+    #Now with a dot product!
+    def calc_yaw_heading_diff(self):
+        f1_vector = np.asarray([self.f1.vec_x,self.f1.vec_y]).transpose()
+        #print(f1_vector)
+        f2_vector = np.asarray([self.f2.vec_x,self.f2.vec_y]).transpose()
+
+        self.yaw_heading_diff = np.zeros(len(self.f1.vec_x))
+
+        for i in range(len(self.f1.vec_x)):
+            dot_product = np.dot(f1_vector[i], f2_vector[i])
+
+            prod_of_norms = np.linalg.norm(f1_vector[i]) * np.linalg.norm(f2_vector[i])
+            self.yaw_heading_diff[i] = np.degrees(np.arccos(dot_product / prod_of_norms))
+
+    #Now with a dot product!
+    def calc_pitch_heading_diff(self):
+        f1_vector = np.asarray([self.f1.vec_xy,self.f1.vec_z]).transpose()
+        #print(f1_vector)
+        f2_vector = np.asarray([self.f2.vec_xy,self.f2.vec_z]).transpose()
+
+        self.pitch_heading_diff = np.zeros(len(self.f1.vec_xy))
+
+        for i in range(len(self.f1.vec_x)):
+            dot_product = np.dot(f1_vector[i], f2_vector[i])
+
+            prod_of_norms = np.linalg.norm(f1_vector[i]) * np.linalg.norm(f2_vector[i])
+            self.pitch_heading_diff[i] = np.degrees(np.arccos(dot_product / prod_of_norms))
 
     def calc_heading_diff_filtered(self):
         #Makes sure that head wiggle doesn't mess up polarization
@@ -552,8 +616,10 @@ class school_comps:
 
         self.school_center_x = []
         self.school_center_y = []
+        self.school_center_z = []
         self.school_x_sd = []
         self.school_y_sd = []
+        self.school_z_sd = []
 
         self.group_speed = []
         self.group_tb_freq =[]
@@ -576,12 +642,15 @@ class school_comps:
     def calc_school_pos_stats(self):
         school_xs = [fish.head_x for fish in self.fishes]
         school_ys = [fish.head_y for fish in self.fishes]
+        school_zs = [fish.head_z for fish in self.fishes]
 
         self.school_center_x = np.nanmean(school_xs, axis=0)
         self.school_center_y = np.nanmean(school_ys, axis=0)
+        self.school_center_z = np.nanmean(school_zs, axis=0)
 
         self.school_x_sd = np.nanstd(school_xs, axis=0) / fish_len
         self.school_y_sd = np.nanstd(school_ys, axis=0) / fish_len
+        self.school_z_sd = np.nanstd(school_zs, axis=0) / fish_len
 
     def calc_school_speed(self):
         #Based on the movement of the center of the school, not the mean of all the fish speeds
@@ -589,10 +658,12 @@ class school_comps:
         #First we get the next points for the group
         group_x_next = np.roll(self.school_center_x, -1)
         group_y_next = np.roll(self.school_center_y, -1)
+        group_z_next = np.roll(self.school_center_z, -1)
 
         #Then we create a vector of the future point minus the last one
         vec_x = group_x_next - self.school_center_x
         vec_y = group_y_next - self.school_center_y
+        vec_z = group_z_next - self.school_center_z
 
         #Then we add the flow to the x value
         #Since (0,0) is in the upper left a positive vec_x value value means it is moving downstream
@@ -601,7 +672,7 @@ class school_comps:
         vec_x_flow = vec_x - (self.flow*fish_len)/fps
 
         #It is divided in order to get it in body lengths and then times fps to get BL/s
-        self.group_speed = np.sqrt(vec_x_flow**2+vec_y**2)[:-1]/fish_len * fps
+        self.group_speed = np.sqrt(vec_x_flow**2+vec_y**2+vec_z**2)[:-1]/fish_len * fps
 
     def calc_school_tb_freq(self):
         tb_collect = []
@@ -614,8 +685,8 @@ class school_comps:
 
     def calc_school_polarization(self):
         #formula from McKee 2020
-        sin_headings = np.sin(np.deg2rad([fish.heading for fish in self.fishes]))
-        cos_headings = np.cos(np.deg2rad([fish.heading for fish in self.fishes]))
+        sin_headings = np.sin(np.deg2rad([fish.yaw_heading for fish in self.fishes]))
+        cos_headings = np.cos(np.deg2rad([fish.yaw_heading for fish in self.fishes]))
 
         self.polarization = (1/self.n_fish)*np.sqrt(np.nansum(sin_headings, axis=0)**2 + np.nansum(cos_headings, axis=0)**2)
 
@@ -633,7 +704,7 @@ class school_comps:
                     fish1 = self.fishes[i]
                     fish2 = self.fishes[j]
 
-                    dists = get_dist_np(fish1.head_x,fish1.head_y,fish2.head_x,fish2.head_y)
+                    dists = get_dist_np_3D(fish1.head_x,fish1.head_y,fish1.head_z,fish2.head_x,fish2.head_y,fish2.head_z)
 
                     for t in range(len(self.school_center_x)):
                         nnd_array[t][i][j] = dists[t]
@@ -648,25 +719,35 @@ class school_comps:
     def calc_school_area(self):
         school_xs = np.asarray([fish.head_x for fish in self.fishes])
         school_ys = np.asarray([fish.head_y for fish in self.fishes])
+        school_zs = np.asarray([fish.head_z for fish in self.fishes])
 
         self.school_areas = [np.nan for i in range(len(school_xs[0]))]
 
         for i in range(len(school_xs[0])):
             x_row = school_xs[:,i]
             y_row = school_ys[:,i]
+            z_row = school_zs[:,i]
 
             mask = ~np.isnan(x_row)
 
             x_row = x_row[mask]
             y_row = y_row[mask]
+            z_row = z_row[mask]
 
             mask = ~np.isnan(y_row)
 
             x_row = x_row[mask]
             y_row = y_row[mask]
+            z_row = z_row[mask]
 
-            if len(x_row) >= 3:
-                points = np.column_stack((x_row,y_row))
+            mask = ~np.isnan(z_row)
+
+            x_row = x_row[mask]
+            y_row = y_row[mask]
+            z_row = z_row[mask]
+
+            if len(x_row) >= 4:
+                points = np.column_stack((x_row,y_row,z_row))
 
                 hull = ConvexHull(points)
 
@@ -694,8 +775,8 @@ class trial:
         # and so on and so forth
         self.fish_comp_indexes = [[i,j] for i in range(n_fish) for j in range(i+1,n_fish)]
 
-        for pair in self.fish_comp_indexes:
-            random.shuffle(pair)
+        # for pair in self.fish_comp_indexes:
+        #     random.shuffle(pair)
 
         self.fish_comps = [[0 for j in range(self.n_fish)] for i in range(self.n_fish)]
 
@@ -729,13 +810,16 @@ class trial:
 
         for fish in self.fishes:
 
-            chunked_headings = angular_mean_tailbeat_chunk(fish.heading,tailbeat_len)
+            chunked_yaw_headings = angular_mean_tailbeat_chunk(fish.yaw_heading,tailbeat_len)
+            chunked_pitch_headings = angular_mean_tailbeat_chunk(fish.pitch_heading,tailbeat_len)
             chunked_speeds = mean_tailbeat_chunk(fish.speed,tailbeat_len)
             chunked_tb_freqs = mean_tailbeat_chunk(fish.tb_freq_reps,tailbeat_len)
             chunked_x = mean_tailbeat_chunk(fish.head_x,tailbeat_len)
             chunked_y = mean_tailbeat_chunk(fish.head_y,tailbeat_len)
+            chunked_z = mean_tailbeat_chunk(fish.head_z,tailbeat_len)
 
-            short_data_length = min([len(chunked_headings),len(chunked_speeds),len(chunked_tb_freqs),
+            short_data_length = min([len(chunked_yaw_headings),len(chunked_pitch_headings),
+                                     len(chunked_speeds),len(chunked_tb_freqs),
                                      len(chunked_x),len(chunked_y)])
 
             d = {'Year': np.repeat(self.year,short_data_length),
@@ -749,7 +833,9 @@ class trial:
                  'Tailbeat_Num': range(short_data_length),
                  'X':chunked_x[:short_data_length],
                  'Y':chunked_y[:short_data_length],
-                 'Heading': chunked_headings[:short_data_length], 
+                 'Z':chunked_z[:short_data_length],
+                 'Yaw Heading': chunked_yaw_headings[:short_data_length], 
+                 'Pitch Heading': chunked_pitch_headings[:short_data_length], 
                  'Speed': chunked_speeds[:short_data_length], 
                  'TB_Frequency': chunked_tb_freqs[:short_data_length],
                  'Fish_Length': chunked_tb_freqs[:short_data_length]}
@@ -771,14 +857,17 @@ class trial:
 
             chunked_x_diffs = mean_tailbeat_chunk(current_comp.x_diff,tailbeat_len)
             chunked_y_diffs = mean_tailbeat_chunk(current_comp.y_diff,tailbeat_len)
+            chunked_z_diffs = mean_tailbeat_chunk(current_comp.z_diff,tailbeat_len)
             chunked_dists = get_dist_np(0,0,chunked_x_diffs,chunked_y_diffs)
             chunked_angles = mean_tailbeat_chunk(current_comp.angle,tailbeat_len)
-            chunked_heading_diffs = angular_mean_tailbeat_chunk(current_comp.heading_diff,tailbeat_len)
+            chunked_yaw_heading_diffs = angular_mean_tailbeat_chunk(current_comp.yaw_heading_diff,tailbeat_len)
+            chunked_pitch_heading_diffs = angular_mean_tailbeat_chunk(current_comp.pitch_heading_diff,tailbeat_len)
             chunked_speed_diffs = mean_tailbeat_chunk(current_comp.speed_diff,tailbeat_len)
             chunked_tailbeat_offsets = mean_tailbeat_chunk(current_comp.tailbeat_offset_reps,tailbeat_len)
 
             short_data_length = min([len(chunked_x_diffs),len(chunked_y_diffs),len(chunked_dists),
-                                     len(chunked_angles),len(chunked_heading_diffs),len(chunked_speed_diffs),
+                                     len(chunked_angles),len(chunked_yaw_heading_diffs),len(chunked_pitch_heading_diffs),
+                                     len(chunked_speed_diffs),
                                      len(chunked_tailbeat_offsets)])
 
             d = {'Year': np.repeat(self.year,short_data_length),
@@ -791,10 +880,12 @@ class trial:
                  'Fish': np.repeat(current_comp.name,short_data_length),
                  'Tailbeat_Num': range(short_data_length),
                  'X_Distance': chunked_x_diffs[:short_data_length], 
-                 'Y_Distance': chunked_y_diffs[:short_data_length], 
+                 'Y_Distance': chunked_y_diffs[:short_data_length],
+                 'Z_Distance': chunked_z_diffs[:short_data_length], 
                  'Distance': chunked_dists[:short_data_length],
                  'Angle': chunked_angles[:short_data_length],
-                 'Heading_Diff': chunked_heading_diffs[:short_data_length],
+                 'Yaw Heading_Diff': chunked_yaw_heading_diffs[:short_data_length],
+                 'Pitch Heading_Diff': chunked_pitch_heading_diffs[:short_data_length],
                  'Speed_Diff': chunked_speed_diffs[:short_data_length],
                  'Sync': chunked_tailbeat_offsets[:short_data_length]}
 
@@ -815,9 +906,9 @@ class trial:
 
             dists = get_dist_np(0,0,current_comp.x_diff,current_comp.y_diff)
 
-            short_data_length = min([len(current_comp.x_diff),len(current_comp.y_diff),len(dists),
-                                     len(current_comp.angle),len(current_comp.heading_diff),len(current_comp.speed_diff),
-                                     len(current_comp.tailbeat_offset_reps)])
+            short_data_length = min([len(current_comp.x_diff),len(current_comp.y_diff),len(current_comp.z_diff),len(dists),
+                                     len(current_comp.angle),len(current_comp.yaw_heading_diff),len(current_comp.pitch_heading_diff),
+                                     len(current_comp.speed_diff),len(current_comp.tailbeat_offset_reps)])
 
             # print([len(current_comp.x_diff),len(current_comp.y_diff),len(dists),
             #                          len(current_comp.angle),len(current_comp.heading_diff),len(current_comp.speed_diff),
@@ -839,12 +930,16 @@ class trial:
                      'Frame_Num': range(short_data_length),
                      'X_Distance': current_comp.x_diff[:short_data_length], 
                      'Y_Distance': current_comp.y_diff[:short_data_length], 
+                     'Z_Distance': current_comp.z_diff[:short_data_length], 
                      'Distance': dists[:short_data_length],
                      'Angle': current_comp.angle[:short_data_length],
                      #Smoothing to make sure fish head wiggle doen't mess up polarization
-                     'Fish1_Heading': current_comp.f1.heading[:short_data_length],
-                     'Fish2_Heading': current_comp.f2.heading[:short_data_length],
-                     'Heading_Diff': current_comp.heading_diff[:short_data_length],
+                     'Fish1_Yaw_Heading': current_comp.f1.yaw_heading[:short_data_length],
+                     'Fish1_Pitch_Heading': current_comp.f1.pitch_heading[:short_data_length],
+                     'Fish2_Yaw_Heading': current_comp.f2.yaw_heading[:short_data_length],
+                     'Fish2_Pitch_Heading': current_comp.f2.pitch_heading[:short_data_length],
+                     'Yaw_Heading_Diff': current_comp.yaw_heading_diff[:short_data_length],
+                     'Pitch_Heading_Diff': current_comp.pitch_heading_diff[:short_data_length],
                      'Speed_Diff': current_comp.speed_diff[:short_data_length],
                      'Sync': current_comp.tailbeat_offset_reps[:short_data_length]}
 
@@ -860,8 +955,10 @@ class trial:
 
         chunked_x_center = mean_tailbeat_chunk(self.school_comp.school_center_x,tailbeat_len)
         chunked_y_center = mean_tailbeat_chunk(self.school_comp.school_center_y,tailbeat_len)
+        chunked_z_center = mean_tailbeat_chunk(self.school_comp.school_center_z,tailbeat_len)
         chunked_x_sd = mean_tailbeat_chunk(self.school_comp.school_x_sd,tailbeat_len)
         chunked_y_sd = mean_tailbeat_chunk(self.school_comp.school_y_sd,tailbeat_len)
+        chunked_z_sd = mean_tailbeat_chunk(self.school_comp.school_z_sd,tailbeat_len)
         chunked_group_speed = mean_tailbeat_chunk(self.school_comp.group_speed,tailbeat_len)
         chunked_group_tb_freq = mean_tailbeat_chunk(self.school_comp.group_tb_freq,tailbeat_len)
         chunked_polarization = mean_tailbeat_chunk(self.school_comp.polarization,tailbeat_len)
@@ -882,8 +979,10 @@ class trial:
              'Flow': np.repeat(self.flow,short_data_length), 
              'X_Center': chunked_x_center[:short_data_length], 
              'Y_Center': chunked_y_center[:short_data_length], 
+             'Y_Center': chunked_z_center[:short_data_length],
              'X_SD': chunked_x_sd[:short_data_length], 
              'Y_SD': chunked_y_sd[:short_data_length], 
+             'Z_SD': chunked_z_sd[:short_data_length], 
              'School_Polar': chunked_polarization[:short_data_length], 
              'School_Speed': chunked_group_speed[:short_data_length], 
              'School_TB_Freq': chunked_group_tb_freq[:short_data_length], 
@@ -894,11 +993,11 @@ class trial:
 
         return(out_data)
 
-data_folder = "Finished_Fish_Data_4P_gaps/"
+data_folder = "3D_Finished_Fish_Data_4P_gaps/"
 
 trials = []
 
-single_file = "" #"2021_08_03_11_LY_DN_F2_V1DLC_dlcrnetms5_DLC_2-2_4P_8F_Light_VentralMay10shuffle1_100000_el_filtered.csv"
+single_file = "" #"2021_10_08_27_LN_DY_F0_3DDLC_dlcrnetms5_DLC_2-2_4P_8F_Light_VentralMay10shuffle1_100000_el_filtered.csv"
 
 for file_name in os.listdir(data_folder):
     if file_name.endswith(".csv") and single_file in file_name:
@@ -926,23 +1025,23 @@ for trial in trials:
         fish_raw_comp_dataframe = fish_raw_comp_dataframe.append(trial.return_raw_comp_vals())
         fish_school_dataframe = fish_school_dataframe.append(trial.return_school_vals())
 
-fish_sigular_dataframe.to_csv("Fish_Individual_Values.csv")
-fish_comp_dataframe.to_csv("Fish_Comp_Values.csv")
-fish_raw_comp_dataframe.to_csv("Fish_Raw_Comp_Values.csv")
-fish_school_dataframe.to_csv("Fish_School_Values.csv")
+fish_sigular_dataframe.to_csv("Fish_Individual_Values_3D.csv")
+fish_comp_dataframe.to_csv("Fish_Comp_Values_3D.csv")
+fish_raw_comp_dataframe.to_csv("Fish_Raw_Comp_Values_3D.csv")
+fish_school_dataframe.to_csv("Fish_School_Values_3D.csv")
 
 #Recalculate when new data is added
-# all_trials_tailbeat_lens = []
-# all_trials_fish_lens = []
+all_trials_tailbeat_lens = []
+all_trials_fish_lens = []
 
-# for trial in trials:
-#     all_trials_tailbeat_lens.extend(trial.return_tailbeat_lens())
-#     all_trials_fish_lens.extend(trial.return_fish_lens())
+for trial in trials:
+    all_trials_tailbeat_lens.extend(trial.return_tailbeat_lens())
+    all_trials_fish_lens.extend(trial.return_fish_lens())
 
-# print("Tailbeat Len Median")
-# print(np.nanmedian(all_trials_tailbeat_lens)) #19
+print("Tailbeat Len Median")
+print(np.nanmedian(all_trials_tailbeat_lens)) #19
 
-# print("Fish Len Median")
-# print(np.nanmedian(all_trials_fish_lens)) #193
+print("Fish Len Median")
+print(np.nanmedian(all_trials_fish_lens)) #193
 
 
