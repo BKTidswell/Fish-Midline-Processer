@@ -1,0 +1,184 @@
+---
+title: "Data For Eric"
+output: html_notebook
+---
+
+```{r}
+library(tidyverse)
+```
+
+```{r}
+tailbeat_len = 19
+
+round_any <- function(x, accuracy, f=round){f(x/ accuracy) * accuracy}
+```
+
+
+```{r}
+raw_school_data <- read.csv("Fish_Raw_Comp_Values.csv")
+raw_school_data <- na.omit(raw_school_data)
+
+raw_school_data <- raw_school_data %>% mutate(Flow = ifelse(Flow == "0", "Still Water", "Flowing Water (2 BL/s)")) %>%
+                           mutate(Ablation = ifelse(Ablation == "N", "No Ablation", "Ablated")) %>%
+                           mutate(Darkness = ifelse(Darkness == "N", "Light", "Dark")) %>%
+                           mutate(Flow = factor(Flow), Ablation = factor(Ablation), Darkness = factor(Darkness)) %>%
+                           mutate(Flow = fct_relevel(Flow, c("Still Water","Flowing Water (2 BL/s)"))) %>%
+                           mutate(Ablation = fct_relevel(Ablation, c("No Ablation","Ablated"))) %>%
+                           mutate(Darkness = fct_relevel(Darkness, c("Light","Dark"))) %>%
+                           mutate(Flow_Ablation_Darkness = factor(paste(Flow,Ablation,Darkness,sep=", "))) %>%
+                           separate(Fish, c("Fish1", "Fish2"),sep="x")
+
+raw_school_data_fish_switch <- raw_school_data %>% mutate(Fish3 = Fish1) %>%
+                                                   mutate(Fish1 = Fish2) %>%
+                                                   mutate(Fish2 = Fish3) %>%
+                                                   select(-c(Fish3))
+
+raw_school_data_both_fish <- bind_rows(raw_school_data, raw_school_data_fish_switch)
+```
+
+```{r}
+count_within_2 <- raw_school_data_both_fish %>% mutate(Tailbeat = round_any(Frame_Num, tailbeat_len)/tailbeat_len+1) %>%
+                                                group_by(Year, Month, Day, Trial, Flow, Ablation, Darkness, Tailbeat, Frame_Num, Fish1) %>%
+                                                summarise(Count_Fish_in_2BL = sum(Distance <= 2)) %>%
+                                                ungroup() %>%
+                                                group_by(Year, Month, Day, Trial, Flow, Ablation, Darkness, Tailbeat) %>%
+                                                summarise(Mean_Count_Fish_in_2BL = mean(Count_Fish_in_2BL)) %>%
+                                                ungroup()
+```
+
+```{r}
+ggplot(count_within_2, 
+       aes(x = interaction(Ablation,Darkness,sep=", "), y = Mean_Count_Fish_in_2BL+1,
+           fill = interaction(Ablation,Darkness,sep=", "), color = interaction(Year,Month,Day,Trial,sep=", ")))+
+  geom_boxplot(outlier.shape = NA) +
+  guides(fill = guide_legend(title = "Condition")) +
+  scale_fill_manual(values=c("#EEEEEE", "#4CB944", "#00A7E1")) +
+  ggtitle("Mean size of group within 2BL") +
+  xlab("") +
+  ylab("Mean size of group within 2BL (# of Fish)") +
+  ylim(0,9) +
+  theme_light() +
+  facet_wrap(~ Flow, strip.position = "bottom")+
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank()) + 
+  scale_y_continuous(breaks=c(0,2,4,6,8))
+```
+So from this the Light & Still groups with the best values are:
+7/28/20 - 10
+3/25/21 - 1
+
+So from this the Dark & Still groups with the best values are:
+10/8/21 - 15
+7/7/21 - 19
+7/7/21 - 21
+
+```{r}
+raw_school_data_both_fish %>% group_by(Year, Month, Day, Trial, Flow, Ablation, Darkness) %>% summarise(count = n()) %>% ungroup() %>% arrange(-count) %>% filter(Ablation == "No Ablation" & Flow == "Still Water")
+```
+
+Of these 7/28/20 - 10 has the most for light and 7/7/21 - 19 has the most for darkness
+
+Getting Light CSV
+
+```{r}
+eric_light_data <- raw_school_data %>% filter(Year == 2020 & Month == 7 & Day == 28 & Trial == 10) %>% 
+                                        mutate(Tailbeat_Num = round_any(Frame_Num, tailbeat_len)/tailbeat_len+1) %>%
+                                        group_by(Year, Month, Day, Trial, Flow, Ablation, Darkness,
+                                                 Tailbeat_Num, Frame_Num, Fish1) %>%
+                                        summarise(Count_Fish_in_2BL = sum(Distance <= 2),
+                                                  Speed_Diff = mean(Speed_Diff),
+                                                  Distance = mean(Distance)) %>%
+                                        ungroup() %>%
+                                        group_by(Year, Month, Day, Trial, Flow, Ablation, Darkness, Tailbeat_Num) %>%
+                                        summarise(Mean_Count_Fish_in_2BL = mean(Count_Fish_in_2BL),
+                                                  Speed_Diff = mean(Speed_Diff),
+                                                  Distance = mean(Distance)) %>%
+                                        ungroup()
+
+eric_school_data <- read.csv("Fish_School_Values.csv")
+eric_school_data <- na.omit(eric_school_data)
+
+eric_school_data <- eric_school_data %>% mutate(Flow = ifelse(Flow == "0", "Still Water", "Flowing Water (2 BL/s)")) %>%
+                           mutate(Ablation = ifelse(Ablation == "N", "No Ablation", "Ablated")) %>%
+                           mutate(Darkness = ifelse(Darkness == "N", "Light", "Dark")) %>%
+                           filter(School_Speed < 7) %>%
+                           mutate(Flow = factor(Flow), Ablation = factor(Ablation), Darkness = factor(Darkness)) %>%
+                           mutate(Flow = fct_relevel(Flow, c("Still Water","Flowing Water (2 BL/s)"))) %>%
+                           mutate(Ablation = fct_relevel(Ablation, c("No Ablation","Ablated"))) %>%
+                           mutate(Darkness = fct_relevel(Darkness, c("Light","Dark"))) %>%
+                           mutate(Flow_Ablation_Darkness = factor(paste(Flow,Ablation,Darkness,sep=", "))) %>%
+                           filter(Year == 2020 & Month == 7 & Day == 28 & Trial == 10)
+
+eric_light_data <- eric_light_data %>% inner_join(eric_school_data %>% select(Tailbeat_Num, Area))
+
+###
+
+eric_dark_data <- raw_school_data %>% filter(Year == 2021 & Month == 7 & Day == 7 & Trial == 19) %>% 
+                                        mutate(Tailbeat_Num = round_any(Frame_Num, tailbeat_len)/tailbeat_len+1) %>%
+                                        group_by(Year, Month, Day, Trial, Flow, Ablation, Darkness,
+                                                 Tailbeat_Num, Frame_Num, Fish1) %>%
+                                        summarise(Count_Fish_in_2BL = sum(Distance <= 2),
+                                                  Speed_Diff = mean(Speed_Diff),
+                                                  Distance = mean(Distance)) %>%
+                                        ungroup() %>%
+                                        group_by(Year, Month, Day, Trial, Flow, Ablation, Darkness, Tailbeat_Num) %>%
+                                        summarise(Mean_Count_Fish_in_2BL = mean(Count_Fish_in_2BL),
+                                                  Speed_Diff = mean(Speed_Diff),
+                                                  Distance = mean(Distance)) %>%
+                                        ungroup()
+
+eric_school_data <- read.csv("Fish_School_Values.csv")
+eric_school_data <- na.omit(eric_school_data)
+
+eric_school_data <- eric_school_data %>% mutate(Flow = ifelse(Flow == "0", "Still Water", "Flowing Water (2 BL/s)")) %>%
+                           mutate(Ablation = ifelse(Ablation == "N", "No Ablation", "Ablated")) %>%
+                           mutate(Darkness = ifelse(Darkness == "N", "Light", "Dark")) %>%
+                           filter(School_Speed < 7) %>%
+                           mutate(Flow = factor(Flow), Ablation = factor(Ablation), Darkness = factor(Darkness)) %>%
+                           mutate(Flow = fct_relevel(Flow, c("Still Water","Flowing Water (2 BL/s)"))) %>%
+                           mutate(Ablation = fct_relevel(Ablation, c("No Ablation","Ablated"))) %>%
+                           mutate(Darkness = fct_relevel(Darkness, c("Light","Dark"))) %>%
+                           mutate(Flow_Ablation_Darkness = factor(paste(Flow,Ablation,Darkness,sep=", "))) %>%
+                           filter(Year == 2021 & Month == 7 & Day == 7 & Trial == 19)
+
+eric_dark_data <- eric_dark_data %>% inner_join(eric_school_data %>% select(Tailbeat_Num, Area))
+
+eric_data <- eric_dark_data %>% full_join(eric_light_data)
+
+write.csv(eric_data, file = "Eric_Light_Dark_Data.csv")
+
+```
+
+Eric Fish Tracks
+
+```{r}
+fish_tracks_2020_07_28_10 <- read.csv("2020_07_28_10_TN_DN_F0_V1DLC_resnet50_L8FV4PFeb22shuffle1_100000_bx_filtered.csv")
+
+fish_tracks_2020_07_28_10 <- fish_tracks_2020_07_28_10 %>% pivot_longer(Fish1_X:Fish8_Y,
+                                                                        names_to = c("Fish",".value"),
+                                                                        names_pattern = "(.)_(.)") %>%
+                                                           mutate(Year = 2020, Month = 7, Day = 28, Trial = 10,
+                                                                  Flow = "Still Water", Ablation = "No Ablation",
+                                                                  Darkness = "Light") %>%
+                                                          relocate(Frame:Y, .after = Darkness)
+
+
+fish_tracks_2021_07_07_21 <- read.csv("2021_07_07_21_TN_DY_F0_V1DLC_dlcrnetms5_DLC_2-2_4P_8F_Light_VentralMay10shuffle1_100000_el_filtered.csv")
+
+fish_tracks_2021_07_07_21 <- fish_tracks_2021_07_07_21 %>% pivot_longer(Fish1_X:Fish8_Y,
+                                                                        names_to = c("Fish",".value"),
+                                                                        names_pattern = "(.)_(.)") %>%
+                                                           mutate(Year = 2021, Month = 7, Day = 7, Trial = 21,
+                                                                  Flow = "Still Water", Ablation = "No Ablation",
+                                                                  Darkness = "Dark") %>%
+                                                          relocate(Frame:Y, .after = Darkness)
+
+Eric_Light_Dark_Fish_Tracks <- fish_tracks_2020_07_28_10 %>% full_join(fish_tracks_2021_07_07_21) %>%
+                                                             mutate(BL_X = X / 193,
+                                                                    BL_Y = Y / 193)
+
+write.csv(Eric_Light_Dark_Fish_Tracks, file = "Eric_Light_Dark_Fish_Tracks.csv")                                                      
+```
+
+

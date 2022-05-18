@@ -12,6 +12,7 @@ library(boot)
 library(mgcv)
 library(forcats)
 library(ggpubr)
+library(mgcViz)
 ```
 
 Alright, so from all of this what do I know?
@@ -36,16 +37,13 @@ NND:
 Nearest Neighbor Bearing:
   In darkness fish are more in front or behind
   In flow fish are more in positioned alongside each other
-  
-  
-
 
 Sets up the functions that will be used later 
 ```{r}
 rad2deg <- function(rad) {(rad * 180) / (pi)}
 deg2rad <- function(deg) {(deg * pi) / (180)}
 round_any <- function(x, accuracy, f=round){f(x/ accuracy) * accuracy}
-ang_mean <- function(x){rad2deg(atan(mean(sin(deg2rad(x)))/mean(cos(deg2rad(x)))))}
+ang_mean <- function(x){rad2deg(atan2(mean(sin(deg2rad(x))),mean(cos(deg2rad(x)))))}
 
 fold_angle_0_360_to_0_180 <- function(x){abs(abs(x-180)-180)}
 
@@ -60,22 +58,26 @@ Reads in the data and alters it as needed
 comp_data <- read.csv("Fish_Comp_Values.csv")
 comp_data <- na.omit(comp_data)
 
-comp_data <- comp_data %>% mutate(Flow = ifelse(Flow == "0", "Flow 0", "Flow 2")) %>%
+comp_data <- comp_data %>% mutate(Flow = ifelse(Flow == "0", "Still Water", "Flowing Water (2 BL/s)")) %>%
                            mutate(Ablation = ifelse(Ablation == "N", "No Ablation", "Ablated")) %>%
                            mutate(Darkness = ifelse(Darkness == "N", "Light", "Dark")) %>%
                            filter(Distance <= 4) %>%
                            filter(abs(Speed_Diff) <= 6) %>% 
-                           mutate(Speed_Diff = abs(Speed_Diff)) %>%
-                           mutate(fold_heading_diff = abs(fold_angle_neg_180_180_to_neg_90_90(Heading_Diff))) %>%
+                           #mutate(Speed_Diff = abs(Speed_Diff)) %>%
+                           mutate(rad_Heading = deg2rad(Heading_Diff)) %>%
+                           mutate(sin_Heading = sin(rad_Heading), cos_Heading = cos(rad_Heading)) %>%
+                           #mutate(fold_heading_diff = abs(fold_angle_neg_180_180_to_neg_90_90(Heading_Diff))) %>%
                            mutate(Is_Aligned = ifelse(Heading_Diff < 30, 1, 0)) %>%
                            mutate(Is_Reversed = ifelse(Heading_Diff > 150, 1, 0)) %>%
                            separate(Fish, c("Fish1", "Fish2"),sep="x") %>%
                            mutate(Flow = factor(Flow), Ablation = factor(Ablation), Darkness = factor(Darkness)) %>%
-                           mutate(Flow = fct_relevel(Flow, c("Flow 0","Flow 2"))) %>%
+                           mutate(Flow = fct_relevel(Flow, c("Still Water","Flowing Water (2 BL/s)"))) %>%
                            mutate(Ablation = fct_relevel(Ablation, c("No Ablation","Ablated"))) %>%
                            mutate(Darkness = fct_relevel(Darkness, c("Light","Dark"))) %>%
-                           mutate(rad_Angle = Angle) %>%
+                           mutate(rad_Angle = deg2rad(Angle)) %>%
                            mutate(sin_Angle = sin(rad_Angle), cos_Angle = cos(rad_Angle)) %>%
+                           mutate(Flow_Ablation = factor(paste(Flow,Ablation,sep=", "))) %>%
+                           mutate(Flow_Darkness = factor(paste(Flow,Darkness,sep=", "))) %>%
                            mutate(Flow_Ablation_Darkness = factor(paste(Flow,Ablation,Darkness,sep=", ")))
                            
                            #mutate(Angle = fold_angle_0_360_to_0_180(Angle))
@@ -86,7 +88,7 @@ sum_comp_data <- comp_data %>% mutate(X_Distance = round_any(X_Distance,0.25),
                                summarise(Speed_Diff = mean(Speed_Diff),
                                          Heading_Diff = ang_mean(Heading_Diff),
                                          Sync = mean(Sync),
-                                         Fold_Heading_Diff = mean(fold_heading_diff),
+                                         #Fold_Heading_Diff = mean(fold_heading_diff),
                                          Is_Aligned = mean(Is_Aligned),
                                          Is_Reversed = mean(Is_Reversed))
 
@@ -95,11 +97,11 @@ comp_data_switch_fish <- comp_data %>% mutate(Fish3 = Fish1) %>%
                                        mutate(Fish2 = Fish3) %>%
                                        select(-c(Fish3))
 
-comp_data_NND <- bind_rows(comp_data, comp_data_switch_fish) %>% group_by(Year,Month,Day,Trial,Fish1,Tailbeat.Num) %>%
+comp_data_NND <- bind_rows(comp_data, comp_data_switch_fish) %>% group_by(Year,Month,Day,Trial,Fish1,Tailbeat_Num) %>%
                                                                  filter(Distance == min(Distance)) %>%
                                                                  ungroup()
 
-comp_data_near_3 <- bind_rows(comp_data, comp_data_switch_fish) %>% group_by(Year,Month,Day,Trial,Fish1,Tailbeat.Num) %>%
+comp_data_near_3 <- bind_rows(comp_data, comp_data_switch_fish) %>% group_by(Year,Month,Day,Trial,Fish1,Tailbeat_Num) %>%
                                                                  slice_min(Distance, n = 3) %>%
                                                                  ungroup() %>%
                                                                  distinct(Distance, .keep_all= TRUE)
@@ -108,15 +110,15 @@ comp_data_near_3 <- bind_rows(comp_data, comp_data_switch_fish) %>% group_by(Yea
 #Basic Stats
 
 ```{r}
-speed_anova <- aov(Speed_Diff ~ Flow + Ablation + Darkness + Flow:Ablation + Flow:Darkness, data = comp_data_near_3)
+speed_anova <- aov(Speed_Diff ~ Flow + Ablation + Darkness + Flow:Ablation + Flow:Darkness, data = comp_data_NND)
 
 Anova(speed_anova)
 
-heading_anova <- aov(fold_heading_diff ~ Flow + Ablation + Darkness + Flow:Ablation + Flow:Darkness, data = comp_data_near_3)
+heading_anova <- aov(Heading_Diff ~ Flow + Ablation + Darkness + Flow:Ablation + Flow:Darkness, data = comp_data_NND)
 
 Anova(heading_anova)
 
-sync_anova <- aov(Sync ~ Flow + Ablation + Darkness + Flow:Ablation + Flow:Darkness, data = comp_data_near_3)
+sync_anova <- aov(Sync ~ Flow + Ablation + Darkness + Flow:Ablation + Flow:Darkness, data = comp_data_NND)
 
 Anova(sync_anova)
 
@@ -126,19 +128,8 @@ Anova(dist_anova)
 
 angle_anova <- aov(Angle ~ Flow + Ablation + Darkness + Flow:Ablation + Flow:Darkness, data = comp_data_NND)
 
-Anova(dist_anova)
+Anova(angle_anova)
 ```
-
-```{r}
-ggplot(comp_data_near_3, aes(x = cos(deg2rad(Angle))))+
-  geom_histogram()+
-  facet_wrap(~ Flow + Ablation + Darkness)
-
-ggplot(comp_data_near_3, aes(x = sin(deg2rad(Angle))))+
-  geom_histogram()+
-  facet_wrap(~ Flow + Ablation + Darkness)
-```
-
 
 
 ```{r}
@@ -149,16 +140,19 @@ ggplot(comp_data_near_3, aes(x = Flow, y = Speed_Diff, fill = interaction(Ablati
   ggtitle("Effect of Available Senses on Speed Difference") +
   xlab("") +
   ylab("Speed Difference (BL/s)") +
-  ylim(-0.1,2.5) +
+  #ylim(-0.1,2.5) +
   theme_light()
 
-ggplot(comp_data_near_3, aes(x = Flow, y = fold_heading_diff, fill = interaction(Ablation,Darkness,sep=", ")))+
-  geom_boxplot(outlier.shape = NA) +
+#rad2deg(atan(sin_Heading/cos_Heading))
+
+ggplot(comp_data_near_3, aes(x = Flow, y = Heading_Diff, fill = interaction(Ablation,Darkness,sep=", ")))+
+  geom_violin(outlier.shape = NA) +
   guides(fill = guide_legend(title = "Condition")) +
   scale_fill_manual(values=c("#EEEEEE", "#4CB944", "#00A7E1")) +
   ggtitle("Effect of Available Senses on Heading Difference") +
   xlab("") +
   ylab("Heading Difference (Degrees)") +
+  #scale_y_continuous(breaks = c(-90,-60,-30,0,30,60,90)) +
   theme_light()
 
 ggplot(comp_data_near_3, aes(x = Flow, y = Sync, fill = interaction(Ablation,Darkness,sep=", ")))+
@@ -179,42 +173,397 @@ ggplot(comp_data_near_3, aes(x = Flow, y = Distance, fill = interaction(Ablation
   ylab("NND (BL)") +
   theme_light()
 
+#rad2deg(atan2(sin_Angle,cos_Angle))
+
 ggplot(comp_data_near_3, aes(x = Flow, y = Angle, fill = interaction(Ablation,Darkness,sep=", ")))+
-  geom_boxplot(outlier.shape = NA) +
+  geom_violin(outlier.shape = NA) +
   guides(fill = guide_legend(title = "Condition")) +
   scale_fill_manual(values=c("#EEEEEE", "#4CB944", "#00A7E1")) +
   ggtitle("Effect of Available Senses on Nearest Neighbor Bearing") +
   xlab("") +
   ylab("Nearest Neighbor Bearing (Degrees)") +
-  scale_y_continuous(breaks = c(30,60,90,120,150)) +
+  #scale_y_continuous(breaks = c(-90,-60,-30,0,30,60,90)) +
   theme_light()
 
 ```
+ Just nearest Fish Speed Diff
+ 
+```{r}
+comp_data_near_1 <- bind_rows(comp_data, comp_data_switch_fish) %>% group_by(Year,Month,Day,Trial,Fish1,Tailbeat_Num) %>%
+                                                                 slice_max(Distance, n = 1) %>%
+                                                                 ungroup() %>%
+                                                                 distinct(Distance, .keep_all= TRUE)
 
-Trying GAMs
+speed_anova_nn <- aov(Speed_Diff ~ Flow + Ablation + Darkness + Flow:Ablation + Flow:Darkness, data = comp_data_near_1)
+
+Anova(speed_anova_nn)
+
+my_comparisons <- list( c("No Ablation, Light", "No Ablation, Dark"))
+
+ggplot(comp_data_near_1, aes(x = interaction(Ablation,Darkness,sep=", "), y = Speed_Diff, fill = interaction(Ablation,Darkness,sep=", ")))+
+  geom_violin(outlier.shape = NA) +
+  guides(fill = guide_legend(title = "Condition")) +
+  scale_fill_manual(values=c("#EEEEEE", "#4CB944", "#00A7E1")) +
+  ggtitle("Effect of Available Senses on Nearest Speed Diff") +
+  xlab("") +
+  ylab("Speed Difference (BL/s)") +
+  theme_light() +
+  facet_wrap(~ Flow, strip.position = "bottom")+
+  #stat_compare_means(aes(label = ..p.signif..), method = "t.test", ref.group = "Flow 0, No Ablation, Light")
+  #stat_compare_means(comparisons = my_comparisons, label.y = c(7.5,8.5), label = "p.signif", hide.ns = TRUE) +
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())
+```
+
+
+Trying ggpubr
 
 ```{r}
-speed_gam <- gam(Speed_Diff ~ s(Distance,Angle,by=Flow_Ablation_Darkness),
-                              data = comp_data_near_3)
+my_comparisons <- list( c("No Ablation, Light", "No Ablation, Dark") )
 
+ggplot(comp_data_near_3, aes(x = interaction(Ablation,Darkness,sep=", "), y = Distance, fill = interaction(Ablation,Darkness,sep=", ")))+
+  geom_boxplot(outlier.shape = NA) +
+  guides(fill = guide_legend(title = "Condition")) +
+  scale_fill_manual(values=c("#EEEEEE", "#4CB944", "#00A7E1")) +
+  ggtitle("Effect of Available Senses on Nearest Neighbor Distance (NND)") +
+  xlab("") +
+  ylab("NND (BL)") +
+  theme_light() +
+  facet_wrap(~ Flow)+
+  #stat_compare_means(aes(label = ..p.signif..), method = "t.test", ref.group = "Flow 0, No Ablation, Light")
+  stat_compare_means(comparisons = my_comparisons, label.y = c(4.5), label = "p.signif", hide.ns = TRUE) +
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())
+```
+
+
+So we need to make all the possible GLMs for these variables and then compare them in order to see which model does best in order to see what actually has effects
+```{r}
+# speed_gam_d <- gam(Speed_Diff ~ s(Distance), data = comp_data_near_3)
+# speed_gam_d_f <- gam(Speed_Diff ~ s(Distance,by=Flow), data = comp_data_near_3)
+# speed_gam_d_a <- gam(Speed_Diff ~ s(Distance,by=Ablation), data = comp_data_near_3)
+# speed_gam_d_d <- gam(Speed_Diff ~ s(Distance,by=Darkness), data = comp_data_near_3)
+# speed_gam_d_fa <- gam(Speed_Diff ~ s(Distance,by=Flow_Ablation), data = comp_data_near_3)
+# speed_gam_d_fd <- gam(Speed_Diff ~ s(Distance,by=Flow_Darkness), data = comp_data_near_3)
+# speed_gam_d_fda <- gam(Speed_Diff ~ s(Distance,by=Flow_Ablation_Darkness), data = comp_data_near_3)
+# 
+# speed_gam_ca <- gam(Speed_Diff ~ s(cos_Angle), data = comp_data_near_3)
+# speed_gam_ca_f <- gam(Speed_Diff ~ s(cos_Angle,by=Flow), data = comp_data_near_3)
+# speed_gam_ca_a <- gam(Speed_Diff ~ s(cos_Angle,by=Ablation), data = comp_data_near_3)
+# speed_gam_ca_d <- gam(Speed_Diff ~ s(cos_Angle,by=Darkness), data = comp_data_near_3)
+# speed_gam_ca_fa <- gam(Speed_Diff ~ s(cos_Angle,by=Flow_Ablation), data = comp_data_near_3)
+# speed_gam_ca_fd <- gam(Speed_Diff ~ s(cos_Angle,by=Flow_Darkness), data = comp_data_near_3)
+# speed_gam_ca_fda <- gam(Speed_Diff ~ s(cos_Angle,by=Flow_Ablation_Darkness), data = comp_data_near_3)
+# 
+# speed_gam_sa <- gam(Speed_Diff ~ s(sin_Angle), data = comp_data_near_3)
+# speed_gam_sa_f <- gam(Speed_Diff ~ s(sin_Angle,by=Flow), data = comp_data_near_3)
+# speed_gam_sa_a <- gam(Speed_Diff ~ s(sin_Angle,by=Ablation), data = comp_data_near_3)
+# speed_gam_sa_d <- gam(Speed_Diff ~ s(sin_Angle,by=Darkness), data = comp_data_near_3)
+# speed_gam_sa_fa <- gam(Speed_Diff ~ s(sin_Angle,by=Flow_Ablation), data = comp_data_near_3)
+# speed_gam_sa_fd <- gam(Speed_Diff ~ s(sin_Angle,by=Flow_Darkness), data = comp_data_near_3)
+# speed_gam_sa_fda <- gam(Speed_Diff ~ s(sin_Angle,by=Flow_Ablation_Darkness), data = comp_data_near_3)
+# 
+# speed_gam_dca <- gam(Speed_Diff ~ s(Distance,cos_Angle), data = comp_data_near_3)
+# speed_gam_dca_f <- gam(Speed_Diff ~ s(Distance,cos_Angle,by=Flow), data = comp_data_near_3)
+# speed_gam_dca_a <- gam(Speed_Diff ~ s(Distance,cos_Angle,by=Ablation), data = comp_data_near_3)
+# speed_gam_dca_d <- gam(Speed_Diff ~ s(Distance,cos_Angle,by=Darkness), data = comp_data_near_3)
+# speed_gam_dca_fa <- gam(Speed_Diff ~ s(Distance,cos_Angle,by=Flow_Ablation), data = comp_data_near_3)
+# speed_gam_dca_fd <- gam(Speed_Diff ~ s(Distance,cos_Angle,by=Flow_Darkness), data = comp_data_near_3)
+# speed_gam_dca_fda <- gam(Speed_Diff ~ s(Distance,cos_Angle,by=Flow_Ablation_Darkness), data = comp_data_near_3)
+# 
+# speed_gam_dsa <- gam(Speed_Diff ~ s(Distance,sin_Angle), data = comp_data_near_3)
+# speed_gam_dsa_f <- gam(Speed_Diff ~ s(Distance,sin_Angle,by=Flow), data = comp_data_near_3)
+# speed_gam_dsa_a <- gam(Speed_Diff ~ s(Distance,sin_Angle,by=Ablation), data = comp_data_near_3)
+# speed_gam_dsa_d <- gam(Speed_Diff ~ s(Distance,sin_Angle,by=Darkness), data = comp_data_near_3)
+# speed_gam_dsa_fa <- gam(Speed_Diff ~ s(Distance,sin_Angle,by=Flow_Ablation), data = comp_data_near_3)
+# speed_gam_dsa_fd <- gam(Speed_Diff ~ s(Distance,sin_Angle,by=Flow_Darkness), data = comp_data_near_3)
+# speed_gam_dsa_fda <- gam(Speed_Diff ~ s(Distance,sin_Angle,by=Flow_Ablation_Darkness), data = comp_data_near_3)
+# 
+# speed_gam_dcasa <- gam(Speed_Diff ~ s(Distance,cos_Angle,sin_Angle), data = comp_data_near_3)
+# speed_gam_dcasa_f <- gam(Speed_Diff ~ s(Distance,cos_Angle,sin_Angle,by=Flow), data = comp_data_near_3)
+# speed_gam_dcasa_a <- gam(Speed_Diff ~ s(Distance,cos_Angle,sin_Angle,by=Ablation), data = comp_data_near_3)
+# speed_gam_dcasa_d <- gam(Speed_Diff ~ s(Distance,cos_Angle,sin_Angle,by=Darkness), data = comp_data_near_3)
+# speed_gam_dcasa_fa <- gam(Speed_Diff ~ s(Distance,cos_Angle,sin_Angle,by=Flow_Ablation), data = comp_data_near_3)
+# speed_gam_dcasa_fd <- gam(Speed_Diff ~ s(Distance,cos_Angle,sin_Angle,by=Flow_Darkness), data = comp_data_near_3)
+# speed_gam_dcasa_fda <- gam(Speed_Diff ~ s(Distance,cos_Angle,sin_Angle,by=Flow_Ablation_Darkness), data = comp_data_near_3)
+
+speed_AIC <- AIC(speed_gam_d,speed_gam_d_f,speed_gam_d_a,speed_gam_d_d,speed_gam_d_fa,speed_gam_d_fd,speed_gam_d_fda,
+                 speed_gam_ca,speed_gam_ca_f,speed_gam_ca_a,speed_gam_ca_d,speed_gam_ca_fa,speed_gam_ca_fd,speed_gam_ca_fda,
+                 speed_gam_sa,speed_gam_sa_f,speed_gam_sa_a,speed_gam_sa_d,speed_gam_sa_fa,speed_gam_sa_fd,speed_gam_sa_fda,
+                 speed_gam_dca,speed_gam_dca_f,speed_gam_dca_a,speed_gam_dca_d,speed_gam_dca_fa,speed_gam_dca_fd,speed_gam_dca_fda,
+                 speed_gam_dsa,speed_gam_dsa_f,speed_gam_dsa_a,speed_gam_dsa_d,speed_gam_dsa_fa,speed_gam_dsa_fd,speed_gam_dsa_fda,
+                 speed_gam_dcasa,speed_gam_dcasa_f,speed_gam_dcasa_a,speed_gam_dcasa_d,speed_gam_dcasa_fa,speed_gam_dcasa_fd,speed_gam_dcasa_fda)
+
+speed_AIC <- tibble::rownames_to_column(speed_AIC, "Model_Name")
+
+speed_AIC <- speed_AIC %>% mutate(Model_Name = fct_reorder(Model_Name, -AIC)) %>% arrange(AIC)
+
+ggplot(speed_AIC, aes(x = Model_Name, y = AIC)) +
+  geom_point(color = "blue") +
+  xlab("") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+  theme_light()+
+  scale_y_reverse() +
+  coord_flip()
+
+speed_AIC
+```
+
+How we do that for the cosine of the headings
+
+```{r}
+# cos_heading_gam_d <- gam(cos_Heading ~ s(Distance), data = comp_data_near_3)
+# cos_heading_gam_d_f <- gam(cos_Heading ~ s(Distance,by=Flow), data = comp_data_near_3)
+# cos_heading_gam_d_a <- gam(cos_Heading ~ s(Distance,by=Ablation), data = comp_data_near_3)
+# cos_heading_gam_d_d <- gam(cos_Heading ~ s(Distance,by=Darkness), data = comp_data_near_3)
+# cos_heading_gam_d_fa <- gam(cos_Heading ~ s(Distance,by=Flow_Ablation), data = comp_data_near_3)
+# cos_heading_gam_d_fd <- gam(cos_Heading ~ s(Distance,by=Flow_Darkness), data = comp_data_near_3)
+# cos_heading_gam_d_fda <- gam(cos_Heading ~ s(Distance,by=Flow_Ablation_Darkness), data = comp_data_near_3)
+# 
+# cos_heading_gam_ca <- gam(cos_Heading ~ s(cos_Angle), data = comp_data_near_3)
+# cos_heading_gam_ca_f <- gam(cos_Heading ~ s(cos_Angle,by=Flow), data = comp_data_near_3)
+# cos_heading_gam_ca_a <- gam(cos_Heading ~ s(cos_Angle,by=Ablation), data = comp_data_near_3)
+# cos_heading_gam_ca_d <- gam(cos_Heading ~ s(cos_Angle,by=Darkness), data = comp_data_near_3)
+# cos_heading_gam_ca_fa <- gam(cos_Heading ~ s(cos_Angle,by=Flow_Ablation), data = comp_data_near_3)
+# cos_heading_gam_ca_fd <- gam(cos_Heading ~ s(cos_Angle,by=Flow_Darkness), data = comp_data_near_3)
+# cos_heading_gam_ca_fda <- gam(cos_Heading ~ s(cos_Angle,by=Flow_Ablation_Darkness), data = comp_data_near_3)
+# 
+# cos_heading_gam_sa <- gam(cos_Heading ~ s(sin_Angle), data = comp_data_near_3)
+# cos_heading_gam_sa_f <- gam(cos_Heading ~ s(sin_Angle,by=Flow), data = comp_data_near_3)
+# cos_heading_gam_sa_a <- gam(cos_Heading ~ s(sin_Angle,by=Ablation), data = comp_data_near_3)
+# cos_heading_gam_sa_d <- gam(cos_Heading ~ s(sin_Angle,by=Darkness), data = comp_data_near_3)
+# cos_heading_gam_sa_fa <- gam(cos_Heading ~ s(sin_Angle,by=Flow_Ablation), data = comp_data_near_3)
+# cos_heading_gam_sa_fd <- gam(cos_Heading ~ s(sin_Angle,by=Flow_Darkness), data = comp_data_near_3)
+# cos_heading_gam_sa_fda <- gam(cos_Heading ~ s(sin_Angle,by=Flow_Ablation_Darkness), data = comp_data_near_3)
+# 
+# cos_heading_gam_dca <- gam(cos_Heading ~ s(Distance,cos_Angle), data = comp_data_near_3)
+# cos_heading_gam_dca_f <- gam(cos_Heading ~ s(Distance,cos_Angle,by=Flow), data = comp_data_near_3)
+# cos_heading_gam_dca_a <- gam(cos_Heading ~ s(Distance,cos_Angle,by=Ablation), data = comp_data_near_3)
+# cos_heading_gam_dca_d <- gam(cos_Heading ~ s(Distance,cos_Angle,by=Darkness), data = comp_data_near_3)
+# cos_heading_gam_dca_fa <- gam(cos_Heading ~ s(Distance,cos_Angle,by=Flow_Ablation), data = comp_data_near_3)
+# cos_heading_gam_dca_fd <- gam(cos_Heading ~ s(Distance,cos_Angle,by=Flow_Darkness), data = comp_data_near_3)
+# cos_heading_gam_dca_fda <- gam(cos_Heading ~ s(Distance,cos_Angle,by=Flow_Ablation_Darkness), data = comp_data_near_3)
+# 
+# cos_heading_gam_dsa <- gam(cos_Heading ~ s(Distance,sin_Angle), data = comp_data_near_3)
+# cos_heading_gam_dsa_f <- gam(cos_Heading ~ s(Distance,sin_Angle,by=Flow), data = comp_data_near_3)
+# cos_heading_gam_dsa_a <- gam(cos_Heading ~ s(Distance,sin_Angle,by=Ablation), data = comp_data_near_3)
+# cos_heading_gam_dsa_d <- gam(cos_Heading ~ s(Distance,sin_Angle,by=Darkness), data = comp_data_near_3)
+# cos_heading_gam_dsa_fa <- gam(cos_Heading ~ s(Distance,sin_Angle,by=Flow_Ablation), data = comp_data_near_3)
+# cos_heading_gam_dsa_fd <- gam(cos_Heading ~ s(Distance,sin_Angle,by=Flow_Darkness), data = comp_data_near_3)
+# cos_heading_gam_dsa_fda <- gam(cos_Heading ~ s(Distance,sin_Angle,by=Flow_Ablation_Darkness), data = comp_data_near_3)
+# 
+# cos_heading_gam_dcasa <- gam(cos_Heading ~ s(Distance,cos_Angle,sin_Angle), data = comp_data_near_3)
+# cos_heading_gam_dcasa_f <- gam(cos_Heading ~ s(Distance,cos_Angle,sin_Angle,by=Flow), data = comp_data_near_3)
+# cos_heading_gam_dcasa_a <- gam(cos_Heading ~ s(Distance,cos_Angle,sin_Angle,by=Ablation), data = comp_data_near_3)
+# cos_heading_gam_dcasa_d <- gam(cos_Heading ~ s(Distance,cos_Angle,sin_Angle,by=Darkness), data = comp_data_near_3)
+# cos_heading_gam_dcasa_fa <- gam(cos_Heading ~ s(Distance,cos_Angle,sin_Angle,by=Flow_Ablation), data = comp_data_near_3)
+# cos_heading_gam_dcasa_fd <- gam(cos_Heading ~ s(Distance,cos_Angle,sin_Angle,by=Flow_Darkness), data = comp_data_near_3)
+# cos_heading_gam_dcasa_fda <- gam(cos_Heading ~ s(Distance,cos_Angle,sin_Angle,by=Flow_Ablation_Darkness), data = comp_data_near_3)
+
+cos_heading_AIC <- AIC(cos_heading_gam_d,cos_heading_gam_d_f,cos_heading_gam_d_a,cos_heading_gam_d_d,cos_heading_gam_d_fa,cos_heading_gam_d_fd,cos_heading_gam_d_fda,
+                 cos_heading_gam_ca,cos_heading_gam_ca_f,cos_heading_gam_ca_a,cos_heading_gam_ca_d,cos_heading_gam_ca_fa,cos_heading_gam_ca_fd,cos_heading_gam_ca_fda,
+                 cos_heading_gam_sa,cos_heading_gam_sa_f,cos_heading_gam_sa_a,cos_heading_gam_sa_d,cos_heading_gam_sa_fa,cos_heading_gam_sa_fd,cos_heading_gam_sa_fda,
+                 cos_heading_gam_dca,cos_heading_gam_dca_f,cos_heading_gam_dca_a,cos_heading_gam_dca_d,cos_heading_gam_dca_fa,cos_heading_gam_dca_fd,cos_heading_gam_dca_fda,
+                 cos_heading_gam_dsa,cos_heading_gam_dsa_f,cos_heading_gam_dsa_a,cos_heading_gam_dsa_d,cos_heading_gam_dsa_fa,cos_heading_gam_dsa_fd,cos_heading_gam_dsa_fda,
+                 cos_heading_gam_dcasa,cos_heading_gam_dcasa_f,cos_heading_gam_dcasa_a,cos_heading_gam_dcasa_d,cos_heading_gam_dcasa_fa,cos_heading_gam_dcasa_fd,cos_heading_gam_dcasa_fda)
+
+
+cos_heading_AIC <- tibble::rownames_to_column(cos_heading_AIC, "Model_Name")
+
+cos_heading_AIC <- cos_heading_AIC %>% mutate(Model_Name = fct_reorder(Model_Name, -AIC)) %>% arrange(AIC)
+
+ggplot(cos_heading_AIC %>% arrange(AIC), aes(x = Model_Name, y = AIC)) +
+  geom_point(color = "blue") +
+  xlab("") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+  theme_light() +
+  scale_y_reverse() +
+  coord_flip()
+
+cos_heading_AIC
+```
+
+Now with the sin of the Headings
+```{r}
+# sin_heading_gam_d <- gam(sin_Heading ~ s(Distance), data = comp_data_near_3)
+# sin_heading_gam_d_f <- gam(sin_Heading ~ s(Distance,by=Flow), data = comp_data_near_3)
+# sin_heading_gam_d_a <- gam(sin_Heading ~ s(Distance,by=Ablation), data = comp_data_near_3)
+# sin_heading_gam_d_d <- gam(sin_Heading ~ s(Distance,by=Darkness), data = comp_data_near_3)
+# sin_heading_gam_d_fa <- gam(sin_Heading ~ s(Distance,by=Flow_Ablation), data = comp_data_near_3)
+# sin_heading_gam_d_fd <- gam(sin_Heading ~ s(Distance,by=Flow_Darkness), data = comp_data_near_3)
+# sin_heading_gam_d_fda <- gam(sin_Heading ~ s(Distance,by=Flow_Ablation_Darkness), data = comp_data_near_3)
+# 
+# sin_heading_gam_ca <- gam(sin_Heading ~ s(cos_Angle), data = comp_data_near_3)
+# sin_heading_gam_ca_f <- gam(sin_Heading ~ s(cos_Angle,by=Flow), data = comp_data_near_3)
+# sin_heading_gam_ca_a <- gam(sin_Heading ~ s(cos_Angle,by=Ablation), data = comp_data_near_3)
+# sin_heading_gam_ca_d <- gam(sin_Heading ~ s(cos_Angle,by=Darkness), data = comp_data_near_3)
+# sin_heading_gam_ca_fa <- gam(sin_Heading ~ s(cos_Angle,by=Flow_Ablation), data = comp_data_near_3)
+# sin_heading_gam_ca_fd <- gam(sin_Heading ~ s(cos_Angle,by=Flow_Darkness), data = comp_data_near_3)
+# sin_heading_gam_ca_fda <- gam(sin_Heading ~ s(cos_Angle,by=Flow_Ablation_Darkness), data = comp_data_near_3)
+# 
+# sin_heading_gam_sa <- gam(sin_Heading ~ s(sin_Angle), data = comp_data_near_3)
+# sin_heading_gam_sa_f <- gam(sin_Heading ~ s(sin_Angle,by=Flow), data = comp_data_near_3)
+# sin_heading_gam_sa_a <- gam(sin_Heading ~ s(sin_Angle,by=Ablation), data = comp_data_near_3)
+# sin_heading_gam_sa_d <- gam(sin_Heading ~ s(sin_Angle,by=Darkness), data = comp_data_near_3)
+# sin_heading_gam_sa_fa <- gam(sin_Heading ~ s(sin_Angle,by=Flow_Ablation), data = comp_data_near_3)
+# sin_heading_gam_sa_fd <- gam(sin_Heading ~ s(sin_Angle,by=Flow_Darkness), data = comp_data_near_3)
+# sin_heading_gam_sa_fda <- gam(sin_Heading ~ s(sin_Angle,by=Flow_Ablation_Darkness), data = comp_data_near_3)
+# 
+# sin_heading_gam_dca <- gam(sin_Heading ~ s(Distance,cos_Angle), data = comp_data_near_3)
+# sin_heading_gam_dca_f <- gam(sin_Heading ~ s(Distance,cos_Angle,by=Flow), data = comp_data_near_3)
+# sin_heading_gam_dca_a <- gam(sin_Heading ~ s(Distance,cos_Angle,by=Ablation), data = comp_data_near_3)
+# sin_heading_gam_dca_d <- gam(sin_Heading ~ s(Distance,cos_Angle,by=Darkness), data = comp_data_near_3)
+# sin_heading_gam_dca_fa <- gam(sin_Heading ~ s(Distance,cos_Angle,by=Flow_Ablation), data = comp_data_near_3)
+# sin_heading_gam_dca_fd <- gam(sin_Heading ~ s(Distance,cos_Angle,by=Flow_Darkness), data = comp_data_near_3)
+# sin_heading_gam_dca_fda <- gam(sin_Heading ~ s(Distance,cos_Angle,by=Flow_Ablation_Darkness), data = comp_data_near_3)
+# 
+# sin_heading_gam_dsa <- gam(sin_Heading ~ s(Distance,sin_Angle), data = comp_data_near_3)
+# sin_heading_gam_dsa_f <- gam(sin_Heading ~ s(Distance,sin_Angle,by=Flow), data = comp_data_near_3)
+# sin_heading_gam_dsa_a <- gam(sin_Heading ~ s(Distance,sin_Angle,by=Ablation), data = comp_data_near_3)
+# sin_heading_gam_dsa_d <- gam(sin_Heading ~ s(Distance,sin_Angle,by=Darkness), data = comp_data_near_3)
+# sin_heading_gam_dsa_fa <- gam(sin_Heading ~ s(Distance,sin_Angle,by=Flow_Ablation), data = comp_data_near_3)
+# sin_heading_gam_dsa_fd <- gam(sin_Heading ~ s(Distance,sin_Angle,by=Flow_Darkness), data = comp_data_near_3)
+# sin_heading_gam_dsa_fda <- gam(sin_Heading ~ s(Distance,sin_Angle,by=Flow_Ablation_Darkness), data = comp_data_near_3)
+# 
+# sin_heading_gam_dcasa <- gam(sin_Heading ~ s(Distance,cos_Angle,sin_Angle), data = comp_data_near_3)
+# sin_heading_gam_dcasa_f <- gam(sin_Heading ~ s(Distance,cos_Angle,sin_Angle,by=Flow), data = comp_data_near_3)
+# sin_heading_gam_dcasa_a <- gam(sin_Heading ~ s(Distance,cos_Angle,sin_Angle,by=Ablation), data = comp_data_near_3)
+# sin_heading_gam_dcasa_d <- gam(sin_Heading ~ s(Distance,cos_Angle,sin_Angle,by=Darkness), data = comp_data_near_3)
+# sin_heading_gam_dcasa_fa <- gam(sin_Heading ~ s(Distance,cos_Angle,sin_Angle,by=Flow_Ablation), data = comp_data_near_3)
+# sin_heading_gam_dcasa_fd <- gam(sin_Heading ~ s(Distance,cos_Angle,sin_Angle,by=Flow_Darkness), data = comp_data_near_3)
+# sin_heading_gam_dcasa_fda <- gam(sin_Heading ~ s(Distance,cos_Angle,sin_Angle,by=Flow_Ablation_Darkness), data = comp_data_near_3)
+
+sin_Heading_AIC <- AIC(sin_heading_gam_d,sin_heading_gam_d_f,sin_heading_gam_d_a,sin_heading_gam_d_d,sin_heading_gam_d_fa,sin_heading_gam_d_fd,sin_heading_gam_d_fda,
+                 sin_heading_gam_ca,sin_heading_gam_ca_f,sin_heading_gam_ca_a,sin_heading_gam_ca_d,sin_heading_gam_ca_fa,sin_heading_gam_ca_fd,sin_heading_gam_ca_fda,
+                 sin_heading_gam_sa,sin_heading_gam_sa_f,sin_heading_gam_sa_a,sin_heading_gam_sa_d,sin_heading_gam_sa_fa,sin_heading_gam_sa_fd,sin_heading_gam_sa_fda,
+                 sin_heading_gam_dca,sin_heading_gam_dca_f,sin_heading_gam_dca_a,sin_heading_gam_dca_d,sin_heading_gam_dca_fa,sin_heading_gam_dca_fd,sin_heading_gam_dca_fda,
+                 sin_heading_gam_dsa,sin_heading_gam_dsa_f,sin_heading_gam_dsa_a,sin_heading_gam_dsa_d,sin_heading_gam_dsa_fa,sin_heading_gam_dsa_fd,sin_heading_gam_dsa_fda,
+                 sin_heading_gam_dcasa,sin_heading_gam_dcasa_f,sin_heading_gam_dcasa_a,sin_heading_gam_dcasa_d,sin_heading_gam_dcasa_fa,sin_heading_gam_dcasa_fd,sin_heading_gam_dcasa_fda)
+
+
+sin_Heading_AIC <- tibble::rownames_to_column(sin_Heading_AIC, "Model_Name")
+
+sin_Heading_AIC <- sin_Heading_AIC %>% mutate(Model_Name = fct_reorder(Model_Name, -AIC)) %>% arrange(AIC)
+
+ggplot(sin_Heading_AIC %>% arrange(AIC), aes(x = Model_Name, y = AIC)) +
+  geom_point(color = "blue") +
+  xlab("") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+  theme_light()+
+  scale_y_reverse() +
+  coord_flip()
+
+sin_Heading_AIC
+```
+
+And now with Sync
+
+```{r}
+# sync_gam_d <- gam(Sync ~ s(Distance), data = comp_data_near_3)
+# sync_gam_d_f <- gam(Sync ~ s(Distance,by=Flow), data = comp_data_near_3)
+# sync_gam_d_a <- gam(Sync ~ s(Distance,by=Ablation), data = comp_data_near_3)
+# sync_gam_d_d <- gam(Sync ~ s(Distance,by=Darkness), data = comp_data_near_3)
+# sync_gam_d_fa <- gam(Sync ~ s(Distance,by=Flow_Ablation), data = comp_data_near_3)
+# sync_gam_d_fd <- gam(Sync ~ s(Distance,by=Flow_Darkness), data = comp_data_near_3)
+# sync_gam_d_fda <- gam(Sync ~ s(Distance,by=Flow_Ablation_Darkness), data = comp_data_near_3)
+# 
+# sync_gam_ca <- gam(Sync ~ s(cos_Angle), data = comp_data_near_3)
+# sync_gam_ca_f <- gam(Sync ~ s(cos_Angle,by=Flow), data = comp_data_near_3)
+# sync_gam_ca_a <- gam(Sync ~ s(cos_Angle,by=Ablation), data = comp_data_near_3)
+# sync_gam_ca_d <- gam(Sync ~ s(cos_Angle,by=Darkness), data = comp_data_near_3)
+# sync_gam_ca_fa <- gam(Sync ~ s(cos_Angle,by=Flow_Ablation), data = comp_data_near_3)
+# sync_gam_ca_fd <- gam(Sync ~ s(cos_Angle,by=Flow_Darkness), data = comp_data_near_3)
+# sync_gam_ca_fda <- gam(Sync ~ s(cos_Angle,by=Flow_Ablation_Darkness), data = comp_data_near_3)
+# 
+# sync_gam_sa <- gam(Sync ~ s(sin_Angle), data = comp_data_near_3)
+# sync_gam_sa_f <- gam(Sync ~ s(sin_Angle,by=Flow), data = comp_data_near_3)
+# sync_gam_sa_a <- gam(Sync ~ s(sin_Angle,by=Ablation), data = comp_data_near_3)
+# sync_gam_sa_d <- gam(Sync ~ s(sin_Angle,by=Darkness), data = comp_data_near_3)
+# sync_gam_sa_fa <- gam(Sync ~ s(sin_Angle,by=Flow_Ablation), data = comp_data_near_3)
+# sync_gam_sa_fd <- gam(Sync ~ s(sin_Angle,by=Flow_Darkness), data = comp_data_near_3)
+# sync_gam_sa_fda <- gam(Sync ~ s(sin_Angle,by=Flow_Ablation_Darkness), data = comp_data_near_3)
+# 
+# sync_gam_dca <- gam(Sync ~ s(Distance,cos_Angle), data = comp_data_near_3)
+# sync_gam_dca_f <- gam(Sync ~ s(Distance,cos_Angle,by=Flow), data = comp_data_near_3)
+# sync_gam_dca_a <- gam(Sync ~ s(Distance,cos_Angle,by=Ablation), data = comp_data_near_3)
+# sync_gam_dca_d <- gam(Sync ~ s(Distance,cos_Angle,by=Darkness), data = comp_data_near_3)
+# sync_gam_dca_fa <- gam(Sync ~ s(Distance,cos_Angle,by=Flow_Ablation), data = comp_data_near_3)
+# sync_gam_dca_fd <- gam(Sync ~ s(Distance,cos_Angle,by=Flow_Darkness), data = comp_data_near_3)
+# sync_gam_dca_fda <- gam(Sync ~ s(Distance,cos_Angle,by=Flow_Ablation_Darkness), data = comp_data_near_3)
+# 
+# sync_gam_dsa <- gam(Sync ~ s(Distance,sin_Angle), data = comp_data_near_3)
+# sync_gam_dsa_f <- gam(Sync ~ s(Distance,sin_Angle,by=Flow), data = comp_data_near_3)
+# sync_gam_dsa_a <- gam(Sync ~ s(Distance,sin_Angle,by=Ablation), data = comp_data_near_3)
+# sync_gam_dsa_d <- gam(Sync ~ s(Distance,sin_Angle,by=Darkness), data = comp_data_near_3)
+# sync_gam_dsa_fa <- gam(Sync ~ s(Distance,sin_Angle,by=Flow_Ablation), data = comp_data_near_3)
+# sync_gam_dsa_fd <- gam(Sync ~ s(Distance,sin_Angle,by=Flow_Darkness), data = comp_data_near_3)
+# sync_gam_dsa_fda <- gam(Sync ~ s(Distance,sin_Angle,by=Flow_Ablation_Darkness), data = comp_data_near_3)
+# 
+# sync_gam_dcasa <- gam(Sync ~ s(Distance,cos_Angle,sin_Angle), data = comp_data_near_3)
+# sync_gam_dcasa_f <- gam(Sync ~ s(Distance,cos_Angle,sin_Angle,by=Flow), data = comp_data_near_3)
+# sync_gam_dcasa_a <- gam(Sync ~ s(Distance,cos_Angle,sin_Angle,by=Ablation), data = comp_data_near_3)
+# sync_gam_dcasa_d <- gam(Sync ~ s(Distance,cos_Angle,sin_Angle,by=Darkness), data = comp_data_near_3)
+# sync_gam_dcasa_fa <- gam(Sync ~ s(Distance,cos_Angle,sin_Angle,by=Flow_Ablation), data = comp_data_near_3)
+# sync_gam_dcasa_fd <- gam(Sync ~ s(Distance,cos_Angle,sin_Angle,by=Flow_Darkness), data = comp_data_near_3)
+# sync_gam_dcasa_fda <- gam(Sync ~ s(Distance,cos_Angle,sin_Angle,by=Flow_Ablation_Darkness), data = comp_data_near_3)
+
+Sync_AIC <- AIC(sync_gam_d,sync_gam_d_f,sync_gam_d_a,sync_gam_d_d,sync_gam_d_fa,sync_gam_d_fd,sync_gam_d_fda,
+                 sync_gam_ca,sync_gam_ca_f,sync_gam_ca_a,sync_gam_ca_d,sync_gam_ca_fa,sync_gam_ca_fd,sync_gam_ca_fda,
+                 sync_gam_sa,sync_gam_sa_f,sync_gam_sa_a,sync_gam_sa_d,sync_gam_sa_fa,sync_gam_sa_fd,sync_gam_sa_fda,
+                 sync_gam_dca,sync_gam_dca_f,sync_gam_dca_a,sync_gam_dca_d,sync_gam_dca_fa,sync_gam_dca_fd,sync_gam_dca_fda,
+                 sync_gam_dsa,sync_gam_dsa_f,sync_gam_dsa_a,sync_gam_dsa_d,sync_gam_dsa_fa,sync_gam_dsa_fd,sync_gam_dsa_fda,
+                 sync_gam_dcasa,sync_gam_dcasa_f,sync_gam_dcasa_a,sync_gam_dcasa_d,sync_gam_dcasa_fa,sync_gam_dcasa_fd,sync_gam_dcasa_fda)
+
+
+Sync_AIC <- tibble::rownames_to_column(Sync_AIC, "Model_Name")
+
+Sync_AIC <- Sync_AIC %>% mutate(Model_Name = fct_reorder(Model_Name, -AIC)) %>% arrange(AIC)
+
+ggplot(Sync_AIC %>% arrange(AIC), aes(x = Model_Name, y = AIC)) +
+  geom_point(color = "blue") +
+  xlab("") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+  theme_light()+
+  scale_y_reverse() +
+  coord_flip()
+
+Sync_AIC
+```
+
+Now we use the best of those
+```{r}
+speed_gam <- speed_gam_dsa_fda <- gam(Speed_Diff ~ s(Distance,sin_Angle,by=Flow_Ablation_Darkness), data = comp_data_near_3)
 summary(speed_gam)
+vis.gam(speed_gam)
+# speed_gam_viz <- getViz(speed_gam)
+# plotRGL(sm(speed_gam_viz, 1))
 
-heading_gam <- gam(fold_heading_diff ~ s(Distance,Angle,by=Flow_Ablation_Darkness),
-                              data = comp_data_near_3)
+cos_heading_gam <- gam(cos_Heading ~ s(Distance,cos_Angle,sin_Angle,by=Flow_Ablation_Darkness), data = comp_data_near_3)
+summary(cos_heading_gam)
+vis.gam(cos_heading_gam)
+# cos_heading_gam_viz <- getViz(cos_heading_gam)
+# plotRGL(sm(cos_heading_gam_viz, 1), fix = c("Distance" = 0))
 
-summary(heading_gam)
+sin_heading_gam <- gam(sin_Heading ~ s(Distance,cos_Angle,sin_Angle,by=Flow_Ablation_Darkness), data = comp_data_near_3)
+summary(sin_heading_gam)
+vis.gam(sin_heading_gam)
+# sin_heading_gam_viz <- getViz(sin_heading_gam)
+# plotRGL(sm(sin_heading_gam_viz, 1), fix = c("Distance" = 0))
 
-sync_gam <- gam(Sync ~ s(Distance,Angle,by=Flow_Ablation_Darkness),
-                              data = comp_data_near_3)
-
+sync_gam <- gam(Sync ~ s(Distance,cos_Angle,sin_Angle,by=Flow_Ablation_Darkness), data = comp_data_near_3)
 summary(sync_gam)
+vis.gam(sync_gam)
+# sync_gam_viz <- getViz(sync_gam)
+# plotRGL(sm(sync_gam_viz, 1), fix = c("Distance" = 0))
 ```
 
 
 Now we make some predictions for this.
 ```{r}
 d <- seq(from = 0, to = 3, by = 0.1)
-a <- seq(from = 0, to = 180, by = 10)
+a <- seq(from = 0, to = 180, by = 5)
 
 flows <- c("Flow 0", "Flow 2")
 ablation <- c("No Ablation", "Ablated")
@@ -223,20 +572,26 @@ dark <- c("Light","Dark")
 predict_df <- expand.grid(Distance = d, Angle = a, Flow = flows, Ablation = ablation, Darkness = dark)
 
 predict_df <- predict_df %>% mutate(Flow_Ablation_Darkness = factor(paste(Flow,Ablation,Darkness,sep=", "))) %>% 
-                            filter(!(Ablation == "Ablated" & Darkness == 'Dark'))
+                             filter(!(Ablation == "Ablated" & Darkness == 'Dark')) %>%
+                             mutate(rad_Angle = deg2rad(Angle)) %>%
+                             mutate(sin_Angle = sin(rad_Angle), cos_Angle = cos(rad_Angle))
 
 predict_df <- predict_df %>% mutate(pred_speed_diff = predict.gam(speed_gam,predict_df),
-                                    pred_heading_diff = predict.gam(heading_gam,predict_df),
-                                    pred_sync = predict.gam(sync_gam,predict_df))
+                                    pred_cos_heading_diff = predict.gam(cos_heading_gam,predict_df),
+                                    pred_sin_heading_diff = predict.gam(sin_heading_gam,predict_df),
+                                    pred_sync = predict.gam(sync_gam,predict_df)) %>%
+                                    mutate(Angle = rad2deg(atan2(sin_Angle,cos_Angle))) %>%
+                                    mutate(pred_heading_diff = rad2deg(atan2(pred_sin_heading_diff,pred_cos_heading_diff)))
 
-predict_df <- predict_df %>% group_by(Distance,Flow,Ablation,Darkness) %>%
+predict_df_sum <- predict_df %>% group_by(Distance,Flow,Ablation,Darkness) %>%
                              mutate(mean_Speed_Distance = mean(pred_speed_diff), sd_Speed_Distance = sd(pred_speed_diff),
                                     mean_Heading_Distance = mean(pred_heading_diff), sd_Heading_Distance = sd(pred_heading_diff),
                                     mean_Sync_Distance = mean(pred_sync), sd_Sync_Distance = sd(pred_sync)) %>%
                              ungroup() %>%
                              group_by(Angle,Flow,Ablation,Darkness) %>%
                              mutate(mean_Speed_Angle = mean(pred_speed_diff), sd_Speed_Angle = sd(pred_speed_diff),
-                                    mean_Heading_Angle = mean(pred_heading_diff), sd_Heading_Angle = sd(pred_heading_diff),
+                                    mean_Heading_Angle = rad2deg(atan(mean(pred_sin_heading_diff)/mean(pred_cos_heading_diff))),
+                                    sd_Heading_Angle = rad2deg(atan(sd(pred_sin_heading_diff)/sd(pred_cos_heading_diff))),
                                     mean_Sync_Angle = mean(pred_sync), sd_Sync_Angle = sd(pred_sync)) %>%
                              ungroup()
 ```
@@ -244,13 +599,13 @@ predict_df <- predict_df %>% group_by(Distance,Flow,Ablation,Darkness) %>%
 And now we graph those?
 
 ```{r}
-ggplot(predict_df, aes(x = Distance, y = mean_Speed_Distance, color = interaction(Ablation,Darkness,sep=", "),
+ggplot(predict_df_sum, aes(x = Distance, y = mean_Speed_Distance, color = interaction(Ablation,Darkness,sep=", "),
                        fill = interaction(Ablation,Darkness,sep=" "))) +
   geom_line() +
   #geom_point(data=predict_df, aes(x = Distance, y = pred_speed_diff, alpha = 0.15)) +
   geom_ribbon(aes(ymin = mean_Speed_Distance-sd_Speed_Distance, ymax = mean_Speed_Distance+sd_Speed_Distance),
-              linetype = 0,
-              alpha = 0.1) +
+             linetype = 0,
+             alpha = 0.1) +
   facet_wrap(~ Flow) +
   guides(fill = "none", color = guide_legend(title = "Condition")) +
   scale_color_manual(values=c("#000000", "#4CB944", "#00A7E1")) +
@@ -258,10 +613,10 @@ ggplot(predict_df, aes(x = Distance, y = mean_Speed_Distance, color = interactio
   ggtitle("Effect of Distance and Senses on Speed Difference") +
   xlab("Distance (BL)") +
   ylab("Speed Difference (BL/s)") +
-  ylim(0,1.5) +
+  #ylim(0,1.5) +
   theme_light()
 
-ggplot(predict_df, aes(x = Distance, y = mean_Heading_Distance, color = interaction(Ablation,Darkness,sep=", "),
+ggplot(predict_df_sum, aes(x = Distance, y = mean_Heading_Distance, color = interaction(Ablation,Darkness,sep=", "),
                        fill = interaction(Ablation,Darkness,sep=", "))) +
   geom_line() +
   #geom_point(data=predict_df, aes(x = Distance, y = pred_heading_diff, alpha = 0.15)) +
@@ -275,10 +630,10 @@ ggplot(predict_df, aes(x = Distance, y = mean_Heading_Distance, color = interact
   ggtitle("Effect of Distance and Senses on Heading Difference") +
   xlab("Distance (BL)") +
   ylab("Heading Difference (Degrees)") +
-  ylim(0,50) +
+  #ylim(0,50) +
   theme_light()
 
-ggplot(predict_df, aes(x = Distance, y = mean_Sync_Distance, color = interaction(Ablation,Darkness,sep=", "),
+ggplot(predict_df_sum, aes(x = Distance, y = mean_Sync_Distance, color = interaction(Ablation,Darkness,sep=", "),
                        fill = interaction(Ablation,Darkness,sep=", "))) +
   geom_line() +
   #geom_point(data=predict_df, aes(x = Distance, y = pred_sync, alpha = 0.15)) +
@@ -292,11 +647,11 @@ ggplot(predict_df, aes(x = Distance, y = mean_Sync_Distance, color = interaction
   ggtitle("Effect of Distance and Senses on Synchonization") +
   xlab("Distance (BL)") +
   ylab("Synchonization") +
-  ylim(0,1)+
+  #ylim(0,1)+
   theme_light()
 ```
 ```{r}
-ggplot(predict_df, aes(x = Angle, y = mean_Speed_Angle, color = interaction(Ablation,Darkness,sep=", "),
+ggplot(predict_df_sum, aes(x = Angle, y = mean_Speed_Angle, color = interaction(Ablation,Darkness,sep=", "),
                        fill = interaction(Ablation,Darkness,sep=", "))) +
   geom_line() +
   #geom_point(data=predict_df, aes(x = Angle, y = pred_speed_diff, alpha = 0.15)) +
@@ -310,10 +665,9 @@ ggplot(predict_df, aes(x = Angle, y = mean_Speed_Angle, color = interaction(Abla
   ggtitle("Effect of Bearing and Senses on Speed Difference") +
   xlab("Bearing (Degrees)") +
   ylab("Speed Difference (BL/s)") +
-  ylim(0,1.5) +
   theme_light()
 
-ggplot(predict_df, aes(x = Angle, y = mean_Heading_Angle, color = interaction(Ablation,Darkness,sep=", "),
+ggplot(predict_df_sum, aes(x = Angle, y = mean_Heading_Angle, color = interaction(Ablation,Darkness,sep=", "),
                        fill = interaction(Ablation,Darkness,sep=", "))) +
   geom_line() +
   #geom_point(data=predict_df, aes(x = Angle, y = pred_heading_diff, alpha = 0.15)) +
@@ -327,10 +681,9 @@ ggplot(predict_df, aes(x = Angle, y = mean_Heading_Angle, color = interaction(Ab
   ggtitle("Effect of Bearing and Senses on Heading Difference") +
   xlab("Angle (Degrees)") +
   ylab("Heading Difference (Degrees)") +
-  ylim(0,50) +
   theme_light()
 
-ggplot(predict_df, aes(x = Angle, y = mean_Sync_Angle, color = interaction(Ablation,Darkness,sep=", "),
+ggplot(predict_df_sum, aes(x = Angle, y = mean_Sync_Angle, color = interaction(Ablation,Darkness,sep=", "),
                        fill = interaction(Ablation,Darkness,sep=", "))) +
   geom_line() +
  #geom_point(data=predict_df, aes(x = Angle, y = pred_sync, alpha = 0.15)) +
@@ -344,7 +697,6 @@ ggplot(predict_df, aes(x = Angle, y = mean_Sync_Angle, color = interaction(Ablat
   ggtitle("Effect of Bearing and Senses on Synchonization") +
   xlab("Bearing (Degrees)") +
   ylab("Synchonization") +
-  ylim(0,1)+
   theme_light()
 ```
 Density vs Things
@@ -370,6 +722,7 @@ comp_data_freqs <- comp_data_near_3 %>% mutate(Dist_bin = round_any(Distance, di
                                                   Freq = mean(Freq))
 
 ```
+
 
 ```{r}
 freq_speed_glm <- glm(Speed_Diff ~ Freq*(Flow+Darkness+Ablation+Flow:Ablation+Flow:Darkness), data = comp_data_freqs)

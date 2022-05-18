@@ -12,6 +12,7 @@
 # take apart fish_core_4P.py. In the end I think a lot of this will be easier to do with pandas and objects instead of reading line by line.
 
 from scipy.signal import hilbert, savgol_filter
+from scipy.spatial import ConvexHull
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 from matplotlib import gridspec 
@@ -19,7 +20,7 @@ import pandas as pd
 import numpy as np
 import random
 import math
-import os
+import os, sys
 
 #Matplotlib breaks with Qt now in big sur :(
 mpl.use('tkagg')
@@ -329,6 +330,20 @@ class fish_comp:
         self.heading_diff = np.rad2deg(np.arctan2(np.sin(np.deg2rad(self.f1.heading-self.f2.heading)),
                                                   np.cos(np.deg2rad(self.f1.heading-self.f2.heading))))
 
+    def calc_heading_diff_filtered(self):
+        #Makes sure that head wiggle doesn't mess up polarization
+        f1_heading_og = self.f1.heading
+        f2_heading_og = self.f2.heading
+
+        self.f1.heading = savgol_filter(self.f1.heading,tailbeat_len,1)
+        self.f2.heading = savgol_filter(self.f2.heading,tailbeat_len,1)
+
+        self.heading_diff = np.rad2deg(np.arctan2(np.sin(np.deg2rad(self.f1.heading-self.f2.heading)),
+                                                  np.cos(np.deg2rad(self.f1.heading-self.f2.heading))))
+
+        for i in range(len(self.f1.heading)):
+            print(f1_heading_og[i],f2_heading_og[i],self.f1.heading[i],self.f2.heading[i],self.heading_diff[i])
+
     def calc_speed_diff(self):
         self.speed_diff = self.f1.speed - self.f2.speed
 
@@ -546,12 +561,15 @@ class school_comps:
         self.nearest_neighbor_distance = []
         self.group_tailbeat_cor = []
 
+        self.school_areas = []
+
         self.calc_school_pos_stats()
         self.calc_school_speed()
         self.calc_school_tb_freq()
         self.calc_school_polarization()
         self.calc_nnd()
         self.calc_tailbeat_cor()
+        self.calc_school_area()
 
     def calc_school_pos_stats(self):
         school_xs = [fish.head_x for fish in self.fishes]
@@ -560,8 +578,8 @@ class school_comps:
         self.school_center_x = np.nanmean(school_xs, axis=0)
         self.school_center_y = np.nanmean(school_ys, axis=0)
 
-        self.school_x_sd = np.nanstd(school_xs, axis=0)
-        self.school_y_sd = np.nanstd(school_xs, axis=0)
+        self.school_x_sd = np.nanstd(school_xs, axis=0) / fish_len
+        self.school_y_sd = np.nanstd(school_ys, axis=0) / fish_len
 
     def calc_school_speed(self):
         #Based on the movement of the center of the school, not the mean of all the fish speeds
@@ -597,7 +615,7 @@ class school_comps:
         sin_headings = np.sin(np.deg2rad([fish.heading for fish in self.fishes]))
         cos_headings = np.cos(np.deg2rad([fish.heading for fish in self.fishes]))
 
-        self.polarization = (1/self.n_fish)*np.sqrt(np.nansum(sin_headings, axis=0)**2 + np.nansum(cos_headings, axis=0))
+        self.polarization = (1/self.n_fish)*np.sqrt(np.nansum(sin_headings, axis=0)**2 + np.nansum(cos_headings, axis=0)**2)
 
     def calc_nnd(self):
         #first we make an array to fill with the NNDs 
@@ -620,12 +638,37 @@ class school_comps:
 
         #Then we get the mins of each row (or column, they are the same), and then get the mean for the mean
         # NND for that timepoint
-        self.nearest_neighbor_distance = np.nanmean(np.nanmin(nnd_array,axis = 1),axis = 1)
+        self.nearest_neighbor_distance = np.nanmean(np.nanmin(nnd_array,axis = 1),axis = 1) / fish_len
 
     def calc_tailbeat_cor(self):
         pass
 
-        #rayleigh_cor()
+    def calc_school_area(self):
+        school_xs = np.asarray([fish.head_x for fish in self.fishes])
+        school_ys = np.asarray([fish.head_y for fish in self.fishes])
+
+        self.school_areas = [np.nan for i in range(len(school_xs[0]))]
+
+        for i in range(len(school_xs[0])):
+            x_row = school_xs[:,i]
+            y_row = school_ys[:,i]
+
+            mask = ~np.isnan(x_row)
+
+            x_row = x_row[mask]
+            y_row = y_row[mask]
+
+            mask = ~np.isnan(y_row)
+
+            x_row = x_row[mask]
+            y_row = y_row[mask]
+
+            if len(x_row) >= 3:
+                points = np.column_stack((x_row,y_row))
+
+                hull = ConvexHull(points)
+
+                self.school_areas[i] = hull.volume/fish_len**2
 
 class trial:
     def __init__(self, file_name, data_folder, n_fish = 8):
@@ -687,8 +730,11 @@ class trial:
             chunked_headings = angular_mean_tailbeat_chunk(fish.heading,tailbeat_len)
             chunked_speeds = mean_tailbeat_chunk(fish.speed,tailbeat_len)
             chunked_tb_freqs = mean_tailbeat_chunk(fish.tb_freq_reps,tailbeat_len)
+            chunked_x = mean_tailbeat_chunk(fish.head_x,tailbeat_len)
+            chunked_y = mean_tailbeat_chunk(fish.head_y,tailbeat_len)
 
-            short_data_length = min([len(chunked_headings),len(chunked_speeds),len(chunked_tb_freqs)])
+            short_data_length = min([len(chunked_headings),len(chunked_speeds),len(chunked_tb_freqs),
+                                     len(chunked_x),len(chunked_y)])
 
             d = {'Year': np.repeat(self.year,short_data_length),
                  'Month': np.repeat(self.month,short_data_length),
@@ -698,7 +744,9 @@ class trial:
                  'Darkness': np.repeat(self.darkness,short_data_length), 
                  'Flow': np.repeat(self.flow,short_data_length), 
                  'Fish': np.repeat(fish.name,short_data_length),
-                 'Tailbeat Num': range(short_data_length),
+                 'Tailbeat_Num': range(short_data_length),
+                 'X':chunked_x[:short_data_length],
+                 'Y':chunked_y[:short_data_length],
                  'Heading': chunked_headings[:short_data_length], 
                  'Speed': chunked_speeds[:short_data_length], 
                  'TB_Frequency': chunked_tb_freqs[:short_data_length],
@@ -739,7 +787,7 @@ class trial:
                  'Darkness': np.repeat(self.darkness,short_data_length), 
                  'Flow': np.repeat(self.flow,short_data_length), 
                  'Fish': np.repeat(current_comp.name,short_data_length),
-                 'Tailbeat Num': range(short_data_length),
+                 'Tailbeat_Num': range(short_data_length),
                  'X_Distance': chunked_x_diffs[:short_data_length], 
                  'Y_Distance': chunked_y_diffs[:short_data_length], 
                  'Distance': chunked_dists[:short_data_length],
@@ -756,6 +804,56 @@ class trial:
 
         return(out_data)
 
+    def return_raw_comp_vals(self):
+        firstfish = True
+
+        for pair in self.fish_comp_indexes:
+
+            current_comp = self.fish_comps[pair[0]][pair[1]]
+
+            dists = get_dist_np(0,0,current_comp.x_diff,current_comp.y_diff)
+
+            short_data_length = min([len(current_comp.x_diff),len(current_comp.y_diff),len(dists),
+                                     len(current_comp.angle),len(current_comp.heading_diff),len(current_comp.speed_diff),
+                                     len(current_comp.tailbeat_offset_reps)])
+
+            # print([len(current_comp.x_diff),len(current_comp.y_diff),len(dists),
+            #                          len(current_comp.angle),len(current_comp.heading_diff),len(current_comp.speed_diff),
+            #                          len(current_comp.tailbeat_offset_reps)])
+
+            # print(short_data_length)
+            # print(range(short_data_length))
+
+            if short_data_length > tailbeat_len:
+
+                d = {'Year': np.repeat(self.year,short_data_length),
+                     'Month': np.repeat(self.month,short_data_length),
+                     'Day': np.repeat(self.day,short_data_length),
+                     'Trial': np.repeat(self.trial,short_data_length), 
+                     'Ablation': np.repeat(self.abalation,short_data_length), 
+                     'Darkness': np.repeat(self.darkness,short_data_length), 
+                     'Flow': np.repeat(self.flow,short_data_length), 
+                     'Fish': np.repeat(current_comp.name,short_data_length),
+                     'Frame_Num': range(short_data_length),
+                     'X_Distance': current_comp.x_diff[:short_data_length], 
+                     'Y_Distance': current_comp.y_diff[:short_data_length], 
+                     'Distance': dists[:short_data_length],
+                     'Angle': current_comp.angle[:short_data_length],
+                     #Smoothing to make sure fish head wiggle doen't mess up polarization
+                     'Fish1_Heading': current_comp.f1.heading[:short_data_length],
+                     'Fish2_Heading': current_comp.f2.heading[:short_data_length],
+                     'Heading_Diff': current_comp.heading_diff[:short_data_length],
+                     'Speed_Diff': current_comp.speed_diff[:short_data_length],
+                     'Sync': current_comp.tailbeat_offset_reps[:short_data_length]}
+
+                if firstfish:
+                    out_data = pd.DataFrame(data=d)
+                    firstfish = False
+                else:
+                    out_data = out_data.append(pd.DataFrame(data=d))
+
+        return(out_data)
+
     def return_school_vals(self):
 
         chunked_x_center = mean_tailbeat_chunk(self.school_comp.school_center_x,tailbeat_len)
@@ -764,16 +862,19 @@ class trial:
         chunked_y_sd = mean_tailbeat_chunk(self.school_comp.school_y_sd,tailbeat_len)
         chunked_group_speed = mean_tailbeat_chunk(self.school_comp.group_speed,tailbeat_len)
         chunked_group_tb_freq = mean_tailbeat_chunk(self.school_comp.group_tb_freq,tailbeat_len)
-        chunked_nnd = mean_tailbeat_chunk(self.school_comp.polarization,tailbeat_len)
+        chunked_polarization = mean_tailbeat_chunk(self.school_comp.polarization,tailbeat_len)
+        chunked_nnd = mean_tailbeat_chunk(self.school_comp.nearest_neighbor_distance,tailbeat_len)
+        chunked_area = mean_tailbeat_chunk(self.school_comp.school_areas,tailbeat_len)
 
         short_data_length = min([len(chunked_x_center),len(chunked_y_center),len(chunked_x_sd),
                                  len(chunked_y_sd),len(chunked_group_speed),len(chunked_group_tb_freq),
-                                 len(chunked_nnd)])
+                                 len(chunked_nnd),len(chunked_area)])
 
         d = {'Year': np.repeat(self.year,short_data_length),
              'Month': np.repeat(self.month,short_data_length),
              'Day': np.repeat(self.day,short_data_length),
-             'Trial': np.repeat(self.trial,short_data_length), 
+             'Trial': np.repeat(self.trial,short_data_length),
+             'Tailbeat_Num': range(short_data_length),
              'Ablation': np.repeat(self.abalation,short_data_length), 
              'Darkness': np.repeat(self.darkness,short_data_length), 
              'Flow': np.repeat(self.flow,short_data_length), 
@@ -781,9 +882,11 @@ class trial:
              'Y_Center': chunked_y_center[:short_data_length], 
              'X_SD': chunked_x_sd[:short_data_length], 
              'Y_SD': chunked_y_sd[:short_data_length], 
+             'School_Polar': chunked_polarization[:short_data_length], 
              'School_Speed': chunked_group_speed[:short_data_length], 
              'School_TB_Freq': chunked_group_tb_freq[:short_data_length], 
-             'NND': chunked_nnd[:short_data_length]}
+             'NND': chunked_nnd[:short_data_length],
+             'Area': chunked_area[:short_data_length]}
 
         out_data = pd.DataFrame(data=d)
 
@@ -812,15 +915,18 @@ for trial in trials:
     if first_trial:
         fish_sigular_dataframe = trial.return_fish_vals()
         fish_comp_dataframe = trial.return_comp_vals()
+        fish_raw_comp_dataframe = trial.return_raw_comp_vals()
         fish_school_dataframe = trial.return_school_vals()
         first_trial = False
     else:
         fish_sigular_dataframe = fish_sigular_dataframe.append(trial.return_fish_vals())
         fish_comp_dataframe = fish_comp_dataframe.append(trial.return_comp_vals())
+        fish_raw_comp_dataframe = fish_raw_comp_dataframe.append(trial.return_raw_comp_vals())
         fish_school_dataframe = fish_school_dataframe.append(trial.return_school_vals())
 
 fish_sigular_dataframe.to_csv("Fish_Individual_Values.csv")
 fish_comp_dataframe.to_csv("Fish_Comp_Values.csv")
+fish_raw_comp_dataframe.to_csv("Fish_Raw_Comp_Values.csv")
 fish_school_dataframe.to_csv("Fish_School_Values.csv")
 
 #Recalculate when new data is added

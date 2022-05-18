@@ -15,16 +15,19 @@ library(boot)
 comp_data <- read.csv("Fish_Comp_Values.csv")
 comp_data <- na.omit(comp_data)
 
-comp_data <- comp_data %>% mutate(Flow = ifelse(Flow == "0", "Flow 0", "Flow 2")) %>%
-                           mutate(Ablation = ifelse(Ablation == "N", "No Ablation", "Ablated")) %>%
-                           mutate(Darkness = ifelse(Darkness == "N", "Light", "Dark")) %>%
-                           mutate(Heading_Diff = abs(Heading_Diff)) %>%
-                           filter(Distance <= 4) %>%
-                           filter(Speed_Diff <= 6) %>% 
-                           mutate(quarter_heading_diff = abs(abs(Heading_Diff-90)-90)) %>%
-                           mutate(Is_Aligned = ifelse(Heading_Diff < 30, 1, 0)) %>%
-                           mutate(Is_Reversed = ifelse(Heading_Diff > 150, 1, 0)) %>%
-                           mutate(Angle = fold_angle_0_360_to_0_180(Angle))
+indiv_data <- read.csv("Fish_Individual_Values.csv")
+indiv_data <- na.omit(indiv_data)
+
+# comp_data <- comp_data %>% mutate(Flow = ifelse(Flow == "0", "Flow 0", "Flow 2")) %>%
+#                            mutate(Ablation = ifelse(Ablation == "N", "No Ablation", "Ablated")) %>%
+#                            mutate(Darkness = ifelse(Darkness == "N", "Light", "Dark")) %>%
+#                            mutate(Heading_Diff = abs(Heading_Diff)) %>%
+#                            filter(Distance <= 4) %>%
+#                            filter(Speed_Diff <= 6) %>% 
+#                            mutate(quarter_heading_diff = abs(abs(Heading_Diff-90)-90)) %>%
+#                            mutate(Is_Aligned = ifelse(Heading_Diff < 30, 1, 0)) %>%
+#                            mutate(Is_Reversed = ifelse(Heading_Diff > 150, 1, 0)) %>%
+#                            mutate(Angle = fold_angle_0_360_to_0_180(Angle))
 
 indiv_data <- indiv_data %>% mutate(Flow = ifelse(Flow == "0", "Flow 0", "Flow 2")) %>%
                              mutate(Ablation = ifelse(Ablation == "N", "No Ablation", "Ablated")) %>%
@@ -96,5 +99,12 @@ Tailbeat Frequency:
   Flow SD:    1.43
 
 	
+```{r}
+ggplot(indiv_data, aes(X, Y) ) +
+  geom_bin2d(bins = 15) +
+  facet_wrap(~ Flow + Ablation + Darkness) +
+  scale_fill_continuous(type = "viridis") +
+  theme_light()
+```
 
 

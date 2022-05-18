@@ -1,0 +1,144 @@
+---
+title: "Individual Fish"
+output: html_notebook
+---
+
+```{r}
+library(tidyverse)
+library(ggplot2)
+library(car)
+library(forcats)
+library(ggpubr)
+library(rstatix)
+```
+
+
+```{r}
+indiv_data <- read.csv("Fish_Individual_Values.csv")
+indiv_data <- na.omit(indiv_data)
+
+indiv_data <- indiv_data %>% mutate(Flow = ifelse(Flow == "0", "Still Water", "Flowing Water (2 BL/s)")) %>%
+                             mutate(Ablation = ifelse(Ablation == "N", "No Ablation", "Ablated")) %>%
+                             mutate(Darkness = ifelse(Darkness == "N", "Light", "Dark")) %>%
+                             mutate(Flow = factor(Flow), Ablation = factor(Ablation), Darkness = factor(Darkness)) %>%
+                           mutate(Flow = fct_relevel(Flow, c("Still Water","Flowing Water (2 BL/s)"))) %>%
+                           mutate(Ablation = fct_relevel(Ablation, c("No Ablation","Ablated"))) %>%
+                           mutate(Darkness = fct_relevel(Darkness, c("Light","Dark"))) %>%
+                           mutate(Flow_Ablation_Darkness = factor(paste(Flow,Ablation,Darkness,sep=", ")))
+
+indiv_data_4_speed <- indiv_data %>% group_by(Year, Month, Day, Trial, Tailbeat_Num) %>%
+                                     summarise(Mean_Speed = mean(Speed))
+```
+
+```{r}
+m_speed <- aov(Speed ~ Flow + Ablation + Darkness + Flow:Ablation + Flow:Darkness, data = indiv_data)
+Anova(m_speed)
+TukeyHSD(m_speed)
+
+ggplot(indiv_data,aes(x=Speed))+
+  geom_histogram() +
+  facet_wrap(~ Flow + Ablation + Darkness, scales="free") +
+  xlim(0,6) +
+  theme_light()
+
+ggplot(indiv_data %>% filter(Speed < 5), aes(x = Flow, y = Speed, fill = interaction(Ablation,Darkness,sep=", ")))+
+  geom_boxplot(outlier.shape = NA) +
+  guides(fill = guide_legend(title = "Condition")) +
+  scale_fill_manual(values=c("#EEEEEE", "#4CB944", "#00A7E1")) +
+  ggtitle("Effect of Available Senses on Fish Speed") +
+  xlab("") +
+  #ylim(0,5) +
+  ylab("Speed (BL/s)") +
+  theme_light()
+
+my_comparisons <- list( c("No Ablation, Light", "No Ablation, Dark"), c("No Ablation, Light", "Ablated, Light") )
+
+ggplot(indiv_data %>% filter(Speed < 5), aes(x = interaction(Ablation,Darkness,sep=", "), y = Speed, fill = interaction(Ablation,Darkness,sep=", ")))+
+  geom_boxplot(outlier.shape = NA) +
+  guides(fill = guide_legend(title = "Condition")) +
+  scale_fill_manual(values=c("#EEEEEE", "#4CB944", "#00A7E1")) +
+  ggtitle("Effect of Available Senses on Fish Speed") +
+  xlab("") +
+  ylab("Speed (BL/s)") +
+  ylim(0,6) +
+  theme_light() +
+  facet_wrap(~ Flow, strip.position = "bottom")+
+  #stat_compare_means(aes(label = ..p.signif..), method = "t.test", ref.group = "Flow 0, No Ablation, Light")
+  stat_compare_means(comparisons = my_comparisons, label.y = c(4.5, 5.5), label = "p.signif", hide.ns = TRUE) +
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())
+```
+
+```{r}
+m_heading <- aov(Heading ~ Flow + Ablation + Darkness + Flow*Ablation + Flow*Darkness, data = indiv_data)
+Anova(m_heading)
+TukeyHSD(m_heading)
+
+ggplot(indiv_data, aes(x = Flow, y = rad2deg(atan(sin(deg2rad(Heading))/cos(deg2rad(Heading)))), fill = interaction(Ablation,Darkness,sep=", ")))+
+  geom_boxplot(outlier.shape = NA) +
+  guides(fill = guide_legend(title = "Condition")) +
+  scale_fill_manual(values=c("#EEEEEE", "#4CB944", "#00A7E1")) +
+  ggtitle("Effect of Available Senses on Fish Heading") +
+  xlab("") +
+  ylab("Heading (Degrees)") +
+  theme_light()
+```
+
+```{r}
+m_tailbeats <- aov(TB_Frequency ~ Flow + Ablation + Darkness + Flow*Ablation + Flow*Darkness, data = indiv_data)
+Anova(m_tailbeats)
+TukeyHSD(m_tailbeats)
+
+ggplot(indiv_data, aes(x = Flow, y = TB_Frequency, fill = interaction(Ablation,Darkness,sep=", ")))+
+  geom_boxplot(outlier.shape = NA) +
+  guides(fill = guide_legend(title = "Condition")) +
+  scale_fill_manual(values=c("#EEEEEE", "#4CB944", "#00A7E1")) +
+  ggtitle("Effect of Available Senses on Fish Tailbeat Frequency") +
+  xlab("") +
+  ylim(0,7) +
+  ylab("Tailbeat Frequency (Beats/s)") +
+  theme_light()
+
+my_comparisons <- list(c("Still Water", "Flowing Water (2 BL/s)"))
+
+ggplot(indiv_data, aes(x = Flow, y = TB_Frequency, fill = interaction(Ablation,Darkness,sep=", ")))+
+  geom_boxplot(outlier.shape = NA) +
+  guides(fill = guide_legend(title = "Condition")) +
+  scale_fill_manual(values=c("#EEEEEE", "#4CB944", "#00A7E1")) +
+  ggtitle("Effect of Available Senses on Fish Tailbeat Frequency") +
+  xlab("") +
+  ylab("Tailbeat Frequency (Beats/s)") +
+  theme_light() +
+  facet_wrap(~ interaction(Ablation,Darkness,sep=", "), strip.position = "bottom")+
+   ylim(0,10) +
+  #stat_compare_means(aes(label = ..p.signif..), method = "t.test", ref.group = "Flow 0, No Ablation, Light")
+  stat_compare_means(comparisons = my_comparisons, label.y = c(9), label = "p.signif", hide.ns = TRUE) +
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())
+
+ggplot(indiv_data, aes(x = Flow, y = TB_Frequency))+
+  geom_boxplot(outlier.shape = NA) +
+  guides(fill = guide_legend(title = "Condition")) +
+  scale_fill_manual(values=c("#EEEEEE", "#4CB944", "#00A7E1")) +
+  ggtitle("Effect of Available Senses on Fish Tailbeat Frequency") +
+  xlab("") +
+  ylab("Tailbeat Frequency (Beats/s)") +
+  theme_light() +
+  facet_wrap(~ interaction(Ablation,Darkness,sep=", "), strip.position = "bottom")+
+   ylim(0,10) +
+  #stat_compare_means(aes(label = ..p.signif..), method = "t.test", ref.group = "Flow 0, No Ablation, Light")
+  stat_compare_means(comparisons = my_comparisons, label.y = c(9), label = "p.signif", hide.ns = TRUE) +
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())
+```
+
+
+
+
+
+
+
+
