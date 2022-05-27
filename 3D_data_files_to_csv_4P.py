@@ -552,10 +552,9 @@ class fish_comp:
         gs = gridspec.GridSpec(ncols = 5, nrows = 3) 
 
         ax0 = plt.subplot(gs[:,0])
-        ax0.plot(self.f1.head_x, self.f1.head_y)
-        ax0.plot(self.f2.head_x, self.f2.head_y)
-        ax0.scatter(self.f1.head_x[0], self.f1.head_y[0])
-        ax0.scatter(self.f2.head_x[0], self.f2.head_y[0])
+
+        ax0.scatter(self.f1.head_x, self.f1.head_y, c = np.linspace(0,1,num = len(self.f1.head_x)), s = 2)
+        ax0.scatter(self.f2.head_x, self.f2.head_y, c = np.linspace(0,1,num = len(self.f2.head_x)), s = 2)
         ax0.set_title("Fish Path (Blue = Fish 1, Orange = Fish 2)")
 
         ax1 = plt.subplot(gs[0,1])
@@ -579,15 +578,15 @@ class fish_comp:
         ax5.set_title("Speed Difference")
 
         ax6 = plt.subplot(gs[0,3])
-        ax6.plot(range(len(self.f1.heading)), self.f1.heading)
+        ax6.plot(range(len(self.f1.yaw_heading)), self.f1.yaw_heading)
         ax6.set_title("Fish 1 Heading")
 
         ax7 = plt.subplot(gs[1,3])
-        ax7.plot(range(len(self.f2.heading)), self.f2.heading)
+        ax7.plot(range(len(self.f2.yaw_heading)), self.f2.yaw_heading)
         ax7.set_title("Fish 2 Heading")
 
         ax8 = plt.subplot(gs[2,3])
-        ax8.plot(range(len(self.heading_diff)), self.heading_diff)
+        ax8.plot(range(len(self.yaw_heading_diff)), self.yaw_heading_diff)
         ax8.set_title("Heading Difference")
 
         ax9 = plt.subplot(gs[0,4])
@@ -638,6 +637,8 @@ class school_comps:
         self.calc_nnd()
         self.calc_tailbeat_cor()
         self.calc_school_area()
+
+        #self.graph_values()
 
     def calc_school_pos_stats(self):
         school_xs = [fish.head_x for fish in self.fishes]
@@ -692,9 +693,7 @@ class school_comps:
 
     def calc_nnd(self):
         #first we make an array to fill with the NNDs 
-        nnd_array = np.asarray([[[999 for j in range(self.n_fish)] for i in range(self.n_fish)] for t in range(len(self.school_center_x))])
-
-        nnd_array  = np.zeros((len(self.school_center_x),self.n_fish,self.n_fish)) + 999
+        nnd_array  = np.zeros((len(self.school_center_x),self.n_fish,self.n_fish)) + np.nan
 
         #now calculate all nnds
         for i in range(self.n_fish):
@@ -752,6 +751,48 @@ class school_comps:
                 hull = ConvexHull(points)
 
                 self.school_areas[i] = hull.volume/fish_len**2
+
+    def graph_values(self):
+        fig = plt.figure(figsize=(16, 10))
+        gs = gridspec.GridSpec(ncols = 5, nrows = 3) 
+
+        ax0 = plt.subplot(gs[:,0])
+        for fish in self.fishes:
+            ax0.scatter(fish.head_x, fish.head_y, c = np.linspace(0,1,num = len(fish.head_x)), s = 2)
+
+        ax1 = plt.subplot(gs[0,1])
+        ax1.plot(range(len(self.school_center_x)), self.school_center_x)
+        ax1.set_title("School X")
+
+        ax2 = plt.subplot(gs[1,1])
+        ax2.plot(range(len(self.school_center_y)), self.school_center_y)
+        ax2.set_title("School Y")
+
+        ax2 = plt.subplot(gs[2,1])
+        ax2.plot(range(len(self.school_center_z)), self.school_center_z)
+        ax2.set_title("School Z")
+
+        ax3 = plt.subplot(gs[0,2])
+        ax3.plot(range(len(self.group_speed)), self.group_speed)
+        ax3.set_title("School Speed")
+
+        ax4 = plt.subplot(gs[1,2])
+        ax4.plot(range(len(self.group_tb_freq)), self.group_tb_freq)
+        ax4.set_title("School TB Freq")
+
+        ax5 = plt.subplot(gs[2,2])
+        ax5.plot(range(len(self.polarization)), self.polarization)
+        ax5.set_title("School Polarization")
+
+        ax6 = plt.subplot(gs[0,3])
+        ax6.plot(range(len(self.school_areas)), self.school_areas)
+        ax6.set_title("School Area")
+
+        ax7 = plt.subplot(gs[1,3])
+        ax7.plot(range(len(self.nearest_neighbor_distance)), self.nearest_neighbor_distance)
+        ax7.set_title("School NND")
+
+        plt.show()
 
 class trial:
     def __init__(self, file_name, data_folder, n_fish = 8):
@@ -997,7 +1038,7 @@ data_folder = "3D_Finished_Fish_Data_4P_gaps/"
 
 trials = []
 
-single_file = "" #"2021_10_08_27_LN_DY_F0_3DDLC_dlcrnetms5_DLC_2-2_4P_8F_Light_VentralMay10shuffle1_100000_el_filtered.csv"
+single_file = ""#"2021_10_06_36_LY_DN_F2_3D_DLC_dlcrnetms5_DLC_2-2_4P_8F_Light_VentralMay10shuffle1_100000_el_filtered.csv"
 
 for file_name in os.listdir(data_folder):
     if file_name.endswith(".csv") and single_file in file_name:
@@ -1030,18 +1071,26 @@ fish_comp_dataframe.to_csv("Fish_Comp_Values_3D.csv")
 fish_raw_comp_dataframe.to_csv("Fish_Raw_Comp_Values_3D.csv")
 fish_school_dataframe.to_csv("Fish_School_Values_3D.csv")
 
-#Recalculate when new data is added
-all_trials_tailbeat_lens = []
-all_trials_fish_lens = []
+# #Recalculate when new data is added
+# all_trials_tailbeat_lens = []
+# all_trials_fish_lens = []
 
-for trial in trials:
-    all_trials_tailbeat_lens.extend(trial.return_tailbeat_lens())
-    all_trials_fish_lens.extend(trial.return_fish_lens())
+# for trial in trials:
+#     all_trials_tailbeat_lens.extend(np.asarray(trial.return_tailbeat_lens()))
+#     all_trials_fish_lens.extend(np.asarray(trial.return_fish_lens()))
 
-print("Tailbeat Len Median")
-print(np.nanmedian(all_trials_tailbeat_lens)) #19
+# all_trials_fish_lens = np.asarray(all_trials_fish_lens)
+# all_trials_fish_lens = all_trials_fish_lens[all_trials_fish_lens < 1.25]
 
-print("Fish Len Median")
-print(np.nanmedian(all_trials_fish_lens)) #193
+# print("Tailbeat Len Median")
+# print(np.nanmedian(all_trials_tailbeat_lens)) #19
+
+# print("Fish Len Median")
+# print(np.nanmedian(all_trials_fish_lens)) #193
+
+# fig,ax = plt.subplots(1,1)
+# ax.hist(all_trials_fish_lens, bins = 30)
+# ax.set_xlim(0,1.5)
+# plt.show()
 
 

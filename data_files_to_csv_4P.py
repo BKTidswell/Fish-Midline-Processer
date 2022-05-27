@@ -174,12 +174,12 @@ class fish_data:
     def calc_heading(self):
 
         #Then we create a vector of the head minus the midline 
-        vec_x = self.head_x - self.midline_x
-        vec_y = self.head_y - self.midline_y
+        self.vec_x = self.head_x - self.midline_x
+        self.vec_y = self.head_y - self.midline_y
 
         #Then we use arctan to calculate the heading based on the x and y point vectors
         #Becasue of roll we don't want to the last value since it will be wrong
-        self.heading = np.rad2deg(np.arctan2(vec_y,vec_x))[:-1]
+        self.heading = np.rad2deg(np.arctan2(self.vec_y,self.vec_x))[:-1]
 
     def calc_speed(self):
         #First we get the next points on the fish
@@ -325,8 +325,17 @@ class fish_comp:
         self.angle = angle_diff
 
     def calc_heading_diff(self):
-        self.heading_diff = np.rad2deg(np.arctan2(np.sin(np.deg2rad(self.f1.heading-self.f2.heading)),
-                                                  np.cos(np.deg2rad(self.f1.heading-self.f2.heading))))
+        f1_vector = np.asarray([self.f1.vec_x,self.f1.vec_y]).transpose()
+        #print(f1_vector)
+        f2_vector = np.asarray([self.f2.vec_x,self.f2.vec_y]).transpose()
+
+        self.heading_diff = np.zeros(len(self.f1.vec_x))
+
+        for i in range(len(self.f1.vec_x)):
+            dot_product = np.dot(f1_vector[i], f2_vector[i])
+
+            prod_of_norms = np.linalg.norm(f1_vector[i]) * np.linalg.norm(f2_vector[i])
+            self.heading_diff[i] = np.degrees(np.arccos(dot_product / prod_of_norms))
 
     def calc_heading_diff_filtered(self):
         #Makes sure that head wiggle doesn't mess up polarization

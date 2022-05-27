@@ -64,7 +64,7 @@ for v2f in v2_files:
         #Add the filepath on here as well
         v1f = "V1 CSVs/" + v1f
         v2f = "V2 CSVs/" + v2f
-        dlt_coefs_file = "DLT_Coefs/" + dlt_coefs_file
+        dlt_coefs_file = "DLT Coefs/" + dlt_coefs_file
 
         print(v1f,v2f,dlt_coefs_file)
 
@@ -122,7 +122,7 @@ for v2f in v2_files:
         fish_out_df = pd.DataFrame.from_dict(fish_data_out_dict)
         #Replace to make new file name
         new_file_name = v2f.replace("V2 CSVs/","").replace("V2","3D_")
-        fish_out_df.to_csv("/Users/Ben/Desktop/Fish Midline Processer/2Dto3D/Final 3D/"+new_file_name)
+        fish_out_df.to_csv("/Users/Ben/Desktop/Fish-Midline-Processer/2Dto3D/Final 3D/"+new_file_name)
 
 
 

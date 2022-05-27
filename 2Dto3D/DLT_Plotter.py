@@ -36,7 +36,7 @@ for file_name in three_d_files:
         df['Frame'] = df.groupby(['Scorer','Fish','BodyPart','Point']).cumcount()+1
 
         #So now we pivot from the Point column, into seperate ones for x, y, and z
-        df = df.pivot(index = ['Scorer','Fish','BodyPart','Frame'], columns='Point', values='value')
+        df = df.pivot_table(index = ['Scorer','Fish','BodyPart','Frame'], columns='Point', values='value')
 
         #Then we have to reset the index so that we can use 'Scorer','Fish','BodyPart','Frame' as data columns
         df = df.reset_index()
