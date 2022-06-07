@@ -18,6 +18,8 @@ three_d_files = os.listdir("Final 3D")
 for file_name in three_d_files:
     if file_name.endswith(".csv"):
 
+        print(file_name)
+
         file_path = file_folder+file_name
 
         fish_raw_data = pd.read_csv(file_path, index_col=0, header=header)
