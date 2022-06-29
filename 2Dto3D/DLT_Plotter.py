@@ -4,6 +4,7 @@ import pandas as pd
 import math
 import plotly.express as px
 from scipy import linalg
+import sys
 
 #Header list for reading the raw location CSVs
 header = list(range(4))
@@ -47,17 +48,23 @@ for file_name in three_d_files:
 
         #Now we graph it, nice and easy
 
-        #Though the axies keep shifting weirdly so not my fave
-        fig = px.scatter_3d(df,x="x", y="y", z="z", color="Fish", animation_frame="Frame", hover_data = ["BodyPart"],
-                               range_x=[df["x"].min()-0.05,df["x"].max()+0.05],
-                               range_y=[df["y"].min()-0.05,df["y"].max()+0.05],
-                               range_z=[df["z"].min()-0.05,df["z"].max()+0.05],
-                               color_continuous_scale = "rainbow")
+        print(df)
 
-        fig.layout.scene.aspectratio = {'x':1, 'y':1, 'z':1}
+        df.to_csv()
 
-        #fig.show()
+        sys.exit()
 
-        file_id = file_name[0:22]
+        # #Though the axies keep shifting weirdly so not my fave
+        # fig = px.scatter_3d(df,x="x", y="y", z="z", color="Fish", animation_frame="Frame", hover_data = ["BodyPart"],
+        #                        range_x=[df["x"].min()-0.05,df["x"].max()+0.05],
+        #                        range_y=[df["y"].min()-0.05,df["y"].max()+0.05],
+        #                        range_z=[df["z"].min()-0.05,df["z"].max()+0.05],
+        #                        color_continuous_scale = "rainbow")
 
-        fig.write_html("Saved 3D Plots/{name}.html".format(name = file_id), auto_play=False)
+        # fig.layout.scene.aspectratio = {'x':1, 'y':1, 'z':1}
+
+        # #fig.show()
+
+        # file_id = file_name[0:22]
+
+        # fig.write_html("Saved 3D Plots/{name}.html".format(name = file_id), auto_play=False)

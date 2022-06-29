@@ -48,7 +48,7 @@ allowed_flow_type = c("Still Water","Flowing Water (2 BL/s)")
 ### NND
 
 ```{r}
-school_data <- read.csv("Fish_School_Values.csv")
+school_data <- read.csv("Data/Fish_School_Values.csv")
 school_data <- na.omit(school_data)
 
 school_data <- school_data %>% mutate(Flow = ifelse(Flow == "0", "Still Water", "Flowing Water (2 BL/s)")) %>%
@@ -88,7 +88,7 @@ ggsave("Final Graphs/School_NND.png")
 ### Num fish Within 2 BL
 
 ```{r}
-raw_school_data <- read.csv("Fish_Raw_Comp_Values.csv")
+raw_school_data <- read.csv("Data/Fish_Raw_Comp_Values.csv")
 raw_school_data <- na.omit(raw_school_data)
 
 raw_school_data <- raw_school_data %>% mutate(Flow = ifelse(Flow == "0", "Still Water", "Flowing Water (2 BL/s)")) %>%
@@ -147,7 +147,7 @@ ggsave("Final Graphs/Mean_Group_Size.png")
 ### Polarization
 
 ```{r}
-school_data <- read.csv("Fish_School_Values.csv")
+school_data <- read.csv("Data/Fish_School_Values.csv")
 school_data <- na.omit(school_data)
 
 school_data <- school_data %>% mutate(Flow = ifelse(Flow == "0", "Still Water", "Flowing Water (2 BL/s)")) %>%
@@ -226,7 +226,7 @@ ggsave("Final Graphs/Num_Aligned_Fish_2BL.png")
 ```{r}
 speed_whole_school <- school_data
 
-indiv_data <- read.csv("Fish_Individual_Values.csv")
+indiv_data <- read.csv("Data/Fish_Individual_Values.csv")
 indiv_data <- na.omit(indiv_data)
 
 indiv_data <- indiv_data %>% mutate(Flow = ifelse(Flow == "0", "Still Water", "Flowing Water (2 BL/s)")) %>%
@@ -272,7 +272,7 @@ ggsave("Final Graphs/School_Speed_Over_Indiv_Speed.png")
 ### Turning Bias
 
 ```{r}
-turning_data <- read.csv("Annushka_Turning_Data_Wall.csv") %>%
+turning_data <- read.csv("Data/Annushka_Turning_Data_Wall.csv") %>%
                            filter(Next.to.Wall == 0) %>%
                            mutate(Flow = ifelse(Flow == "F0", "Still Water", "Flowing Water (2 BL/s)")) %>%
                            mutate(Ablation = ifelse(Ablation %in% c("LN","TN"), "No Ablation", "Ablated")) %>%
@@ -349,7 +349,7 @@ ggsave("Final Graphs/Best_Model_Right_Turn_Prob.png")
 ### Simulated # of fish within 2 BL
 
 ```{r}
-raw_school_data_simul <- rbind(read.csv("Fish_Raw_Comp_Values.csv"),
+raw_school_data_simul <- rbind(read.csv("Data/Fish_Raw_Comp_Values.csv"),
                                read.csv("Data Sim/Fish_Raw_Comp_Values_Random.csv"))
 raw_school_data_simul <- na.omit(raw_school_data_simul) %>% filter(Flow == "0")
 
@@ -454,7 +454,7 @@ ggsave("Final Graphs/Simmed_Aligned_Group_Num_in_2_BL.png")
 ### Simulated Turning Bias
 
 ```{r}
-turning_data_sim <- read.csv("Annushka_Turning_Data_Simmed.csv") %>% 
+turning_data_sim <- read.csv("Data/Annushka_Turning_Data_Simmed.csv") %>% 
                            mutate(Flow = ifelse(Flow == "F0", "Still Water", "Flowing Water (2 BL/s)")) %>%
                            mutate(Ablation = ifelse(Ablation %in% c("LN","TN"), "No Ablation", ifelse(Ablation == "LY","Ablated",Ablation))) %>%
                            mutate(Darkness = ifelse(Darkness == "DN", "Light", ifelse(Darkness == "DY", "Dark", Darkness))) %>%

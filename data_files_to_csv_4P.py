@@ -899,11 +899,11 @@ class trial:
 
         return(out_data)
 
-data_folder = "Finished_Fish_Data_4P_gaps/"
+data_folder = "Finished_Fish_Data_4P_gaps_Same_3D/"
 
 trials = []
 
-single_file = "" #"2021_08_03_11_LY_DN_F2_V1DLC_dlcrnetms5_DLC_2-2_4P_8F_Light_VentralMay10shuffle1_100000_el_filtered.csv"
+single_file = ""
 
 for file_name in os.listdir(data_folder):
     if file_name.endswith(".csv") and single_file in file_name:
@@ -931,10 +931,10 @@ for trial in trials:
         fish_raw_comp_dataframe = fish_raw_comp_dataframe.append(trial.return_raw_comp_vals())
         fish_school_dataframe = fish_school_dataframe.append(trial.return_school_vals())
 
-fish_sigular_dataframe.to_csv("Fish_Individual_Values.csv")
-fish_comp_dataframe.to_csv("Fish_Comp_Values.csv")
-fish_raw_comp_dataframe.to_csv("Fish_Raw_Comp_Values.csv")
-fish_school_dataframe.to_csv("Fish_School_Values.csv")
+fish_sigular_dataframe.to_csv("Fish_Individual_Values_Same_3D.csv")
+fish_comp_dataframe.to_csv("Fish_Comp_Values_Same_3D.csv")
+fish_raw_comp_dataframe.to_csv("Fish_Raw_Comp_Values_Same_3D.csv")
+fish_school_dataframe.to_csv("Fish_School_Values_Same_3D.csv")
 
 #Recalculate when new data is added
 # all_trials_tailbeat_lens = []
