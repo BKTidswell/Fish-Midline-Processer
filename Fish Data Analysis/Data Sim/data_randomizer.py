@@ -35,4 +35,10 @@ for i in range(8):
         #print(i,j,j*12,(j+1)*12-1)
         data_to_fill.iloc[: , j*12:(j+1)*12-1] = all_data_arr[(j+i)%8].iloc[: , j*12:(j+1)*12-1]
 
-    data_to_fill.to_csv(data_folder+"1995_09_07_0{i}_TS_DS_F0_VDLC_resnet50_L8FV4PFeb22shuffle1_100000_bx_filtered.csv".format(i=i+1))  
+    data_to_fill.to_csv(data_folder+"1995_09_07_0{i}_TS_DS_F0_VDLC_resnet50_L8FV4PFeb22shuffle1_100000_bx_filtered.csv".format(i=i+1)) 
+
+
+
+
+
+     

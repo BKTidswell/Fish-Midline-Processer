@@ -48,7 +48,7 @@ allowed_flow_type = c("Still Water","Flowing Water (2 BL/s)")
 ### NND
 
 ```{r}
-school_data <- read.csv("Fish_School_Values_3D.csv")
+school_data <- read.csv("Data/Fish_School_Values_3D.csv")
 school_data <- na.omit(school_data)
 
 school_data <- school_data %>% mutate(Flow = ifelse(Flow == "0", "Still Water", "Flowing Water (2 BL/s)")) %>%
@@ -71,7 +71,7 @@ ggplot(school_data, aes(x = interaction(Ablation,Darkness,sep=", "), y = NND, fi
   geom_boxplot(outlier.shape = NA) +
   guides(fill = guide_legend(title = "Condition")) +
   scale_fill_manual(values=c(light_no_ab_color, light_ab_color, dark_no_ab_color)) +
-  ggtitle("Effect of Available Senses on Nearest Neighbor Distance (NND)") +
+  ggtitle("3D Data: Effect of Available Senses on Nearest Neighbor Distance (NND)") +
   xlab("") +
   ylab("NND (BL)") +
   theme_light() +
@@ -88,7 +88,7 @@ ggsave("Final Graphs/School_NND_3D.png")
 ### Num fish Within 2 BL
 
 ```{r}
-raw_school_data <- read.csv("Fish_Raw_Comp_Values_3D.csv")
+raw_school_data <- read.csv("Data/Fish_Raw_Comp_Values_3D.csv")
 raw_school_data <- na.omit(raw_school_data)
 
 raw_school_data <- raw_school_data %>% mutate(Flow = ifelse(Flow == "0", "Still Water", "Flowing Water (2 BL/s)")) %>%
@@ -128,7 +128,7 @@ ggplot(count_within_2,
   geom_boxplot(outlier.shape = NA) +
   guides(fill = guide_legend(title = "Condition")) +
   scale_fill_manual(values=c(light_no_ab_color, light_ab_color, dark_no_ab_color)) +
-  ggtitle("Mean size of group within 2BL") +
+  ggtitle("3D Data: Mean size of group within 2BL") +
   xlab("") +
   ylab("Mean size of group within 2BL (# of Fish)") +
   ylim(0,9) +
@@ -147,7 +147,7 @@ ggsave("Final Graphs/Mean_Group_Size_3D.png")
 ### Polarization
 
 ```{r}
-school_data <- read.csv("Fish_School_Values_3D.csv")
+school_data <- read.csv("Data/Fish_School_Values_3D.csv")
 school_data <- na.omit(school_data)
 
 school_data <- school_data %>% mutate(Flow = ifelse(Flow == "0", "Still Water", "Flowing Water (2 BL/s)")) %>%
@@ -167,7 +167,7 @@ ggplot(school_data, aes(x = interaction(Ablation,Darkness,sep=", "), y = School_
   geom_boxplot(outlier.shape = NA) +
   guides(fill = guide_legend(title = "Condition")) +
   scale_fill_manual(values=c(light_no_ab_color, light_ab_color, dark_no_ab_color)) +
-  ggtitle("Effect of Available Senses on School Polarization") +
+  ggtitle("3D Data: Effect of Available Senses on School Polarization") +
   xlab("") +
   ylab("Polarization") +
   theme_light() +
@@ -203,7 +203,7 @@ ggplot(count_within_2_aligned,
   geom_boxplot(outlier.shape = NA) +
   guides(fill = guide_legend(title = "Condition")) +
   scale_fill_manual(values=c(light_no_ab_color, light_ab_color, dark_no_ab_color)) +
-  ggtitle("Mean size of group within 2BL") +
+  ggtitle("3D Data: Mean size of group within 2BL") +
   xlab("") +
   ylab("Number of Aligned Fish within 2BL (# of Fish)") +
   ylim(0,5) +
@@ -226,7 +226,7 @@ ggsave("Final Graphs/Num_Aligned_Fish_2BL_3D.png")
 ```{r}
 speed_whole_school <- school_data
 
-indiv_data <- read.csv("Fish_Individual_Values_3D.csv")
+indiv_data <- read.csv("Data/Fish_Individual_Values_3D.csv")
 indiv_data <- na.omit(indiv_data)
 
 indiv_data <- indiv_data %>% mutate(Flow = ifelse(Flow == "0", "Still Water", "Flowing Water (2 BL/s)")) %>%
@@ -253,7 +253,7 @@ ggplot(fish_speed_division, aes(x = interaction(Ablation,Darkness,sep=", "), y =
   geom_boxplot(outlier.shape = NA) +
   guides(fill = guide_legend(title = "Condition")) +
   scale_fill_manual(values=c(light_no_ab_color, light_ab_color, dark_no_ab_color)) +
-  ggtitle("Effect of Available Senses on School Speed") +
+  ggtitle("3D Data: Effect of Available Senses on School Speed") +
   xlab("") +
   ylab("Speed (BL/s)") +
   ylim(0,8) +

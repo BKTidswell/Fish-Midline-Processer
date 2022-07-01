@@ -899,7 +899,7 @@ class trial:
 
         return(out_data)
 
-data_folder = "Finished_Fish_Data_4P_gaps_Same_3D/"
+data_folder = "Single Fish Combiner/Multi Data/"
 
 trials = []
 
@@ -931,10 +931,10 @@ for trial in trials:
         fish_raw_comp_dataframe = fish_raw_comp_dataframe.append(trial.return_raw_comp_vals())
         fish_school_dataframe = fish_school_dataframe.append(trial.return_school_vals())
 
-fish_sigular_dataframe.to_csv("Fish_Individual_Values_Same_3D.csv")
-fish_comp_dataframe.to_csv("Fish_Comp_Values_Same_3D.csv")
-fish_raw_comp_dataframe.to_csv("Fish_Raw_Comp_Values_Same_3D.csv")
-fish_school_dataframe.to_csv("Fish_School_Values_Same_3D.csv")
+fish_sigular_dataframe.to_csv("Fish_Individual_Values_Single_Fish.csv")
+fish_comp_dataframe.to_csv("Fish_Comp_Values_Single_Fish.csv")
+fish_raw_comp_dataframe.to_csv("Fish_Raw_Comp_Values_Single_Fish.csv")
+fish_school_dataframe.to_csv("Fish_School_Values_Single_Fish.csv")
 
 #Recalculate when new data is added
 # all_trials_tailbeat_lens = []

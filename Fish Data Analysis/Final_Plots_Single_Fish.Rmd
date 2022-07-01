@@ -1,0 +1,272 @@
+---
+title: "Finalized Plots"
+output: html_notebook
+---
+
+```{r}
+library(tidyverse) #For dplyr and data sorting
+library(ggplot2) #For plotting
+library(bbmle) #For ICtab
+library(car) #For Anova
+library(forcats) #For Factor Work
+library(ggpubr) #For the significance bars
+```
+
+
+
+### Functions and Varibles I need
+```{r}
+rad2deg <- function(rad) {(rad * 180) / (pi)}
+deg2rad <- function(deg) {(deg * pi) / (180)}
+round_any <- function(x, accuracy, f=round){f(x/ accuracy) * accuracy}
+ang_mean <- function(x){rad2deg(atan2(mean(sin(deg2rad(x))),mean(cos(deg2rad(x)))))}
+
+fold_angle_0_360_to_0_180 <- function(x){abs(abs(x-180)-180)}
+
+fold_angle_neg_180_180_to_neg_90_90 <- function(x){ifelse(x > 90,90-abs(90-x),ifelse(x < -90, -90+abs(-90-x), x))}
+
+min_n <- function(x,n){sort(x)[1:n]}
+max_n <- function(x,n){sort(x,decreasing = TRUE)[1:n]}
+
+light_no_ab_color = "#d4d7dd"
+light_ab_color = "#f5ba9e"
+dark_no_ab_color = "#5e94d4"
+sim_color = "#777777"
+
+flow_split_still = "#F59DE2"
+flow_split_flow = "#5DD492"
+
+dark_split_light = "#E71D36"
+dark_split_dark = "#011627"
+
+tailbeat_len = 19
+
+allowed_flow_type = c("Still Water","Flowing Water (2 BL/s)")
+```
+
+
+### NND
+
+```{r}
+school_data <- read.csv("Data/Fish_School_Values_Single_Fish.csv")
+school_data <- na.omit(school_data)
+
+school_data <- school_data %>% mutate(Flow = ifelse(Flow == "0", "Still Water", "Flowing Water (2 BL/s)")) %>%
+                           mutate(Ablation = ifelse(Ablation == "N", "No Ablation", "Ablated")) %>%
+                           mutate(Darkness = ifelse(Darkness == "N", "Light", "Dark")) %>%
+                           filter(School_Speed < 7) %>%
+                           mutate(Flow = factor(Flow), Ablation = factor(Ablation), Darkness = factor(Darkness)) %>%
+                           mutate(Flow = fct_relevel(Flow, c("Still Water","Flowing Water (2 BL/s)"))) %>%
+                           mutate(Ablation = fct_relevel(Ablation, c("No Ablation","Ablated"))) %>%
+                           mutate(Darkness = fct_relevel(Darkness, c("Light","Dark"))) %>%
+                           mutate(Flow_Ablation_Darkness = factor(paste(Flow,Ablation,Darkness,sep=", "))) %>%
+                           filter(Flow %in% allowed_flow_type)
+```
+
+
+```{r}
+my_comparisons <- list( c("No Ablation, Light", "No Ablation, Dark"))
+
+ggplot(school_data, aes(x = interaction(Ablation,Darkness,sep=", "), y = NND, fill = interaction(Ablation,Darkness,sep=", ")))+
+  geom_boxplot(outlier.shape = NA) +
+  guides(fill = guide_legend(title = "Condition")) +
+  scale_fill_manual(values=c(light_no_ab_color, light_ab_color, dark_no_ab_color)) +
+  ggtitle("Single Fish: Effect of Available Senses on Nearest Neighbor Distance (NND)") +
+  xlab("") +
+  ylab("NND (BL)") +
+  theme_light() +
+  facet_wrap(~ Flow, strip.position = "bottom")+
+  #stat_compare_means(aes(label = ..p.signif..), method = "t.test", ref.group = "Flow 0, No Ablation, Light")
+  stat_compare_means(comparisons = my_comparisons, label.y = c(2.5), label = "p.signif", hide.ns = TRUE) +
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())
+
+ggsave("Final Graphs/School_NND_Single_Fish.png")
+```
+
+### Num fish Within 2 BL
+
+```{r}
+raw_school_data <- read.csv("Data/Fish_Raw_Comp_Values_Single_Fish.csv")
+raw_school_data <- na.omit(raw_school_data)
+
+raw_school_data <- raw_school_data %>% mutate(Flow = ifelse(Flow == "0", "Still Water", "Flowing Water (2 BL/s)")) %>%
+                           mutate(Ablation = ifelse(Ablation == "N", "No Ablation", "Ablated")) %>%
+                           mutate(Darkness = ifelse(Darkness == "N", "Light", "Dark")) %>%
+                           mutate(Flow = factor(Flow), Ablation = factor(Ablation), Darkness = factor(Darkness)) %>%
+                           mutate(Flow = fct_relevel(Flow, c("Still Water","Flowing Water (2 BL/s)"))) %>%
+                           mutate(Ablation = fct_relevel(Ablation, c("No Ablation","Ablated"))) %>%
+                           mutate(Darkness = fct_relevel(Darkness, c("Light","Dark"))) %>%
+                           mutate(Flow_Ablation_Darkness = factor(paste(Flow,Ablation,Darkness,sep=", "))) %>%
+                           separate(Fish, c("Fish1", "Fish2"),sep="x") %>%
+                           filter(Flow %in% allowed_flow_type)
+
+raw_school_data_fish_switch <- raw_school_data %>% mutate(Fish3 = Fish1) %>%
+                                                   mutate(Fish1 = Fish2) %>%
+                                                   mutate(Fish2 = Fish3) %>%
+                                                   select(-c(Fish3))
+
+raw_school_data_both_fish <- bind_rows(raw_school_data, raw_school_data_fish_switch)
+
+count_within_2 <- raw_school_data_both_fish %>% mutate(Tailbeat = round_any(Frame_Num, tailbeat_len)/tailbeat_len+1) %>%
+                                                group_by(Year, Month, Day, Trial, Flow, Ablation, Darkness, Tailbeat, Frame_Num, Fish1) %>%
+                                                summarise(Count_Fish_in_2BL = sum(Distance <= 2)) %>%
+                                                ungroup() %>%
+                                                group_by(Year, Month, Day, Trial, Flow, Ablation, Darkness, Tailbeat) %>%
+                                                summarise(Mean_Count_Fish_in_2BL = mean(Count_Fish_in_2BL)) %>%
+                                                ungroup()
+```
+
+
+```{r}
+my_comparisons <- list( c("No Ablation, Light", "No Ablation, Dark"), c("No Ablation, Light", "Ablated, Light") )
+
+ggplot(count_within_2, 
+       aes(x = interaction(Ablation,Darkness,sep=", "), y = Mean_Count_Fish_in_2BL+1,
+           fill = interaction(Ablation,Darkness,sep=", ")))+
+  geom_boxplot(outlier.shape = NA) +
+  guides(fill = guide_legend(title = "Condition")) +
+  scale_fill_manual(values=c(light_no_ab_color, light_ab_color, dark_no_ab_color)) +
+  ggtitle("Single Fish: Mean size of group within 2BL") +
+  xlab("") +
+  ylab("Mean size of group within 2BL (# of Fish)") +
+  ylim(0,9) +
+  theme_light() +
+  facet_wrap(~ Flow, strip.position = "bottom")+
+  #stat_compare_means(aes(label = ..p.signif..), method = "t.test", ref.group = "Flow 0, No Ablation, Light")
+  stat_compare_means(comparisons = my_comparisons, label.y = c(7.5,8.5), label = "p.signif", hide.ns = TRUE) +
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank()) + 
+  scale_y_continuous(breaks=c(0,2,4,6,8))
+
+ggsave("Final Graphs/Mean_Group_Size_Single_Fish.png")
+```
+
+### Polarization
+
+```{r}
+school_data <- read.csv("Data/Fish_School_Values_Single_Fish.csv")
+school_data <- na.omit(school_data)
+
+school_data <- school_data %>% mutate(Flow = ifelse(Flow == "0", "Still Water", "Flowing Water (2 BL/s)")) %>%
+                           mutate(Ablation = ifelse(Ablation == "N", "No Ablation", "Ablated")) %>%
+                           mutate(Darkness = ifelse(Darkness == "N", "Light", "Dark")) %>%
+                           filter(School_Speed < 7) %>%
+                           mutate(Flow = factor(Flow), Ablation = factor(Ablation), Darkness = factor(Darkness)) %>%
+                           mutate(Flow = fct_relevel(Flow, c("Still Water","Flowing Water (2 BL/s)"))) %>%
+                           mutate(Ablation = fct_relevel(Ablation, c("No Ablation","Ablated"))) %>%
+                           mutate(Darkness = fct_relevel(Darkness, c("Light","Dark"))) %>%
+                           mutate(Flow_Ablation_Darkness = factor(paste(Flow,Ablation,Darkness,sep=", "))) %>% 
+                           filter(Flow %in% allowed_flow_type)
+```
+
+```{r}
+ggplot(school_data, aes(x = interaction(Ablation,Darkness,sep=", "), y = School_Polar, fill = interaction(Ablation,Darkness,sep=", ")))+
+  geom_boxplot(outlier.shape = NA) +
+  guides(fill = guide_legend(title = "Condition")) +
+  scale_fill_manual(values=c(light_no_ab_color, light_ab_color, dark_no_ab_color)) +
+  ggtitle("Single Fish: Effect of Available Senses on School Polarization") +
+  xlab("") +
+  ylab("Polarization") +
+  theme_light() +
+  facet_wrap(~ Flow, strip.position = "bottom")+
+  #stat_compare_means(aes(label = ..p.signif..), method = "t.test", ref.group = "Flow 0, No Ablation, Light")
+  #stat_compare_means(comparisons = my_comparisons, label.y = c(1, 1.25), label = "p.signif", hide.ns = TRUE) +
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())
+
+ggsave("Final Graphs/Polarization_Single_Fish.png")
+```
+
+### Number of fish aligned within 2 BL
+
+```{r}
+count_within_2_aligned <- raw_school_data_both_fish %>% mutate(Tailbeat = round_any(Frame_Num, tailbeat_len)/tailbeat_len+1) %>%
+                                                        filter(Heading_Diff > -30 & Heading_Diff < 30) %>%
+                                                        group_by(Year, Month, Day, Trial, Flow, Ablation, Darkness, Tailbeat, Frame_Num, Fish1) %>%
+                                                        summarise(Count_Fish_in_2BL = sum(Distance <= 2)) %>%
+                                                        ungroup() %>%
+                                                        group_by(Year, Month, Day, Trial, Flow, Ablation, Darkness, Tailbeat) %>%
+                                                        summarise(Mean_Count_Fish_in_2BL = mean(Count_Fish_in_2BL)) %>%
+                                                        ungroup()
+```
+
+```{r}
+my_comparisons <- list( c("No Ablation, Light", "No Ablation, Dark"), c("No Ablation, Light", "Ablated, Light") )
+
+ggplot(count_within_2_aligned, 
+       aes(x = interaction(Ablation,Darkness,sep=", "), y = Mean_Count_Fish_in_2BL+1,
+           fill = interaction(Ablation,Darkness,sep=", ")))+
+  geom_boxplot(outlier.shape = NA) +
+  guides(fill = guide_legend(title = "Condition")) +
+  scale_fill_manual(values=c(light_no_ab_color, light_ab_color, dark_no_ab_color)) +
+  ggtitle("Single Fish: Mean size of group within 2BL") +
+  xlab("") +
+  ylab("Number of Aligned Fish within 2BL (# of Fish)") +
+  ylim(0,5) +
+  theme_light() +
+  facet_wrap(~ Flow, strip.position = "bottom")+
+  #stat_compare_means(aes(label = ..p.signif..), method = "t.test", ref.group = "Flow 0, No Ablation, Light")
+  stat_compare_means(comparisons = my_comparisons, label.y = c(3.5,4.25), label = "p.signif", hide.ns = TRUE) +
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank()) + 
+  scale_y_continuous(breaks=c(0,2,4,6,8))
+
+ggsave("Final Graphs/Num_Aligned_Fish_2BL_Single_Fish.png")
+
+```
+
+
+### Speed Ratio
+
+```{r}
+speed_whole_school <- school_data
+
+indiv_data <- read.csv("Data/Fish_Individual_Values_Single_Fish.csv")
+indiv_data <- na.omit(indiv_data)
+
+indiv_data <- indiv_data %>% mutate(Flow = ifelse(Flow == "0", "Still Water", "Flowing Water (2 BL/s)")) %>%
+                             mutate(Ablation = ifelse(Ablation == "N", "No Ablation", "Ablated")) %>%
+                             mutate(Darkness = ifelse(Darkness == "N", "Light", "Dark")) %>%
+                             mutate(Flow = factor(Flow), Ablation = factor(Ablation), Darkness = factor(Darkness)) %>%
+                           mutate(Flow = fct_relevel(Flow, c("Still Water","Flowing Water (2 BL/s)"))) %>%
+                           mutate(Ablation = fct_relevel(Ablation, c("No Ablation","Ablated"))) %>%
+                           mutate(Darkness = fct_relevel(Darkness, c("Light","Dark"))) %>%
+                           mutate(Flow_Ablation_Darkness = factor(paste(Flow,Ablation,Darkness,sep=", "))) %>%
+                           filter(Flow %in% allowed_flow_type)
+
+indiv_data_4_speed <- indiv_data %>% group_by(Year, Month, Day, Trial, Tailbeat_Num) %>%
+                                     summarise(Mean_Speed = mean(Speed))
+
+fish_speed_division <- speed_whole_school %>% inner_join(indiv_data_4_speed, by = c("Year", "Month", "Day", "Trial", "Tailbeat_Num")) %>%
+                                              mutate(Divided_Speed = School_Speed/Mean_Speed)
+```
+
+```{r}
+my_comparisons <- list( c("No Ablation, Light", "No Ablation, Dark"), c("No Ablation, Light", "Ablated, Light") )
+
+ggplot(fish_speed_division, aes(x = interaction(Ablation,Darkness,sep=", "), y = Divided_Speed, fill = interaction(Ablation,Darkness,sep=", ")))+
+  geom_boxplot(outlier.shape = NA) +
+  guides(fill = guide_legend(title = "Condition")) +
+  scale_fill_manual(values=c(light_no_ab_color, light_ab_color, dark_no_ab_color)) +
+  ggtitle("Single Fish: Effect of Available Senses on School Speed") +
+  xlab("") +
+  ylab("Speed (BL/s)") +
+  ylim(0,8) +
+  theme_light() +
+  facet_wrap(~ Flow, strip.position = "bottom")+
+  #stat_compare_means(aes(label = ..p.signif..), method = "t.test", ref.group = "Flow 0, No Ablation, Light")
+  stat_compare_means(comparisons = my_comparisons, label.y = c(6.5,7.5), label = "p.signif", hide.ns = TRUE) +
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())
+
+ggsave("Final Graphs/School_Speed_Over_Indiv_Speed_Single_Fish.png")
+
+```
+
+
