@@ -114,11 +114,12 @@ mi_fr_fl_a <- glm(turn_bool ~ Fish_Num_Ratio * Flow * Ablation, data = turning_d
 mi_fr_fl_d <- glm(turn_bool ~ Fish_Num_Ratio * Flow * Darkness, data = turning_data, family = binomial)
 mi_fr_a_d <- glm(turn_bool ~ Fish_Num_Ratio * Ablation * Darkness, data = turning_data, family = binomial)
 mi_fr_fl_a_d <- glm(turn_bool ~ Fish_Num_Ratio * Flow * Ablation * Darkness, data = turning_data, family = binomial)
+mi_fl_a_d <- glm(turn_bool ~ Flow * Ablation * Darkness, data = turning_data, family = binomial)
 
 
 ICtab(m0,m_fr,m_fl,m_a,m_d,
       ma_fr_fl,ma_fr_a,ma_fr_d,ma_fr_fl_a,ma_fr_fl_d,ma_fr_a_d,ma_fr_fl_a_d,
-      mi_fr_fl,mi_fr_a,mi_fr_d,mi_fr_fl_a,mi_fr_fl_d,mi_fr_a_d,mi_fr_fl_a_d)
+      mi_fr_fl,mi_fr_a,mi_fr_d,mi_fr_fl_a,mi_fr_fl_d,mi_fr_a_d,mi_fr_fl_a_d,mi_fl_a_d)
 
 Anova(mi_fr_fl_a)
 
@@ -257,3 +258,93 @@ ggplot(turning_data_sim, aes(x = Fish_Num_Ratio, y = turn_bool, color = Darkness
 
 
 ```
+
+
+# Uses Single Fish Data
+
+```{r}
+turning_data <- read.csv("Data/single_fish_turning.csv") %>%
+                           mutate(Flow = ifelse(Flow == "0", "Still Water", "Flowing Water (2 BL/s)")) %>%
+                           mutate(Ablation = ifelse(Ablation  == "N", "No Ablation", "Ablated")) %>%
+                           mutate(Darkness = ifelse(Darkness == "N", "Light", "Dark")) %>%
+                           mutate(Flow = factor(Flow), Ablation = factor(Ablation), Darkness = factor(Darkness)) %>%
+                           mutate(Flow = fct_relevel(Flow, c("Still Water","Flowing Water (2 BL/s)"))) %>%
+                           mutate(Ablation = fct_relevel(Ablation, c("No Ablation","Ablated"))) %>%
+                           mutate(Darkness = fct_relevel(Darkness, c("Light","Dark"))) %>%
+                           mutate(Flow_Ablation_Darkness = factor(paste(Flow,Ablation,Darkness,sep=", "))) %>%
+                           mutate(Fish_Num_Ratio = Fish_Right/8) %>%
+                           mutate(Fish_Ratio = paste(Fish_Left,Fish_Right,sep=":")) %>%
+                           filter(Fish_Ratio %in% c("7:0","6:1","5:2","4:3","3:4","2:5","1:6","0:7")) %>%
+                           mutate(Fish_Ratio = fct_relevel(Fish_Ratio,
+                                                           c("7:0","6:1","5:2","4:3",
+                                                             "3:4","2:5","1:6","0:7"))) %>%
+                           mutate(turn_bool = ifelse(Turn_Dir == -1,1,0))
+
+
+
+turning_data_sum <- turning_data %>% na.omit %>%
+                                     group_by(Fish_Ratio,Fish_Num_Ratio,Flow,Ablation,Darkness,Flow_Ablation_Darkness) %>%
+                                     summarize(mean_right_turn = mean(turn_bool),
+                                               sd_right_turn = sd(turn_bool),
+                                               se_right_turn = sd_right_turn/sqrt(n()),
+                                               n = n()) %>%
+                                     ungroup()
+
+turning_data_sum_one <- turning_data %>% na.omit %>%
+                                     group_by(Fish_Ratio,Fish_Num_Ratio) %>%
+                                     summarize(mean_right_turn = mean(turn_bool),
+                                               sd_right_turn = sd(turn_bool),
+                                               se_right_turn = sd_right_turn/sqrt(n()),
+                                               n = n()) %>%
+                                     ungroup()
+
+turning_data_count <- turning_data %>% na.omit %>%
+                                     group_by(Fish_Ratio,Fish_Num_Ratio,Flow,Ablation,Darkness,Flow_Ablation_Darkness) %>%
+                                     summarize(count_per = n()) %>%
+                                     ungroup()
+```
+
+```{r}
+light_no_ab_color = "#d4d7dd"
+light_ab_color = "#f5ba9e"
+dark_no_ab_color = "#5e94d4"
+sim_color = "#777777"
+
+flow_split_still = "#F59DE2"
+flow_split_flow = "#5DD492"
+
+dark_split_light = "#E71D36"
+dark_split_dark = "#011627"
+
+ggplot(turning_data_sum, aes(x = Fish_Num_Ratio, y = mean_right_turn, color = Flow))+
+  geom_point()+
+  geom_line(alpha = 0.25) +
+  facet_wrap(~ Darkness + Ablation) +
+  theme_classic() +
+  xlab("# Fish on Left : # Fish on Right") +
+  ylab("Probability of a Right Turn") +
+  scale_colour_manual(values = c(light_ab_color,dark_no_ab_color)) +
+  scale_x_continuous(breaks = c(0,0.125,0.25,0.375,
+                                0.5,0.625,0.75,0.875),
+                     labels = c("7:0","6:1","5:2","4:3",
+                                "3:4","2:5","1:6","0:7"))
+
+ggsave("Final Graphs/Single_Fish_Right_Turn_Prob.png")
+```
+```{r}
+mi_fr_a_d <- glm(turn_bool ~ Fish_Num_Ratio * Ablation * Darkness, data = turning_data, family = binomial)
+
+ggplot(turning_data, aes(x = Fish_Num_Ratio, y = turn_bool, color = Ablation))+
+  geom_jitter(alpha = 0.1, height = 0.025)+
+  geom_line(aes(x = Fish_Num_Ratio, y = predict(mi_fr_a_d, type="response"), color = Ablation, shape = Darkness)) +
+  geom_point(aes(x = Fish_Num_Ratio, y = predict(mi_fr_a_d, type="response"), color = Ablation, shape = Darkness)) +
+  theme_classic() +
+  xlab("# Fish on Left : # Fish on Right") +
+  ylab("Probability of a Right Turn") +
+  scale_colour_manual(values = c(light_ab_color,dark_no_ab_color,light_ab_color,dark_no_ab_color)) +
+  scale_x_continuous(breaks = c(0,0.125,0.25,0.375,
+                                0.5,0.625,0.75,0.875),
+                     labels = c("7:0","6:1","5:2","4:3",
+                                "3:4","2:5","1:6","0:7"))
+```
+
