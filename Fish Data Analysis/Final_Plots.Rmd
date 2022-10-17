@@ -10,6 +10,8 @@ library(bbmle) #For ICtab
 library(car) #For Anova
 library(forcats) #For Factor Work
 library(ggpubr) #For the significance bars
+library(report) #For the reports
+library(emmeans) #For reporting
 ```
 
 
@@ -83,6 +85,14 @@ ggplot(school_data, aes(x = interaction(Ablation,Darkness,sep=", "), y = NND, fi
         axis.ticks.x=element_blank())
 
 ggsave("Final Graphs/School_NND.png")
+
+nnd_glm <- glm(NND ~ 0 + Ablation + Darkness + Flow, data = school_data)s
+Anova(nnd_glm)
+
+#report(nnd_glm)
+
+emmeans(nnd_glm, specs = pairwise ~ Ablation:Darkness:Flow)
+emmeans(nnd_glm, specs = pairwise ~ Flow)
 ```
 
 ### Num fish Within 2 BL
@@ -142,6 +152,8 @@ ggplot(count_within_2,
   scale_y_continuous(breaks=c(0,2,4,6,8))
 
 ggsave("Final Graphs/Mean_Group_Size.png")
+
+
 ```
 
 ### Polarization
@@ -179,6 +191,12 @@ ggplot(school_data, aes(x = interaction(Ablation,Darkness,sep=", "), y = School_
         axis.ticks.x=element_blank())
 
 ggsave("Final Graphs/Polarization.png")
+
+polar_glm <- glm(School_Polar ~ 0 + Ablation + Darkness + Flow, data = school_data)
+Anova(polar_glm)
+
+emmeans(polar_glm, specs = pairwise ~ Ablation:Darkness:Flow)
+emmeans(polar_glm, specs = pairwise ~ Flow)
 ```
 
 ### Number of fish aligned within 2 BL
@@ -243,13 +261,14 @@ indiv_data_4_speed <- indiv_data %>% group_by(Year, Month, Day, Trial, Tailbeat_
                                      summarise(Mean_Speed = mean(Speed))
 
 fish_speed_division <- speed_whole_school %>% inner_join(indiv_data_4_speed, by = c("Year", "Month", "Day", "Trial", "Tailbeat_Num")) %>%
-                                              mutate(Divided_Speed = School_Speed/Mean_Speed)
+                                              mutate(Divided_Speed = School_Speed/Mean_Speed,
+                                                     Sub_Speed = ifelse(Flow == "Flowing Water (2 BL/s)", School_Speed - 2, School_Speed))
 ```
 
 ```{r}
 my_comparisons <- list( c("No Ablation, Light", "No Ablation, Dark"), c("No Ablation, Light", "Ablated, Light") )
 
-ggplot(fish_speed_division, aes(x = interaction(Ablation,Darkness,sep=", "), y = Divided_Speed, fill = interaction(Ablation,Darkness,sep=", ")))+
+ggplot(fish_speed_division, aes(x = interaction(Ablation,Darkness,sep=", "), y = Sub_Speed, fill = interaction(Ablation,Darkness,sep=", ")))+
   geom_boxplot(outlier.shape = NA) +
   guides(fill = guide_legend(title = "Condition")) +
   scale_fill_manual(values=c(light_no_ab_color, light_ab_color, dark_no_ab_color)) +
@@ -266,6 +285,12 @@ ggplot(fish_speed_division, aes(x = interaction(Ablation,Darkness,sep=", "), y =
         axis.ticks.x=element_blank())
 
 ggsave("Final Graphs/School_Speed_Over_Indiv_Speed.png")
+
+speed_glm <- glm(Divided_Speed ~ 0 + Ablation + Darkness + Flow, data = fish_speed_division)
+Anova(speed_glm)
+
+emmeans(speed_glm, specs = pairwise ~ Ablation*Darkness*Flow - Ablation:Darkness)
+emmeans(speed_glm, specs = pairwise ~ Flow)
 
 ```
 
@@ -326,22 +351,30 @@ ggsave("Final Graphs/Right_Turn_Prob.png")
 ```{r}
 #mi_fr_d <- glm(turn_bool ~ Fish_Num_Ratio * Darkness, data = turning_data, family = binomial)
 
-mi_fr_fl_a <- glm(turn_bool ~ Fish_Num_Ratio*Flow*Ablation, data = turning_data, family = binomial)
+#mi_fr_fl_a <- glm(turn_bool ~ Fish_Num_Ratio*Flow*Ablation, data = turning_data, family = binomial)
 
-ggplot(turning_data, aes(x = Fish_Num_Ratio, y = turn_bool, color = Ablation))+
+mi_fr_fl <- glm(turn_bool ~ Fish_Num_Ratio*Flow, data = turning_data, family = binomial)
+
+ggplot(turning_data, aes(x = Fish_Num_Ratio, y = turn_bool, color = Flow))+
   geom_jitter(alpha = 0.1, height = 0.025)+
-  geom_line(aes(x = Fish_Num_Ratio, y = predict(mi_fr_fl_a, type="response"), color = Ablation, shape = Flow)) +
-  geom_point(aes(x = Fish_Num_Ratio, y = predict(mi_fr_fl_a, type="response"), color = Ablation, shape = Flow)) +
+  geom_line(aes(x = Fish_Num_Ratio, y = predict(mi_fr_fl, type="response"), color = Flow)) +
+  geom_point(aes(x = Fish_Num_Ratio, y = predict(mi_fr_fl, type="response"), color = Flow)) +
   theme_classic() +
   xlab("# Fish on Left : # Fish on Right") +
   ylab("Probability of a Right Turn") +
-  scale_colour_manual(values = c(light_ab_color,dark_no_ab_color,light_ab_color,dark_no_ab_color)) +
+  scale_colour_manual(values = c(light_ab_color,dark_no_ab_color)) +
   scale_x_continuous(breaks = c(0,0.125,0.25,0.375,
                                 0.5,0.625,0.75,0.875),
                      labels = c("7:0","6:1","5:2","4:3",
                                 "3:4","2:5","1:6","0:7"))
 
 ggsave("Final Graphs/Best_Model_Right_Turn_Prob.png")
+
+turning_glm <- glm(turn_bool ~ Fish_Num_Ratio*(Flow+Darkness+Ablation), data = turning_data, family = binomial)
+Anova(turning_glm)
+
+report(turning_glm)
+emmeans(turning_glm, specs = pairwise ~ Flow)
 
 ```
 
@@ -505,6 +538,24 @@ ggplot(turning_data_sim, aes(x = Fish_Num_Ratio, y = turn_bool, color = Darkness
                                 "3:4","2:5","1:6","0:7"))
 
 ggsave("Final Graphs/Simmed_Right_Turn_Best_Model.png")
+
+```
+#Demo graph for startle experiments
+```{r}
+
+startle_data <- tibble(Darkness = rep(c("Light","Dark"), each = 100),
+                       Trial = rep(rep(c("1","10","20","30"), each = 25), 2),
+                       NND = c(rnorm(100,1,0.1),
+                               rnorm(25,1.5,0.25),rnorm(25,1.33,0.2),rnorm(25,1.16,0.15),rnorm(25,1,0.1)))
+
+ggplot(startle_data, aes(x = Trial, y = NND, fill = Darkness))+
+  geom_boxplot(outlier.shape = NA) +
+  guides(fill = guide_legend(title = "Condition")) +
+  scale_fill_manual(values=c(light_no_ab_color, dark_no_ab_color)) +
+  ggtitle("Effect of Startle Trial Number (NND)") +
+  xlab("Startles #") +
+  ylab("NND (BL)") +
+  theme_light()
 
 ```
 
