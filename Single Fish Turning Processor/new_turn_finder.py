@@ -33,8 +33,13 @@ scorerer = fish_data.keys()[0][0]
 
 #print(fish_data[scorerer]["individual1"])
 
-x_data = fish_data[scorerer]["individual5"]["head"]["x"].to_numpy()
-y_data = fish_data[scorerer]["individual5"]["head"]["y"].to_numpy()
+fish = "individual5"
+
+head_x_data = fish_data[scorerer][fish]["head"]["x"].to_numpy()
+head_y_data = fish_data[scorerer][fish]["head"]["y"].to_numpy()
+
+mid_x_data = fish_data[scorerer][fish]["midline2"]["x"].to_numpy()
+mid_y_data = fish_data[scorerer][fish]["midline2"]["y"].to_numpy()
 
 #x_data = savgol_filter(x_data, smooth_window_size, 3)
 #y_data = savgol_filter(y_data, smooth_window_size, 3)
@@ -45,38 +50,54 @@ y_data = fish_data[scorerer]["individual5"]["head"]["y"].to_numpy()
 #print(x_data)
 #print(len(x_data))
 
-point_data = np.column_stack((x_data, y_data))
+head_point_data = np.column_stack((head_x_data, head_y_data))
+mid_point_data = np.column_stack((mid_x_data, mid_y_data))
 
 #print(point_data)
 
 #offset = 10
 
-common_peaks = dict()
+#common_peaks = dict()
 
 #Lower offsets find smaller turns
 #Higher offsets find bigger turns
 
 #maxoffset = 20 
 
-dot_prods = np.zeros(len(point_data))+1
+dot_prods = np.zeros(len(head_point_data))+1
 
-#for offset in range(2,maxoffset):
+#Now with midlines!
 
 offset = 20
 
-for i in range(offset,len(point_data)-offset-1):
+for i in range(len(head_point_data)-offset-1):
 
-    #print(i)
-
-    vec1 = (point_data[i] - point_data[i-offset]) / calc_mag(point_data[i],point_data[i-offset])
-    vec2 = (point_data[i+offset] - point_data[i]) / calc_mag(point_data[i+offset],point_data[i])
+    vec1 = (head_point_data[i] - mid_point_data[i]) / calc_mag(head_point_data[i],mid_point_data[i])
+    vec2 = (head_point_data[i+offset] - mid_point_data[i+offset]) / calc_mag(head_point_data[i+offset],mid_point_data[i+offset])
 
     dot_prods[i] = np.dot(vec1,vec2)
 
     if np.isnan(np.dot(vec1,vec2)):
         dot_prods[i] = 1
 
-    #print(dot_prods)
+
+#for offset in range(2,maxoffset):
+
+# offset = 20
+
+# for i in range(offset,len(point_data)-offset-1):
+
+#     #print(i)
+
+#     vec1 = (point_data[i] - point_data[i-offset]) / calc_mag(point_data[i],point_data[i-offset])
+#     vec2 = (point_data[i+offset] - point_data[i]) / calc_mag(point_data[i+offset],point_data[i])
+
+#     dot_prods[i] = np.dot(vec1,vec2)
+
+#     if np.isnan(np.dot(vec1,vec2)):
+#         dot_prods[i] = 1
+
+#     #print(dot_prods)
 
 
 #Trim the edges
@@ -86,19 +107,22 @@ for i in range(offset,len(point_data)-offset-1):
 
 dot_prods = abs(dot_prods-1)
 
-#dot_prods_windowed = moving_sum(dot_prods,1)
+dot_prods = moving_sum(dot_prods,10)
 
 #print(dot_prods_windowed)
 
-#peak_prom = np.std(dot_prods)*1.5
+peak_prom = np.std(dot_prods)*1.5
+
+print(peak_prom)
 
 #0.5 is a 45 degree turn
 
-peak_min = 0.3
+peak_min = 0.1
 
-dot_prods_over_min = np.where(dot_prods<=peak_min,0,1)
+#So now we only find the maxes in the ranges where they are above the min
+dot_prods_over_min = np.where(dot_prods<=peak_prom,0,1)*dot_prods
 
-peaks, _  = find_peaks(dot_prods_over_min, prominence = peak_min)
+peaks, _  = find_peaks(dot_prods_over_min, prominence = peak_prom)
 
     # for p in peaks:
     #     round_p = roundnearest(p)
@@ -124,7 +148,8 @@ fig = plt.figure(figsize=(8, 6))
 gs = gridspec.GridSpec(ncols = 2, nrows = 2) 
 
 ax0 = plt.subplot(gs[:,0])
-ax0.plot(x_data, y_data)
+ax0.plot(head_x_data, head_y_data)
+ax0.plot(mid_x_data, mid_y_data)
 # ax0.plot(fish_data[scorerer]["individual2"]["head"]["x"], fish_data[scorerer]["individual2"]["head"]["y"])
 # ax0.plot(fish_data[scorerer]["individual3"]["head"]["x"], fish_data[scorerer]["individual3"]["head"]["y"])
 # ax0.plot(fish_data[scorerer]["individual4"]["head"]["x"], fish_data[scorerer]["individual4"]["head"]["y"])
@@ -132,7 +157,7 @@ ax0.plot(x_data, y_data)
 # ax0.plot(fish_data[scorerer]["individual6"]["head"]["x"], fish_data[scorerer]["individual6"]["head"]["y"])
 # ax0.plot(fish_data[scorerer]["individual7"]["head"]["x"], fish_data[scorerer]["individual7"]["head"]["y"])
 # ax0.plot(fish_data[scorerer]["individual8"]["head"]["x"], fish_data[scorerer]["individual8"]["head"]["y"])
-ax0.plot(x_data[peaks], y_data[peaks], "x")
+ax0.plot(head_x_data[peaks], head_y_data[peaks], "x")
 
 # for p in peaks:
 #     ax0.plot([x_data[p],x_data[p+offset]],
