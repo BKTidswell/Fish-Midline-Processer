@@ -11,14 +11,14 @@ diff_needed = 15
 
 smooth_window_size = 41
 
-fish_data = pandas.read_csv("Data/2022_06_10_01_LN_DN_F0_V1_02_03_08_17_33_38_44_45.csv",index_col=0, header=header)
+fish_data = pandas.read_csv("Single_Fish_Data/2022_06_10_01_LN_DN_F0_V1_02_03_08_17_33_38_44_45.csv",index_col=0, header=header)
 
 scorerer = fish_data.keys()[0][0]
 
 #print(fish_data[scorerer]["individual1"])
 
-x_data = fish_data[scorerer]["individual2"]["head"]["x"]
-y_data = fish_data[scorerer]["individual2"]["head"]["y"]
+x_data = fish_data[scorerer]["individual3"]["head"]["x"]
+y_data = fish_data[scorerer]["individual3"]["head"]["y"]
 
 x_data_smooth = savgol_filter(x_data, smooth_window_size, 3)
 y_data_smooth = savgol_filter(y_data, smooth_window_size, 3)
