@@ -33,7 +33,7 @@ scorerer = fish_data.keys()[0][0]
 
 #print(fish_data[scorerer]["individual1"])
 
-fish = "individual5"
+fish = "individual7"
 
 head_x_data = fish_data[scorerer][fish]["head"]["x"].to_numpy()
 head_y_data = fish_data[scorerer][fish]["head"]["y"].to_numpy()
@@ -107,11 +107,11 @@ for i in range(len(head_point_data)-offset-1):
 
 dot_prods = abs(dot_prods-1)
 
-dot_prods = moving_sum(dot_prods,10)
+dot_prods = moving_average(dot_prods,10)
 
 #print(dot_prods_windowed)
 
-peak_prom = np.std(dot_prods)*1.5
+peak_prom = 0.3 #np.std(dot_prods)*1.5
 
 print(peak_prom)
 

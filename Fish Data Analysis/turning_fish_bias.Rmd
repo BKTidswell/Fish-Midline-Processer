@@ -11,7 +11,7 @@ library(car)
 ```
 
 ```{r}
-turning_data <- read.csv("Annushka_Turning_Data_Wall.csv") %>%
+turning_data <- read.csv("Data/Annushka_Turning_Data_Wall.csv") %>%
                            filter(Next.to.Wall == 0) %>%
                            mutate(Flow = ifelse(Flow == "F0", "Still Water", "Flowing Water (2 BL/s)")) %>%
                            mutate(Ablation = ifelse(Ablation %in% c("LN","TN"), "No Ablation", "Ablated")) %>%
@@ -148,7 +148,7 @@ ggplot(turning_data, aes(x = Fish_Num_Ratio, y = turn_bool, color = Flow))+
 ### NOW WITH SIMULATED DATA!
 
 ```{r}
-turning_data_sim <- read.csv("Annushka_Turning_Data_Simmed.csv") %>% 
+turning_data_sim <- read.csv("Data/Annushka_Turning_Data_Simmed.csv") %>% 
                            mutate(Flow = ifelse(Flow == "F0", "Still Water", "Flowing Water (2 BL/s)")) %>%
                            mutate(Ablation = ifelse(Ablation %in% c("LN","TN"), "No Ablation", ifelse(Ablation == "LY","Ablated",Ablation))) %>%
                            mutate(Darkness = ifelse(Darkness == "DN", "Light", ifelse(Darkness == "DY", "Dark", Darkness))) %>%
@@ -263,7 +263,7 @@ ggplot(turning_data_sim, aes(x = Fish_Num_Ratio, y = turn_bool, color = Darkness
 # Uses Single Fish Data
 
 ```{r}
-turning_data <- read.csv("Data/single_fish_turning.csv") %>%
+turning_data <- read.csv("Data/eight_fish_turning.csv") %>%
                            mutate(Flow = ifelse(Flow == "0", "Still Water", "Flowing Water (2 BL/s)")) %>%
                            mutate(Ablation = ifelse(Ablation  == "N", "No Ablation", "Ablated")) %>%
                            mutate(Darkness = ifelse(Darkness == "N", "Light", "Dark")) %>%
@@ -278,7 +278,7 @@ turning_data <- read.csv("Data/single_fish_turning.csv") %>%
                            mutate(Fish_Ratio = fct_relevel(Fish_Ratio,
                                                            c("7:0","6:1","5:2","4:3",
                                                              "3:4","2:5","1:6","0:7"))) %>%
-                           mutate(turn_bool = ifelse(Turn_Dir == -1,1,0))
+                           mutate(turn_bool = ifelse(Turn_Dir == 0,1,0))
 
 
 
@@ -341,7 +341,7 @@ ggplot(turning_data, aes(x = Fish_Num_Ratio, y = turn_bool, color = Ablation))+
   theme_classic() +
   xlab("# Fish on Left : # Fish on Right") +
   ylab("Probability of a Right Turn") +
-  scale_colour_manual(values = c(light_ab_color,dark_no_ab_color,light_ab_color,dark_no_ab_color)) +
+  scale_colour_manual(values = c(dark_no_ab_color,light_ab_color)) +
   scale_x_continuous(breaks = c(0,0.125,0.25,0.375,
                                 0.5,0.625,0.75,0.875),
                      labels = c("7:0","6:1","5:2","4:3",
