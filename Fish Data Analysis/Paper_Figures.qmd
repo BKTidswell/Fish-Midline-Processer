@@ -44,6 +44,8 @@ dark_split_dark = "#011627"
 tailbeat_len = 19
 
 allowed_flow_type = c("Still Water","Flowing Water (2 BL/s)")
+
+dot_binwidth = 0.015
 ```
 
 ## Fish Turning Graphs
@@ -121,10 +123,10 @@ eight_fish_all_cond <- ggplot(turning_data_sum %>% filter(Type == "Eight Fish"),
                                 "3:4","2:5","1:6","0:7"))
 
 only_still_model <- glm(turn_bool ~ Fish_Num_Ratio * Ablation * Darkness, 
-                 data = eight_fish_turning_data %>% filter(Flow == "Still Water"), 
+                 data = annushka_turning_data %>% filter(Flow == "Still Water"), 
                  family = binomial)
 
-eight_fish_still_model <- ggplot(eight_fish_turning_data %>% filter(Flow == "Still Water"),
+eight_fish_still_model <- ggplot(annushka_turning_data %>% filter(Flow == "Still Water"),
                            aes(x = Fish_Num_Ratio, y = turn_bool, color = Flow_Ablation_Darkness))+
   #geom_jitter(alpha = 0.1, height = 0.025)+
   geom_line(aes(x = Fish_Num_Ratio, y = predict(only_still_model, type="response"), color = Flow_Ablation_Darkness)) +
@@ -141,10 +143,10 @@ eight_fish_still_model <- ggplot(eight_fish_turning_data %>% filter(Flow == "Sti
                                 "3:4","2:5","1:6","0:7"))
 
 only_flow_model <- glm(turn_bool ~ Fish_Num_Ratio * Ablation * Darkness, 
-                 data = eight_fish_turning_data %>% filter(Flow == "Flowing Water (2 BL/s)"), 
+                 data = annushka_turning_data %>% filter(Flow == "Flowing Water (2 BL/s)"), 
                  family = binomial)
 
-eight_fish_flow_model <- ggplot(eight_fish_turning_data %>% filter(Flow == "Flowing Water (2 BL/s)"),
+eight_fish_flow_model <- ggplot(annushka_turning_data %>% filter(Flow == "Flowing Water (2 BL/s)"),
                            aes(x = Fish_Num_Ratio, y = turn_bool, color = Flow_Ablation_Darkness))+
   #geom_jitter(alpha = 0.1, height = 0.025)+
   geom_line(aes(x = Fish_Num_Ratio, y = predict(only_flow_model, type="response"), color = Flow_Ablation_Darkness)) +
@@ -277,7 +279,7 @@ nnd_still <- ggplot(school_data %>% filter(Flow == "Still Water"),
        aes(x = interaction(Ablation,Darkness,sep=", "), y = NND,
            color = interaction(Ablation,Darkness,sep=", "),
            fill = interaction(Ablation,Darkness,sep=", ")))+
-  stat_dots(side = "both") +
+  stat_dots(side = "both", binwidth = unit(dot_binwidth, "npc")) +
   geom_point(aes(y = NND_Mean_Val), size = 5, color = "Black") +
   geom_errorbar(aes(ymin=NND_Mean_Val-NND_SD_Val, ymax=NND_Mean_Val+NND_SD_Val), width=.2, color = "Black")+
   guides(fill = guide_legend(title = "Condition")) +
@@ -294,7 +296,7 @@ nnd_flow <- ggplot(school_data %>% filter(Flow == "Flowing Water (2 BL/s)"),
        aes(x = interaction(Ablation,Darkness,sep=", "), y = NND,
            color = interaction(Ablation,Darkness,sep=", "),
            fill = interaction(Ablation,Darkness,sep=", ")))+
-  stat_dots(side = "both") +
+  stat_dots(side = "both", binwidth = unit(dot_binwidth, "npc")) +
   geom_point(aes(y = NND_Mean_Val), size = 5, color = "Black") +
   geom_errorbar(aes(ymin=NND_Mean_Val-NND_SD_Val, ymax=NND_Mean_Val+NND_SD_Val), width=.2, color = "Black")+
   guides(fill = guide_legend(title = "Condition")) +
@@ -321,7 +323,7 @@ polar_still <- ggplot(school_data %>% filter(Flow == "Still Water"),
        aes(x = interaction(Ablation,Darkness,sep=", "), y = School_Polar,
            color = interaction(Ablation,Darkness,sep=", "),
            fill = interaction(Ablation,Darkness,sep=", ")))+
-  stat_dots(side = "both") +
+  stat_dots(side = "both", binwidth = unit(dot_binwidth, "npc")) +
   geom_point(aes(y = Polar_Mean_Val), size = 5, color = "Black") +
   geom_errorbar(aes(ymin=Polar_Mean_Val-Polar_SD_Val, ymax=Polar_Mean_Val+Polar_SD_Val), width=.2, color = "Black")+
   guides(fill = guide_legend(title = "Condition")) +
@@ -338,7 +340,7 @@ polar_flow <- ggplot(school_data %>% filter(Flow == "Flowing Water (2 BL/s)"),
        aes(x = interaction(Ablation,Darkness,sep=", "), y = School_Polar,
            color = interaction(Ablation,Darkness,sep=", "),
            fill = interaction(Ablation,Darkness,sep=", ")))+
-  stat_dots(side = "both") +
+  stat_dots(side = "both", binwidth = unit(dot_binwidth, "npc")) +
   geom_point(aes(y = Polar_Mean_Val), size = 5, color = "Black") +
   geom_errorbar(aes(ymin=Polar_Mean_Val-Polar_SD_Val, ymax=Polar_Mean_Val+Polar_SD_Val), width=.2, color = "Black")+
   guides(fill = guide_legend(title = "Condition")) +
@@ -364,7 +366,7 @@ speed_still <- ggplot(school_data %>% filter(Flow == "Still Water"),
        aes(x = interaction(Ablation,Darkness,sep=", "), y = School_Speed,
            color = interaction(Ablation,Darkness,sep=", "),
            fill = interaction(Ablation,Darkness,sep=", ")))+
-  stat_dots(side = "both") +
+  stat_dots(side = "both", binwidth = unit(dot_binwidth, "npc")) +
   geom_point(aes(y = Speed_Mean_Val), size = 5, color = "Black") +
   geom_errorbar(aes(ymin=Speed_Mean_Val-Speed_SD_Val, ymax=Speed_Mean_Val+Speed_SD_Val), width=.2, color = "Black")+
   guides(fill = guide_legend(title = "Condition")) +
@@ -381,7 +383,7 @@ speed_flow <- ggplot(school_data %>% filter(Flow == "Flowing Water (2 BL/s)"),
        aes(x = interaction(Ablation,Darkness,sep=", "), y = School_Speed,
            color = interaction(Ablation,Darkness,sep=", "),
            fill = interaction(Ablation,Darkness,sep=", ")))+
-  stat_dots(side = "both") +
+  stat_dots(side = "both", binwidth = unit(dot_binwidth, "npc")) +
   geom_point(aes(y = Speed_Mean_Val), size = 5, color = "Black") +
   geom_errorbar(aes(ymin=Speed_Mean_Val-Speed_SD_Val, ymax=Speed_Mean_Val+Speed_SD_Val), width=.2, color = "Black")+
   guides(fill = guide_legend(title = "Condition")) +
@@ -407,5 +409,33 @@ school_stats_mega_plot <- ggarrange(nnd_still, nnd_flow,
           ncol = 2, nrow = 3)
 
 ggsave("Paper Figures/school_stats_mega_plot.png", school_stats_mega_plot, width = 12, height = 20)
+```
+
+## Velocity Correlations
+
+```{r}
+raw_comp_data <- read.csv("Data/Fish_Raw_Comp_Values.csv")
+raw_comp_data <- na.omit(raw_comp_data)
+
+comp_data <- raw_comp_data %>% mutate(Flow = ifelse(Flow == "0", "Still Water", "Flowing Water (2 BL/s)")) %>%
+                             mutate(Ablation = ifelse(Ablation == "N", "No Ablation", "Ablated")) %>%
+                             mutate(Darkness = ifelse(Darkness == "N", "Light", "Dark")) %>%
+                             mutate(Flow = factor(Flow), Ablation = factor(Ablation), Darkness = factor(Darkness)) %>%
+                           mutate(Flow = fct_relevel(Flow, c("Still Water","Flowing Water (2 BL/s)"))) %>%
+                           mutate(Ablation = fct_relevel(Ablation, c("No Ablation","Ablated"))) %>%
+                           mutate(Darkness = fct_relevel(Darkness, c("Light","Dark"))) %>%
+                           mutate(Flow_Ablation_Darkness = factor(paste(Flow,Ablation,Darkness,sep=", "))) %>%
+                           select(-X) 
+
+velocity_cor_data <- comp_data %>% filter(abs(Speed_Diff) < 10)
+```
+
+```{r}
+
+ggplot(velocity_cor_data %>% filter(Flow == "Still Water"), aes(x = factor(round_any(Distance,2)), y = abs(Speed_Diff)))+
+  #geom_point(alpha = 0.01)+
+  geom_violin() +
+  theme_classic()
+
 ```
 
