@@ -150,6 +150,8 @@ class fish_data:
         self.tailtip_y = data[scorer][name]["tailtip"]["y"].to_numpy()
         self.tailtip_perp = [] 
 
+        self.velocity_vec = []
+
         self.flow = flow
         
         #These are all blank and will be used for graphing
@@ -190,6 +192,8 @@ class fish_data:
         vec_x = head_x_next - self.head_x
         vec_y = head_y_next - self.head_y
 
+        self.velocity_vec = np.column_stack((vec_x[:-1], vec_y[:-1]))
+
         #Then we add the flow to the x value
         #Since (0,0) is in the upper left a positive vec_x value value means it is moving downstream
         #so I should subtract the flow value 
@@ -200,7 +204,6 @@ class fish_data:
         self.speed = np.sqrt(vec_x_flow**2+vec_y**2)[:-1]/fish_len * fps
 
     def calc_tailtip_perp(self):
-
         #First get the total number of frames
         total_frames = len(self.head_x)
 
@@ -251,6 +254,7 @@ class fish_data:
             #Now we append this here so that they all stay the same length. This basically extends the last tailbeat.
             self.tb_freq_reps = np.repeat(np.append(tb_freq,tb_freq[-1]),tailbeat_lengths) #[:len(tb_freq)])
 
+
     #Thsi function allows me to graph values for any fish without trying to cram it into a for loop somewhere
     def graph_values(self):
         fig = plt.figure(figsize=(8, 6))
@@ -296,12 +300,14 @@ class fish_comp:
         self.heading_diff = []
         self.speed_diff = []
         self.tailbeat_offset_reps = []
+        self.spatial_autocor = []
 
         self.calc_dist()
         self.calc_angle()
         self.calc_heading_diff()
         self.calc_speed_diff()
         self.calc_rayleigh_r()
+        self.calc_spatial_autocor()
 
         #self.graph_values()
 
@@ -486,6 +492,12 @@ class fish_comp:
 
         self.tailbeat_offset_reps = np.repeat(rayleigh_out,tailbeat_lengths[:len(rayleigh_out)])
 
+    def calc_spatial_autocor(self):
+
+        self.spatial_autocor = np.zeros(len(self.f1.velocity_vec))
+
+        for i in range(len(self.f1.velocity_vec)):
+            self.spatial_autocor[i] = np.dot(self.f1.velocity_vec[i],self.f2.velocity_vec[i])
 
 
     def graph_values(self):
@@ -779,7 +791,10 @@ class trial:
             chunked_dists = get_dist_np(0,0,chunked_x_diffs,chunked_y_diffs)
             chunked_angles = mean_tailbeat_chunk(current_comp.angle,tailbeat_len)
             chunked_heading_diffs = angular_mean_tailbeat_chunk(current_comp.heading_diff,tailbeat_len)
+            chunked_f1_speed = mean_tailbeat_chunk(current_comp.f1.speed,tailbeat_len)
+            chunked_f2_speed = mean_tailbeat_chunk(current_comp.f2.speed,tailbeat_len)
             chunked_speed_diffs = mean_tailbeat_chunk(current_comp.speed_diff,tailbeat_len)
+            chunked_spatial_cor = mean_tailbeat_chunk(current_comp.spatial_autocor,tailbeat_len)
             chunked_tailbeat_offsets = mean_tailbeat_chunk(current_comp.tailbeat_offset_reps,tailbeat_len)
 
             short_data_length = min([len(chunked_x_diffs),len(chunked_y_diffs),len(chunked_dists),
@@ -800,7 +815,10 @@ class trial:
                  'Distance': chunked_dists[:short_data_length],
                  'Angle': chunked_angles[:short_data_length],
                  'Heading_Diff': chunked_heading_diffs[:short_data_length],
+                 'Fish1_Speed': chunked_f1_speed[:short_data_length],
+                 'Fish2_Speed': chunked_f2_speed[:short_data_length],
                  'Speed_Diff': chunked_speed_diffs[:short_data_length],
+                 'Spatial_Auto': chunked_spatial_cor[:short_data_length],
                  'Sync': chunked_tailbeat_offsets[:short_data_length]}
 
             if firstfish:
@@ -850,7 +868,10 @@ class trial:
                      'Fish1_Heading': current_comp.f1.heading[:short_data_length],
                      'Fish2_Heading': current_comp.f2.heading[:short_data_length],
                      'Heading_Diff': current_comp.heading_diff[:short_data_length],
+                     'Fish1_Speed': current_comp.f1.speed[:short_data_length],
+                     'Fish2_Speed': current_comp.f2.speed[:short_data_length],
                      'Speed_Diff': current_comp.speed_diff[:short_data_length],
+                     'Spatial_Auto': current_comp.spatial_autocor[:short_data_length],
                      'Sync': current_comp.tailbeat_offset_reps[:short_data_length]}
 
                 if firstfish:
@@ -899,7 +920,7 @@ class trial:
 
         return(out_data)
 
-data_folder = "Single Fish Combiner/Multi Data/"
+data_folder = "Finished_Fish_Data_4P_gaps/"
 
 trials = []
 
@@ -931,10 +952,10 @@ for trial in trials:
         fish_raw_comp_dataframe = fish_raw_comp_dataframe.append(trial.return_raw_comp_vals())
         fish_school_dataframe = fish_school_dataframe.append(trial.return_school_vals())
 
-fish_sigular_dataframe.to_csv("Fish_Individual_Values_Single_Fish.csv")
-fish_comp_dataframe.to_csv("Fish_Comp_Values_Single_Fish.csv")
-fish_raw_comp_dataframe.to_csv("Fish_Raw_Comp_Values_Single_Fish.csv")
-fish_school_dataframe.to_csv("Fish_School_Values_Single_Fish.csv")
+fish_sigular_dataframe.to_csv("Fish_Individual_Values.csv")
+fish_comp_dataframe.to_csv("Fish_Comp_Values.csv")
+fish_raw_comp_dataframe.to_csv("Fish_Raw_Comp_Values.csv")
+fish_school_dataframe.to_csv("Fish_School_Values.csv")
 
 #Recalculate when new data is added
 # all_trials_tailbeat_lens = []
