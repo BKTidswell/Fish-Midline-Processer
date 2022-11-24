@@ -430,13 +430,15 @@ comp_data <- raw_comp_data %>% mutate(Flow = ifelse(Flow == "0", "Still Water", 
 
 velocity_cor_data <- comp_data %>% filter(abs(Speed_Diff) < 10) %>% filter(Fish1_Speed < 5) %>% filter(Fish2_Speed < 5)  %>% filter(Flow == "Still Water")
 
-velocity_cor_data <- velocity_cor_data %>% mutate(round_Distance = factor(round_any(Distance,2))) %>% filter(round_Distance != 8)
+velocity_cor_data <- velocity_cor_data %>% mutate(round_Distance = factor(round_any(Distance,1))) %>% filter(round_Distance != 8)
 
 velocity_cor_data_sum <- velocity_cor_data %>% mutate(round_Distance = factor(round_any(Distance,2))) %>%
                                                filter(Flow == "Still Water") %>%
                                                group_by(round_Distance,Flow_Ablation_Darkness) %>%
                                                summarise(mean_Speed_Diff = mean(abs(Speed_Diff)),
-                                                         sd_Speed_Diff = sd(abs(Speed_Diff))) %>%
+                                                         sd_Speed_Diff = sd(abs(Speed_Diff)),
+                                                         mean_Spatial_Auto = mean(abs(Spatial_Auto)),
+                                                         sd_Spatial_Auto = sd(abs(Spatial_Auto))) %>%
                                                ungroup()
 ```
 
@@ -447,6 +449,13 @@ ggplot(velocity_cor_data, aes(x = Distance, y = Spatial_Auto))+
   theme(legend.position = "none") +
   ylab("Correlation Strength")+
   xlab("Distance (BL)")
+
+ggplot(velocity_cor_data_sum, aes(x = round_Distance, y = mean_Spatial_Auto, color = Flow_Ablation_Darkness))+
+  geom_point(position=position_dodge(width = 0.6))+
+  geom_errorbar(aes(ymin = mean_Spatial_Auto-sd_Spatial_Auto, ymax = mean_Spatial_Auto+sd_Spatial_Auto),
+                position=position_dodge(width = 0.6))+
+  scale_color_manual(values=c(light_no_ab_color, light_ab_color, dark_no_ab_color)) +
+  theme_classic()
 ```
 
 
