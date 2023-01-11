@@ -41,6 +41,8 @@ def turn_frames(head_x_data,head_y_data,mid_x_data,mid_y_data):
 
         dot_prods[i] = np.dot(vec1,vec2)
 
+        print(vec1, vec2, dot_prods[i])
+
         if np.isnan(np.dot(vec1,vec2)):
             dot_prods[i] = 1
 

@@ -13,6 +13,11 @@
 
 from scipy.signal import hilbert, savgol_filter
 from scipy.spatial import ConvexHull
+
+from scipy.spatial import distance_matrix
+import networkx as nx
+import pylab
+
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 from matplotlib import gridspec 
@@ -42,6 +47,10 @@ header = list(range(4))
 def get_dist_np(x1s,y1s,x2s,y2s):
     dist = np.sqrt((x1s-x2s)**2+(y1s-y2s)**2)
     return dist
+
+def get_mag(vec):
+    mag = np.sqrt(vec[0]**2+vec[1]**2)
+    return mag
 
 def get_fish_length(fish):
     return get_dist_np(fish.head_x,fish.head_y,fish.midline_x,fish.midline_y) + get_dist_np(fish.midline_x,fish.midline_y,fish.tailbase_x,fish.tailbase_y) + get_dist_np(fish.tailbase_x,fish.tailbase_y,fish.tailtip_x,fish.tailtip_y)
@@ -497,7 +506,7 @@ class fish_comp:
         self.spatial_autocor = np.zeros(len(self.f1.velocity_vec))
 
         for i in range(len(self.f1.velocity_vec)):
-            self.spatial_autocor[i] = np.dot(self.f1.velocity_vec[i],self.f2.velocity_vec[i])
+            self.spatial_autocor[i] = np.dot(self.f1.velocity_vec[i],self.f2.velocity_vec[i]) / (get_mag(self.f1.velocity_vec[i])*get_mag(self.f2.velocity_vec[i]))
 
 
     def graph_values(self):
@@ -581,6 +590,7 @@ class school_comps:
         self.group_tailbeat_cor = []
 
         self.school_areas = []
+        self.school_groups = []
 
         self.calc_school_pos_stats()
         self.calc_school_speed()
@@ -589,6 +599,7 @@ class school_comps:
         self.calc_nnd()
         self.calc_tailbeat_cor()
         self.calc_school_area()
+        self.calc_school_groups()
 
     def calc_school_pos_stats(self):
         school_xs = [fish.head_x for fish in self.fishes]
@@ -688,6 +699,42 @@ class school_comps:
                 hull = ConvexHull(points)
 
                 self.school_areas[i] = hull.volume/fish_len**2
+
+    def calc_school_groups(self):
+        min_BL_for_groups = 2
+
+        school_xs = np.asarray([fish.head_x for fish in self.fishes])
+        school_ys = np.asarray([fish.head_y for fish in self.fishes])
+
+        self.school_groups = [np.nan for i in range(len(school_xs[0]))]
+
+        for i in range(len(school_xs[0])):
+
+            x_row = school_xs[:,i]
+            y_row = school_ys[:,i]
+
+            mask = ~np.isnan(x_row)
+
+            x_row = x_row[mask]
+            y_row = y_row[mask]
+
+            mask = ~np.isnan(y_row)
+
+            x_row = x_row[mask]
+            y_row = y_row[mask]
+
+            points = np.asarray([item for item in zip(x_row, y_row)])
+
+            points = points/fish_len
+
+            dm = distance_matrix(points,points)
+            dm_min = dm <= min_BL_for_groups
+
+            G = nx.from_numpy_array(dm_min)
+
+            n_groups = len([len(c) for c in sorted(nx.connected_components(G), key=len, reverse=True)])
+
+            self.school_groups[i] = n_groups
 
 class trial:
     def __init__(self, file_name, data_folder, n_fish = 8):
@@ -893,6 +940,7 @@ class trial:
         chunked_polarization = mean_tailbeat_chunk(self.school_comp.polarization,tailbeat_len)
         chunked_nnd = mean_tailbeat_chunk(self.school_comp.nearest_neighbor_distance,tailbeat_len)
         chunked_area = mean_tailbeat_chunk(self.school_comp.school_areas,tailbeat_len)
+        chunked_groups = mean_tailbeat_chunk(self.school_comp.school_groups,tailbeat_len)
 
         short_data_length = min([len(chunked_x_center),len(chunked_y_center),len(chunked_x_sd),
                                  len(chunked_y_sd),len(chunked_group_speed),len(chunked_group_tb_freq),
@@ -914,7 +962,8 @@ class trial:
              'School_Speed': chunked_group_speed[:short_data_length], 
              'School_TB_Freq': chunked_group_tb_freq[:short_data_length], 
              'NND': chunked_nnd[:short_data_length],
-             'Area': chunked_area[:short_data_length]}
+             'Area': chunked_area[:short_data_length],
+             'Groups': chunked_groups[:short_data_length]}
 
         out_data = pd.DataFrame(data=d)
 
@@ -952,10 +1001,12 @@ for trial in trials:
         fish_raw_comp_dataframe = fish_raw_comp_dataframe.append(trial.return_raw_comp_vals())
         fish_school_dataframe = fish_school_dataframe.append(trial.return_school_vals())
 
-fish_sigular_dataframe.to_csv("Fish_Individual_Values.csv")
-fish_comp_dataframe.to_csv("Fish_Comp_Values.csv")
-fish_raw_comp_dataframe.to_csv("Fish_Raw_Comp_Values.csv")
-fish_school_dataframe.to_csv("Fish_School_Values.csv")
+add_on = ""
+
+fish_sigular_dataframe.to_csv(add_on+"Fish_Individual_Values.csv")
+fish_comp_dataframe.to_csv(add_on+"Fish_Comp_Values.csv")
+fish_raw_comp_dataframe.to_csv(add_on+"Fish_Raw_Comp_Values.csv")
+fish_school_dataframe.to_csv(add_on+"Fish_School_Values.csv")
 
 #Recalculate when new data is added
 # all_trials_tailbeat_lens = []
