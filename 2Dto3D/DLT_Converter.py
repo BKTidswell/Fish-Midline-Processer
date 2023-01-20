@@ -2,7 +2,7 @@ import os
 import numpy as np
 import pandas as pd
 import math
-import plotly.express as px
+#import plotly.express as px
 from scipy import linalg
 
 #Header list for reading the raw location CSVs
@@ -10,7 +10,7 @@ header = list(range(4))
 
 #Get all te files
 v1_files = os.listdir("V1 CSVs")
-v2_files = os.listdir("V2 CSVs")
+v2_files = os.listdir("V2 CSVs Adjusted")
 dlt_coef_files = os.listdir("DLT Coefs")
 
 num_fish = 8
@@ -55,6 +55,8 @@ for v2f in v2_files:
         #Get a long ID for the matching V1, short ID for the DLT
         file_id = v2f[0:22]
         short_id = v2f[0:10]
+
+        print(short_id)
 
         #Get the v1 file that matches, and the dlt coefs that go with them both
         v1f = [f for f in v1_files if file_id in f][0]

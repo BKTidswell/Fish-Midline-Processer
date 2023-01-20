@@ -559,3 +559,109 @@ ggplot(startle_data, aes(x = Trial, y = NND, fill = Darkness))+
 
 ```
 
+```{r}
+ggplot(school_data %>% filter(Flow == "Still Water"), 
+       aes(x = NND, y = Area, color = interaction(Ablation,Darkness,sep=", ")))+
+  geom_point()+
+  #geom_smooth(method = "glm", formula = 'y ~ poly(x, 2)', se = FALSE)+
+  geom_smooth(method = "gam", se = FALSE)+
+  theme_classic()+
+  guides(color = guide_legend(title = "Condition")) +
+  scale_color_manual(values=c(light_no_ab_color, light_ab_color, dark_no_ab_color)) +
+  xlab("NND (BL)")+
+  ylab("Area (BL^2)")
+  
+```
+
+
+
+
+
+## Velocity Correlations
+
+```{r}
+raw_comp_data <- read.csv("Data/Fish_Comp_Values.csv")
+raw_comp_data <- na.omit(raw_comp_data)
+
+comp_data <- raw_comp_data %>% mutate(Flow = ifelse(Flow == "0", "Still Water", "Flowing Water (2 BL/s)")) %>%
+                             mutate(Ablation = ifelse(Ablation == "N", "No Ablation", "Ablated")) %>%
+                             mutate(Darkness = ifelse(Darkness == "N", "Light", "Dark")) %>%
+                             mutate(Flow = factor(Flow), Ablation = factor(Ablation), Darkness = factor(Darkness)) %>%
+                           mutate(Flow = fct_relevel(Flow, c("Still Water","Flowing Water (2 BL/s)"))) %>%
+                           mutate(Ablation = fct_relevel(Ablation, c("No Ablation","Ablated"))) %>%
+                           mutate(Darkness = fct_relevel(Darkness, c("Light","Dark"))) %>%
+                           mutate(Flow_Ablation_Darkness = factor(paste(Flow,Ablation,Darkness,sep=", "))) %>%
+                           select(-X) 
+
+velocity_cor_data <- comp_data %>% filter(abs(Speed_Diff) < 10) %>% filter(Fish1_Speed < 5) %>% filter(Fish2_Speed < 5)  %>% filter(Flow == "Still Water")
+
+velocity_cor_data <- velocity_cor_data %>% mutate(round_Distance = factor(round_any(Distance,1))) %>% filter(round_Distance != 8)
+
+velocity_cor_data_sum <- velocity_cor_data %>% mutate(round_Distance = factor(round_any(Distance,0.1))) %>%
+                                               filter(Flow == "Still Water") %>%
+                                               group_by(round_Distance,Flow_Ablation_Darkness) %>%
+                                               summarise(mean_Speed_Diff = mean(abs(Speed_Diff)),
+                                                         sd_Speed_Diff = sd(abs(Speed_Diff)),
+                                                         mean_Spatial_Auto = mean(Spatial_Auto),
+                                                         sd_Spatial_Auto = sd(Spatial_Auto),
+                                                         count = n()) %>%
+                                               ungroup() %>%
+                                               mutate(round_Distance = as.numeric(levels(round_Distance))[round_Distance]) %>%
+                                               filter(count > 5)
+```
+
+```{r}
+ggplot(velocity_cor_data, aes(x = Distance, y = Spatial_Auto))+
+  geom_point(alpha = 0.1)+
+  theme_classic()+ 
+  theme(legend.position = "none") +
+  ylab("Correlation Strength")+
+  xlab("Distance (BL)")
+
+ggplot(velocity_cor_data_sum, aes(x = round_Distance, y = mean_Spatial_Auto, color = Flow_Ablation_Darkness))+
+  geom_point(position=position_dodge(width = 0.6))+
+  geom_smooth(method = "glm", se = FALSE, color = "black")+
+  #geom_errorbar(aes(ymin = mean_Spatial_Auto-sd_Spatial_Auto, ymax = mean_Spatial_Auto+sd_Spatial_Auto),
+  #              position=position_dodge(width = 0.6))+
+  scale_color_manual(values=c(light_no_ab_color, light_ab_color, dark_no_ab_color)) +
+  facet_wrap(~Flow_Ablation_Darkness)+
+  theme_classic()
+```
+
+
+```{r}
+
+ggplot(velocity_cor_data, aes(x = Fish1_Speed, y = Fish2_Speed))+
+  geom_point(alpha = 0.1)+
+  geom_smooth(method = "lm")+
+  theme_classic()+ 
+  theme(legend.position = "none")
+
+ggplot(velocity_cor_data, aes(x = Distance, y = Fish1_Speed*Fish2_Speed))+
+  geom_point(alpha = 0.1)+
+  theme_classic()+ 
+  theme(legend.position = "none")
+
+cor.test(velocity_cor_data$Fish1_Speed,velocity_cor_data$Fish2_Speed)
+
+ggplot(velocity_cor_data %>% filter(Flow == "Still Water"), aes(x = factor(round_any(Distance,2)), y = abs(Speed_Diff), 
+                                                                color = Flow_Ablation_Darkness))+
+  geom_violin()+
+  theme_classic()
+
+
+
+ggplot(velocity_cor_data_sum, aes(x = round_Distance, y = mean_Speed_Diff, color = Flow_Ablation_Darkness))+
+  geom_point(position=position_dodge(width = 0.6))+
+  geom_errorbar(aes(ymin = mean_Speed_Diff-sd_Speed_Diff, ymax = mean_Speed_Diff+sd_Speed_Diff),
+                position=position_dodge(width = 0.6))+
+  scale_color_manual(values=c(light_no_ab_color, light_ab_color, dark_no_ab_color)) +
+  theme_classic()
+
+speed_diff_glm <- glm(Speed_Diff ~ round_Distance * Flow_Ablation_Darkness, data = velocity_cor_data)
+Anova(speed_diff_glm)
+
+#emmeans(speed_diff_glm, specs = pairwise ~ Flow_Ablation_Darkness)
+#emmeans(speed_diff_glm, specs = pairwise ~ round_Distance)
+
+```

@@ -48,23 +48,23 @@ for file_name in three_d_files:
 
         #Now we graph it, nice and easy
 
-        print(df)
+        # print(df)
 
-        df.to_csv()
+        # df.to_csv()
 
-        sys.exit()
+        # sys.exit()
 
-        # #Though the axies keep shifting weirdly so not my fave
-        # fig = px.scatter_3d(df,x="x", y="y", z="z", color="Fish", animation_frame="Frame", hover_data = ["BodyPart"],
-        #                        range_x=[df["x"].min()-0.05,df["x"].max()+0.05],
-        #                        range_y=[df["y"].min()-0.05,df["y"].max()+0.05],
-        #                        range_z=[df["z"].min()-0.05,df["z"].max()+0.05],
-        #                        color_continuous_scale = "rainbow")
+        #Though the axies keep shifting weirdly so not my fave
+        fig = px.scatter_3d(df,x="x", y="y", z="z", color="Fish", animation_frame="Frame", hover_data = ["BodyPart"],
+                               range_x=[df["x"].min()-0.05,df["x"].max()+0.05],
+                               range_y=[df["y"].min()-0.05,df["y"].max()+0.05],
+                               range_z=[df["z"].min()-0.05,df["z"].max()+0.05],
+                               color_continuous_scale = "rainbow")
 
-        # fig.layout.scene.aspectratio = {'x':1, 'y':1, 'z':1}
+        fig.layout.scene.aspectratio = {'x':1, 'y':1, 'z':1}
 
-        # #fig.show()
+        #fig.show()
 
-        # file_id = file_name[0:22]
+        file_id = file_name[0:22]
 
-        # fig.write_html("Saved 3D Plots/{name}.html".format(name = file_id), auto_play=False)
+        fig.write_html("Saved 3D Plots/{name}.html".format(name = file_id), auto_play=False)
