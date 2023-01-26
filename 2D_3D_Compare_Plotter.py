@@ -13,7 +13,7 @@ num_fish = 8
 body_parts = ["head","midline2","tailbase","tailtip"]
 
 files_3D = os.listdir("3D_Finished_Fish_Data_4P_gaps")
-files_2D = os.listdir("Finished_Fish_Data_4P_gaps_Same_3D")
+files_2D = os.listdir("Finished_Fish_Data_4P_gaps")
 
 for file_3D in files_3D:
 
@@ -21,11 +21,13 @@ for file_3D in files_3D:
         file_id = file_3D[0:22]
         short_id = file_3D[0:10]
 
+        print(file_id)
+
         #Get the v1 file that matches, and the dlt coefs that go with them both
         file_2D = [f for f in files_2D if file_id in f][0]
 
         file_3D = "3D_Finished_Fish_Data_4P_gaps/" + file_3D
-        file_2D = "Finished_Fish_Data_4P_gaps_Same_3D/" + file_2D
+        file_2D = "Finished_Fish_Data_4P_gaps/" + file_2D
 
         files_to_do = [file_2D,file_3D]
 
@@ -35,6 +37,8 @@ for file_3D in files_3D:
             df = pd.melt(fish_raw_data)
 
             #Let's rename things to what they actually are
+            #It does it twice since the namming seems different between 2d and 3d
+            df = df.rename(columns={"scorer": "Scorer", "individuals": "Fish", "bodyparts": "BodyPart", "coords": "Point"})
             df = df.rename(columns={"variable_0": "Scorer", "variable_1": "Fish", "variable_2": "BodyPart", "variable_3": "Point"})
 
             #So now I add the Frame to this because I will need to group by that otherwise there is overlap between labels

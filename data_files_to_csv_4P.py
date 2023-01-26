@@ -173,12 +173,17 @@ class fish_data:
         self.speed = []
         self.zero_crossings = []
         self.tb_freq_reps = []
+        self.body_lengths = []
 
         #This calcualtes the summary stats
         self.calc_heading()
         self.calc_speed()
         self.calc_tailtip_perp()
         self.calc_tb_freq()
+        self.get_fish_BL()
+
+    def get_fish_BL(self):
+        self.body_lengths = get_dist_np(self.head_x,self.head_y,self.midline_x,self.midline_y) + get_dist_np(self.midline_x,self.midline_y,self.tailbase_x,self.tailbase_y) + get_dist_np(self.tailbase_x,self.tailbase_y,self.tailtip_x,self.tailtip_y)
 
     #This function calcualtes the pitch heading of the fish at each timepoint
     #We are using body heading now, so midline to head, not head to next head
@@ -796,6 +801,7 @@ class trial:
             chunked_headings = angular_mean_tailbeat_chunk(fish.heading,tailbeat_len)
             chunked_speeds = mean_tailbeat_chunk(fish.speed,tailbeat_len)
             chunked_tb_freqs = mean_tailbeat_chunk(fish.tb_freq_reps,tailbeat_len)
+            chunked_body_lengths = mean_tailbeat_chunk(fish.body_lengths,tailbeat_len)
             chunked_x = mean_tailbeat_chunk(fish.head_x,tailbeat_len)
             chunked_y = mean_tailbeat_chunk(fish.head_y,tailbeat_len)
 

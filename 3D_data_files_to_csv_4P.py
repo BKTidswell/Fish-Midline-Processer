@@ -15,6 +15,11 @@
 
 from scipy.signal import hilbert, savgol_filter
 from scipy.spatial import ConvexHull
+
+from scipy.spatial import distance_matrix
+import networkx as nx
+import pylab
+
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 from matplotlib import gridspec 
@@ -35,14 +40,22 @@ moving_average_n = 35
 #Tailbeat len is the median of all frame distances between tailbeats
 tailbeat_len = 19
 
+
 #Fish len is the median of all fish lengths in pixels
 #Scale is different becasue of calibration
-fish_len = 0.07195
+fish_len = 0.07862
+
+#Used to try and remove weird times where fish extend
+# Fish SD
+fish_sd = 0.39930
+
+# Fish Len Max?
+fish_max_len = fish_len + 3*fish_sd
 
 #Header list for reading the raw location CSVs
 header = list(range(4))
 
-def get_dist_np(x1s,y1s,x2s,y2s):
+def get_dist_np_2D(x1s,y1s,x2s,y2s):
     dist = np.sqrt((x1s-x2s)**2+(y1s-y2s)**2)
     return dist
 
@@ -51,7 +64,9 @@ def get_dist_np_3D(x1s,y1s,z1s,x2s,y2s,z2s):
     return dist
 
 def get_fish_length(fish):
-    return get_dist_np(fish.head_x,fish.head_y,fish.midline_x,fish.midline_y) + get_dist_np(fish.midline_x,fish.midline_y,fish.tailbase_x,fish.tailbase_y) + get_dist_np(fish.tailbase_x,fish.tailbase_y,fish.tailtip_x,fish.tailtip_y)
+    return (get_dist_np_3D(fish.head_x,fish.head_y,fish.head_z,fish.midline_x,fish.midline_y,fish.midline_z) + 
+            get_dist_np_3D(fish.midline_x,fish.midline_y,fish.midline_z,fish.tailbase_x,fish.tailbase_y,fish.tailbase_z) +
+            get_dist_np_3D(fish.tailbase_x,fish.tailbase_y,fish.tailbase_z,fish.tailtip_x,fish.tailtip_y,fish.tailtip_z))
 
 def moving_average(x, w):
     #Here I am using rolling instead of convolve in order to not have massive gaps from a single nan
@@ -73,7 +88,19 @@ def mean_tailbeat_chunk(data,tailbeat_len):
         start = k//tailbeat_len * tailbeat_len
         end = (k//tailbeat_len + 1) * tailbeat_len
 
-        mean_data[k] = np.mean(data[start:end])
+        mean_data[k] = np.nanmean(data[start:end])
+
+    return mean_data[::tailbeat_len]
+
+def median_tailbeat_chunk(data,tailbeat_len):
+    max_tb_frame = len(data)-len(data)%tailbeat_len
+    mean_data = np.zeros(max_tb_frame)
+
+    for k in range(max_tb_frame):
+        start = k//tailbeat_len * tailbeat_len
+        end = (k//tailbeat_len + 1) * tailbeat_len
+
+        mean_data[k] = np.nanmedian(data[start:end])
 
     return mean_data[::tailbeat_len]
 
@@ -180,6 +207,7 @@ class fish_data:
         self.speed = []
         self.zero_crossings = []
         self.tb_freq_reps = []
+        self.body_lengths = []
 
         #This calcualtes the summary stats
         self.calc_yaw_heading()
@@ -187,6 +215,37 @@ class fish_data:
         self.calc_speed()
         self.calc_tailtip_perp()
         self.calc_tb_freq()
+        self.get_fish_BL()
+
+        #Okay, so I want to remove data where fish are too long
+        # So I am going to just do that, and void it out here with nans
+        # Since all further functions draw from these positional values, I just null them here
+
+        self.remove_long_fish()
+
+    def get_fish_BL(self):
+        self.body_lengths = (get_dist_np_3D(self.head_x,self.head_y,self.head_z,self.midline_x,self.midline_y,self.midline_z) + 
+                             get_dist_np_3D(self.midline_x,self.midline_y,self.midline_z,self.tailbase_x,self.tailbase_y,self.tailbase_z) +
+                             get_dist_np_3D(self.tailbase_x,self.tailbase_y,self.tailbase_z,self.tailtip_x,self.tailtip_y,self.tailtip_x))
+
+    #Replaces the positional data with an NA if the fish is too long at that point in time
+    #Trying to remove some of the weirdness from calibration
+    def remove_long_fish(self):
+        self.head_x[self.body_lengths > fish_max_len] = np.nan
+        self.head_y[self.body_lengths > fish_max_len] = np.nan
+        self.head_z[self.body_lengths > fish_max_len] = np.nan
+
+        self.midline_x[self.body_lengths > fish_max_len] = np.nan
+        self.midline_y[self.body_lengths > fish_max_len] = np.nan
+        self.midline_z[self.body_lengths > fish_max_len] = np.nan
+
+        self.tailbase_x[self.body_lengths > fish_max_len] = np.nan
+        self.tailbase_y[self.body_lengths > fish_max_len] = np.nan
+        self.tailbase_z[self.body_lengths > fish_max_len] = np.nan
+
+        self.tailtip_x[self.body_lengths > fish_max_len] = np.nan
+        self.tailtip_y[self.body_lengths > fish_max_len] = np.nan
+        self.tailtip_z[self.body_lengths > fish_max_len] = np.nan
 
     #This function calcualtes the yaw heading of the fish at each timepoint
     #We are using body heading now, so midline to head, not head to next head
@@ -213,7 +272,7 @@ class fish_data:
         self.vec_y = self.head_y - self.midline_y
         self.vec_z = self.head_z - self.midline_z
 
-        self.vec_xy = get_dist_np(0,0,self.vec_x,self.vec_y)
+        self.vec_xy = get_dist_np_2D(0,0,self.vec_x,self.vec_y)
 
         #Then we use arctan to calculate the heading based on the x and y point vectors
         #Becasue of roll we don't want to the last value since it will be wrong
@@ -629,6 +688,7 @@ class school_comps:
         self.group_tailbeat_cor = []
 
         self.school_areas = []
+        self.school_groups = []
 
         self.calc_school_pos_stats()
         self.calc_school_speed()
@@ -637,6 +697,7 @@ class school_comps:
         self.calc_nnd()
         self.calc_tailbeat_cor()
         self.calc_school_area()
+        self.calc_school_groups()
 
         #self.graph_values()
 
@@ -752,6 +813,55 @@ class school_comps:
 
                 self.school_areas[i] = hull.volume/fish_len**2
 
+    def calc_school_groups(self):
+        min_BL_for_groups = 2
+
+        school_xs = np.asarray([fish.head_x for fish in self.fishes])
+        school_ys = np.asarray([fish.head_y for fish in self.fishes])
+        school_zs = np.asarray([fish.head_z for fish in self.fishes])
+
+        self.school_groups = [np.nan for i in range(len(school_xs[0]))]
+
+        for i in range(len(school_xs[0])):
+
+            x_row = school_xs[:,i]
+            y_row = school_ys[:,i]
+            z_row = school_zs[:,i]
+
+            mask = ~np.isnan(x_row)
+
+            x_row = x_row[mask]
+            y_row = y_row[mask]
+            z_row = z_row[mask]
+
+            mask = ~np.isnan(y_row)
+
+            x_row = x_row[mask]
+            y_row = y_row[mask]
+            z_row = z_row[mask]
+
+            mask = ~np.isnan(z_row)
+
+            x_row = x_row[mask]
+            y_row = y_row[mask]
+            z_row = z_row[mask]
+
+            points = np.asarray([item for item in zip(x_row, y_row, z_row)])
+
+            dm = np.zeros((len(points),len(points)))
+
+            points = points/fish_len
+
+            dm = distance_matrix(points,points)
+
+            dm_min = dm <= min_BL_for_groups
+
+            G = nx.from_numpy_array(dm_min)
+
+            n_groups = len([len(c) for c in sorted(nx.connected_components(G), key=len, reverse=True)])
+
+            self.school_groups[i] = n_groups
+
     def graph_values(self):
         fig = plt.figure(figsize=(16, 10))
         gs = gridspec.GridSpec(ncols = 5, nrows = 3) 
@@ -816,8 +926,8 @@ class trial:
         # and so on and so forth
         self.fish_comp_indexes = [[i,j] for i in range(n_fish) for j in range(i+1,n_fish)]
 
-        # for pair in self.fish_comp_indexes:
-        #     random.shuffle(pair)
+        for pair in self.fish_comp_indexes:
+            random.shuffle(pair)
 
         self.fish_comps = [[0 for j in range(self.n_fish)] for i in range(self.n_fish)]
 
@@ -855,6 +965,7 @@ class trial:
             chunked_pitch_headings = angular_mean_tailbeat_chunk(fish.pitch_heading,tailbeat_len)
             chunked_speeds = mean_tailbeat_chunk(fish.speed,tailbeat_len)
             chunked_tb_freqs = mean_tailbeat_chunk(fish.tb_freq_reps,tailbeat_len)
+            chunked_body_lengths = mean_tailbeat_chunk(fish.body_lengths,tailbeat_len)
             chunked_x = mean_tailbeat_chunk(fish.head_x,tailbeat_len)
             chunked_y = mean_tailbeat_chunk(fish.head_y,tailbeat_len)
             chunked_z = mean_tailbeat_chunk(fish.head_z,tailbeat_len)
@@ -879,7 +990,7 @@ class trial:
                  'Pitch Heading': chunked_pitch_headings[:short_data_length], 
                  'Speed': chunked_speeds[:short_data_length], 
                  'TB_Frequency': chunked_tb_freqs[:short_data_length],
-                 'Fish_Length': chunked_tb_freqs[:short_data_length]}
+                 'Fish_Length': chunked_body_lengths[:short_data_length]}
 
             if firstfish:
                 out_data = pd.DataFrame(data=d)
@@ -899,10 +1010,12 @@ class trial:
             chunked_x_diffs = mean_tailbeat_chunk(current_comp.x_diff,tailbeat_len)
             chunked_y_diffs = mean_tailbeat_chunk(current_comp.y_diff,tailbeat_len)
             chunked_z_diffs = mean_tailbeat_chunk(current_comp.z_diff,tailbeat_len)
-            chunked_dists = get_dist_np(0,0,chunked_x_diffs,chunked_y_diffs)
+            chunked_dists = get_dist_np_3D(0,0,0,chunked_x_diffs,chunked_y_diffs,chunked_z_diffs)
             chunked_angles = mean_tailbeat_chunk(current_comp.angle,tailbeat_len)
             chunked_yaw_heading_diffs = angular_mean_tailbeat_chunk(current_comp.yaw_heading_diff,tailbeat_len)
             chunked_pitch_heading_diffs = angular_mean_tailbeat_chunk(current_comp.pitch_heading_diff,tailbeat_len)
+            chunked_f1_speed = mean_tailbeat_chunk(current_comp.f1.speed,tailbeat_len)
+            chunked_f2_speed = mean_tailbeat_chunk(current_comp.f2.speed,tailbeat_len)
             chunked_speed_diffs = mean_tailbeat_chunk(current_comp.speed_diff,tailbeat_len)
             chunked_tailbeat_offsets = mean_tailbeat_chunk(current_comp.tailbeat_offset_reps,tailbeat_len)
 
@@ -927,6 +1040,8 @@ class trial:
                  'Angle': chunked_angles[:short_data_length],
                  'Yaw Heading_Diff': chunked_yaw_heading_diffs[:short_data_length],
                  'Pitch Heading_Diff': chunked_pitch_heading_diffs[:short_data_length],
+                 'Fish1_Speed': chunked_f1_speed[:short_data_length],
+                 'Fish2_Speed': chunked_f2_speed[:short_data_length],
                  'Speed_Diff': chunked_speed_diffs[:short_data_length],
                  'Sync': chunked_tailbeat_offsets[:short_data_length]}
 
@@ -945,7 +1060,7 @@ class trial:
 
             current_comp = self.fish_comps[pair[0]][pair[1]]
 
-            dists = get_dist_np(0,0,current_comp.x_diff,current_comp.y_diff)
+            dists = get_dist_np_3D(0,0,0,current_comp.x_diff,current_comp.y_diff,current_comp.z_diff)
 
             short_data_length = min([len(current_comp.x_diff),len(current_comp.y_diff),len(current_comp.z_diff),len(dists),
                                      len(current_comp.angle),len(current_comp.yaw_heading_diff),len(current_comp.pitch_heading_diff),
@@ -981,6 +1096,8 @@ class trial:
                      'Fish2_Pitch_Heading': current_comp.f2.pitch_heading[:short_data_length],
                      'Yaw_Heading_Diff': current_comp.yaw_heading_diff[:short_data_length],
                      'Pitch_Heading_Diff': current_comp.pitch_heading_diff[:short_data_length],
+                     'Fish1_Speed': current_comp.f1.speed[:short_data_length],
+                     'Fish2_Speed': current_comp.f2.speed[:short_data_length],
                      'Speed_Diff': current_comp.speed_diff[:short_data_length],
                      'Sync': current_comp.tailbeat_offset_reps[:short_data_length]}
 
@@ -1005,6 +1122,7 @@ class trial:
         chunked_polarization = mean_tailbeat_chunk(self.school_comp.polarization,tailbeat_len)
         chunked_nnd = mean_tailbeat_chunk(self.school_comp.nearest_neighbor_distance,tailbeat_len)
         chunked_area = mean_tailbeat_chunk(self.school_comp.school_areas,tailbeat_len)
+        chunked_groups = median_tailbeat_chunk(self.school_comp.school_groups,tailbeat_len)
 
         short_data_length = min([len(chunked_x_center),len(chunked_y_center),len(chunked_x_sd),
                                  len(chunked_y_sd),len(chunked_group_speed),len(chunked_group_tb_freq),
@@ -1028,7 +1146,8 @@ class trial:
              'School_Speed': chunked_group_speed[:short_data_length], 
              'School_TB_Freq': chunked_group_tb_freq[:short_data_length], 
              'NND': chunked_nnd[:short_data_length],
-             'Area': chunked_area[:short_data_length]}
+             'Area': chunked_area[:short_data_length],
+             'Groups': chunked_groups[:short_data_length]}
 
         out_data = pd.DataFrame(data=d)
 
@@ -1080,17 +1199,44 @@ fish_school_dataframe.to_csv("Fish_School_Values_3D.csv")
 #     all_trials_fish_lens.extend(np.asarray(trial.return_fish_lens()))
 
 # all_trials_fish_lens = np.asarray(all_trials_fish_lens)
-# all_trials_fish_lens = all_trials_fish_lens[all_trials_fish_lens < 1.25]
+# #all_trials_fish_lens = all_trials_fish_lens[all_trials_fish_lens < 1.25]
 
 # print("Tailbeat Len Median")
-# print(np.nanmedian(all_trials_tailbeat_lens)) #19
+# print(np.nanmedian(all_trials_tailbeat_lens)) #18
 
 # print("Fish Len Median")
-# print(np.nanmedian(all_trials_fish_lens)) #193
+# print(np.nanmedian(all_trials_fish_lens))
+# print(np.exp(np.nanmedian(np.log(all_trials_fish_lens))))
 
-# fig,ax = plt.subplots(1,1)
-# ax.hist(all_trials_fish_lens, bins = 30)
-# ax.set_xlim(0,1.5)
+# print("Fish Len Mean")
+# print(np.nanmean(all_trials_fish_lens))
+# print(np.exp(np.nanmean(np.log(all_trials_fish_lens))))
+
+# print("Fish Len SD")
+# print(np.nanstd(all_trials_fish_lens))
+# print(np.nanstd(np.log(all_trials_fish_lens)))
+# print(np.exp(np.nanstd(np.log(all_trials_fish_lens))))
+
+# print("Fish Len Max?")
+# print(np.nanmean(all_trials_fish_lens) + 3*np.nanstd(all_trials_fish_lens))
+# print(np.exp(np.nanmean(np.log(all_trials_fish_lens))) + 3*np.exp(np.nanstd(np.log(all_trials_fish_lens))))
+
+# print("Fish Len Max Observed")
+# print(np.nanmax(all_trials_fish_lens))
+
+# fig,ax = plt.subplots(1,2)
+# ax[0].hist(all_trials_fish_lens, bins = 30)
+# ax[1].hist(np.log(all_trials_fish_lens), bins = 30)
+# #ax.set_xlim(0,1.5)
 # plt.show()
 
+
+# ish Len Median
+# 0.06509714202072808
+# Fish Len Mean
+# 0.06978262158284285
+# Fish Len SD
+# 0.055777909686573444
+# Fish Len Max?
+# 0.23711635064256317
 
