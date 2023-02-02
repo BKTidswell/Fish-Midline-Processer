@@ -630,8 +630,8 @@ startle_school_data <- startle_school_data %>% mutate(Flow = ifelse(Flow == "0",
                            mutate(Exp_Label = paste0("Darkness Pre-Startle ",Trial))
 
 startle_school_data_light <- school_data %>% filter(Darkness == "Light" & Ablation == "No Ablation" & Flow == "Still Water") %>%
-                                             mutate(Exp_Label = "Light") %>%
-                                             select(-c(Z_SD, Groups, Groups_Mean_Val,Groups_SD_Val))
+                                             mutate(Exp_Label = "Light") #%>%
+                                             #select(-c(Z_SD, Groups, Groups_Mean_Val,Groups_SD_Val))
 
 startle_school_data <- rbind(startle_school_data_light,startle_school_data) %>% 
                        mutate(Exp_Label = factor(Exp_Label)) %>%

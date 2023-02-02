@@ -39,7 +39,7 @@ moving_average_n = 35
 tailbeat_len = 19
 
 #Fish len is the median of all fish lengths in pixels
-fish_len = 193
+fish_len = 193 #0.07862 #
 
 #Header list for reading the raw location CSVs
 header = list(range(4))
@@ -76,6 +76,18 @@ def mean_tailbeat_chunk(data,tailbeat_len):
         end = (k//tailbeat_len + 1) * tailbeat_len
 
         mean_data[k] = np.mean(data[start:end])
+
+    return mean_data[::tailbeat_len]
+
+def median_tailbeat_chunk(data,tailbeat_len):
+    max_tb_frame = len(data)-len(data)%tailbeat_len
+    mean_data = np.zeros(max_tb_frame)
+
+    for k in range(max_tb_frame):
+        start = k//tailbeat_len * tailbeat_len
+        end = (k//tailbeat_len + 1) * tailbeat_len
+
+        mean_data[k] = np.median(data[start:end])
 
     return mean_data[::tailbeat_len]
 
@@ -606,6 +618,8 @@ class school_comps:
         self.calc_school_area()
         self.calc_school_groups()
 
+        #self.graph_values()
+
     def calc_school_pos_stats(self):
         school_xs = [fish.head_x for fish in self.fishes]
         school_ys = [fish.head_y for fish in self.fishes]
@@ -654,9 +668,9 @@ class school_comps:
 
     def calc_nnd(self):
         #first we make an array to fill with the NNDs 
-        nnd_array = np.asarray([[[999 for j in range(self.n_fish)] for i in range(self.n_fish)] for t in range(len(self.school_center_x))])
+        #nnd_array = np.asarray([[[999 for j in range(self.n_fish)] for i in range(self.n_fish)] for t in range(len(self.school_center_x))])
 
-        nnd_array  = np.zeros((len(self.school_center_x),self.n_fish,self.n_fish)) + 999
+        nnd_array  = np.zeros((len(self.school_center_x),self.n_fish,self.n_fish)) + np.nan
 
         #now calculate all nnds
         for i in range(self.n_fish):
@@ -740,6 +754,44 @@ class school_comps:
             n_groups = len([len(c) for c in sorted(nx.connected_components(G), key=len, reverse=True)])
 
             self.school_groups[i] = n_groups
+
+    def graph_values(self):
+        fig = plt.figure(figsize=(16, 10))
+        gs = gridspec.GridSpec(ncols = 5, nrows = 3) 
+
+        ax0 = plt.subplot(gs[:,0])
+        for fish in self.fishes:
+            ax0.scatter(fish.head_x, fish.head_y, c = np.linspace(0,1,num = len(fish.head_x)), s = 2)
+
+        ax1 = plt.subplot(gs[0,1])
+        ax1.plot(range(len(self.school_center_x)), self.school_center_x)
+        ax1.set_title("School X")
+
+        ax2 = plt.subplot(gs[1,1])
+        ax2.plot(range(len(self.school_center_y)), self.school_center_y)
+        ax2.set_title("School Y")
+
+        ax3 = plt.subplot(gs[0,2])
+        ax3.plot(range(len(self.group_speed)), self.group_speed)
+        ax3.set_title("School Speed")
+
+        ax4 = plt.subplot(gs[1,2])
+        ax4.plot(range(len(self.group_tb_freq)), self.group_tb_freq)
+        ax4.set_title("School TB Freq")
+
+        ax5 = plt.subplot(gs[2,2])
+        ax5.plot(range(len(self.polarization)), self.polarization)
+        ax5.set_title("School Polarization")
+
+        ax6 = plt.subplot(gs[0,3])
+        ax6.plot(range(len(self.school_areas)), self.school_areas)
+        ax6.set_title("School Area")
+
+        ax7 = plt.subplot(gs[1,3])
+        ax7.plot(range(len(self.nearest_neighbor_distance)), self.nearest_neighbor_distance)
+        ax7.set_title("School NND")
+
+        plt.show()
 
 class trial:
     def __init__(self, file_name, data_folder, n_fish = 8):
@@ -946,7 +998,7 @@ class trial:
         chunked_polarization = mean_tailbeat_chunk(self.school_comp.polarization,tailbeat_len)
         chunked_nnd = mean_tailbeat_chunk(self.school_comp.nearest_neighbor_distance,tailbeat_len)
         chunked_area = mean_tailbeat_chunk(self.school_comp.school_areas,tailbeat_len)
-        chunked_groups = mean_tailbeat_chunk(self.school_comp.school_groups,tailbeat_len)
+        chunked_groups = median_tailbeat_chunk(self.school_comp.school_groups,tailbeat_len)
 
         short_data_length = min([len(chunked_x_center),len(chunked_y_center),len(chunked_x_sd),
                                  len(chunked_y_sd),len(chunked_group_speed),len(chunked_group_tb_freq),

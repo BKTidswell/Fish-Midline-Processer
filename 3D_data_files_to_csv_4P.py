@@ -13,7 +13,7 @@
 # nested for loops. Fish may be their own objects inside of the trial objects so that they can be quickly compared. Which may mean that I need to 
 # take apart fish_core_4P.py. In the end I think a lot of this will be easier to do with pandas and objects instead of reading line by line.
 
-from scipy.signal import hilbert, savgol_filter
+from scipy.signal import hilbert, savgol_filter, medfilt
 from scipy.spatial import ConvexHull
 
 from scipy.spatial import distance_matrix
@@ -88,7 +88,7 @@ def mean_tailbeat_chunk(data,tailbeat_len):
         start = k//tailbeat_len * tailbeat_len
         end = (k//tailbeat_len + 1) * tailbeat_len
 
-        mean_data[k] = np.nanmean(data[start:end])
+        mean_data[k] = np.mean(data[start:end])
 
     return mean_data[::tailbeat_len]
 
@@ -100,7 +100,7 @@ def median_tailbeat_chunk(data,tailbeat_len):
         start = k//tailbeat_len * tailbeat_len
         end = (k//tailbeat_len + 1) * tailbeat_len
 
-        mean_data[k] = np.nanmedian(data[start:end])
+        mean_data[k] = np.median(data[start:end])
 
     return mean_data[::tailbeat_len]
 
@@ -209,19 +209,21 @@ class fish_data:
         self.tb_freq_reps = []
         self.body_lengths = []
 
+
+        #Okay, so I want to remove data where fish are too long
+        # So I am going to just do that, and void it out here with nans
+        # Since all further functions draw from these positional values, I just null them here
+        self.get_fish_BL()
+        self.remove_long_fish()
+
         #This calcualtes the summary stats
         self.calc_yaw_heading()
         self.calc_pitch_heading()
         self.calc_speed()
         self.calc_tailtip_perp()
         self.calc_tb_freq()
-        self.get_fish_BL()
-
-        #Okay, so I want to remove data where fish are too long
-        # So I am going to just do that, and void it out here with nans
-        # Since all further functions draw from these positional values, I just null them here
-
-        self.remove_long_fish()
+        
+        
 
     def get_fish_BL(self):
         self.body_lengths = (get_dist_np_3D(self.head_x,self.head_y,self.head_z,self.midline_x,self.midline_y,self.midline_z) + 
@@ -691,6 +693,9 @@ class school_comps:
         self.school_groups = []
 
         self.calc_school_pos_stats()
+
+        self.remove_and_smooth_points()
+
         self.calc_school_speed()
         self.calc_school_tb_freq()
         self.calc_school_polarization()
@@ -713,6 +718,30 @@ class school_comps:
         self.school_x_sd = np.nanstd(school_xs, axis=0) / fish_len
         self.school_y_sd = np.nanstd(school_ys, axis=0) / fish_len
         self.school_z_sd = np.nanstd(school_zs, axis=0) / fish_len
+
+    def remove_and_smooth_points(self):
+        threshold = 0.01
+
+        #Removing the points leaves too many gaps to then fill in later
+        # median_school_center_x = medfilt(self.school_center_x, kernel_size = 11)
+        # median_school_center_y = medfilt(self.school_center_y, kernel_size = 11)
+        # median_school_center_z = medfilt(self.school_center_z, kernel_size = 11)
+
+        # difference_x = np.abs(self.school_center_x - median_school_center_x)
+        # difference_y = np.abs(self.school_center_y - median_school_center_y)
+        # difference_z = np.abs(self.school_center_z - median_school_center_z)
+
+        # outlier_id_x = difference_x > threshold
+        # outlier_id_y = difference_y > threshold
+        # outlier_id_z = difference_z > threshold
+
+        # self.school_center_x[outlier_id_x] = np.nan
+        # self.school_center_y[outlier_id_y] = np.nan
+        # self.school_center_z[outlier_id_z] = np.nan
+
+        self.school_center_x = savgol_filter(self.school_center_x,31,1)
+        self.school_center_y = savgol_filter(self.school_center_y,31,1)
+        self.school_center_z = savgol_filter(self.school_center_z,31,1)
 
     def calc_school_speed(self):
         #Based on the movement of the center of the school, not the mean of all the fish speeds
@@ -764,7 +793,9 @@ class school_comps:
                     fish1 = self.fishes[i]
                     fish2 = self.fishes[j]
 
-                    dists = get_dist_np_3D(fish1.head_x,fish1.head_y,fish1.head_z,fish2.head_x,fish2.head_y,fish2.head_z)
+                    dists = get_dist_np_2D(fish1.head_x,fish1.head_y,fish2.head_x,fish2.head_y)
+
+                    #dists = get_dist_np_3D(fish1.head_x,fish1.head_y,fish1.head_z,fish2.head_x,fish2.head_y,fish2.head_z)
 
                     for t in range(len(self.school_center_x)):
                         nnd_array[t][i][j] = dists[t]
