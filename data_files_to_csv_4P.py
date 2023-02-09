@@ -39,7 +39,7 @@ moving_average_n = 35
 tailbeat_len = 19
 
 #Fish len is the median of all fish lengths in pixels
-fish_len = 193 #0.07862 #
+fish_len = 0.07862 #193 0.07862 #
 
 #Header list for reading the raw location CSVs
 header = list(range(4))
@@ -277,8 +277,13 @@ class fish_data:
         #Some fish are gone entirely, and this breaks if I call an index when the fish don't have any points
         if(len(self.zero_crossings) > 0):
             tailbeat_lengths[0] += self.zero_crossings[0]
-            #Now we append this here so that they all stay the same length. This basically extends the last tailbeat.
-            self.tb_freq_reps = np.repeat(np.append(tb_freq,tb_freq[-1]),tailbeat_lengths) #[:len(tb_freq)])
+
+            #Sometimes there are no zero crossings, which seems wrong but I'm going to catching for it anyways rn
+            if len(tailbeat_lengths) == 1:
+                self.tb_freq_reps = np.repeat(0,tailbeat_lengths)
+            else:
+                #Now we append this here so that they all stay the same length. This basically extends the last tailbeat.
+                self.tb_freq_reps = np.repeat(np.append(tb_freq,tb_freq[-1]),tailbeat_lengths) #[:len(tb_freq)])
 
 
     #Thsi function allows me to graph values for any fish without trying to cram it into a for loop somewhere
@@ -891,6 +896,13 @@ class trial:
 
             current_comp = self.fish_comps[pair[0]][pair[1]]
 
+            chunked_f1_x = mean_tailbeat_chunk(current_comp.f1.head_x,tailbeat_len)
+            chunked_f1_y = mean_tailbeat_chunk(current_comp.f1.head_y,tailbeat_len)
+
+            chunked_f2_x = mean_tailbeat_chunk(current_comp.f2.head_x,tailbeat_len)
+            chunked_f2_y = mean_tailbeat_chunk(current_comp.f2.head_y,tailbeat_len)
+
+
             chunked_x_diffs = mean_tailbeat_chunk(current_comp.x_diff,tailbeat_len)
             chunked_y_diffs = mean_tailbeat_chunk(current_comp.y_diff,tailbeat_len)
             chunked_dists = get_dist_np(0,0,chunked_x_diffs,chunked_y_diffs)
@@ -915,6 +927,10 @@ class trial:
                  'Flow': np.repeat(self.flow,short_data_length), 
                  'Fish': np.repeat(current_comp.name,short_data_length),
                  'Tailbeat_Num': range(short_data_length),
+                 'Fish1_X': chunked_f1_x[:short_data_length], 
+                 'Fish1_Y': chunked_f1_y[:short_data_length], 
+                 'Fish2_X': chunked_f2_x[:short_data_length], 
+                 'Fish2_Y': chunked_f2_y[:short_data_length], 
                  'X_Distance': chunked_x_diffs[:short_data_length], 
                  'Y_Distance': chunked_y_diffs[:short_data_length], 
                  'Distance': chunked_dists[:short_data_length],
@@ -1027,7 +1043,7 @@ class trial:
 
         return(out_data)
 
-data_folder = "Finished_Fish_Data_4P_gaps/"
+data_folder = "3D_Finished_Fish_Data_4P_gaps/"
 
 trials = []
 
@@ -1061,10 +1077,10 @@ for trial in trials:
 
 add_on = ""
 
-fish_sigular_dataframe.to_csv(add_on+"Fish_Individual_Values.csv")
-fish_comp_dataframe.to_csv(add_on+"Fish_Comp_Values.csv")
-fish_raw_comp_dataframe.to_csv(add_on+"Fish_Raw_Comp_Values.csv")
-fish_school_dataframe.to_csv(add_on+"Fish_School_Values.csv")
+fish_sigular_dataframe.to_csv(add_on+"Fish_Individual_Values_3D_xy.csv")
+fish_comp_dataframe.to_csv(add_on+"Fish_Comp_Values_3D_xy.csv")
+fish_raw_comp_dataframe.to_csv(add_on+"Fish_Raw_Comp_Values_3D_xy.csv")
+fish_school_dataframe.to_csv(add_on+"Fish_School_Values_3D_xy.csv")
 
 #Recalculate when new data is added
 # all_trials_tailbeat_lens = []

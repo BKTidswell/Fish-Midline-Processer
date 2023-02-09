@@ -14,6 +14,7 @@ library(car)
 library(ggpubr)
 library(ggdist)
 library(emmeans)
+
 ```
 
 ## Functions and Variables
@@ -567,7 +568,7 @@ group_still <- ggplot(group_sum_data %>% filter(Flow == "Still Water"),
     xlab("") +
     ylab("Proportion of Time with this Many Groups") +
     theme_light()+ 
-    scale_fill_manual(values=c("#0031B8","#1553BE","#2B76C4","#4098CA","#55BACF","#6BDDD5","#80FFDB")) +
+    scale_fill_manual(values=c("#0031B8","#1553BE","#2B76C4","#4098CA","#55BACF","#6BDDD5","#80FFDB","#FF0000")) +
     theme(axis.text.x = element_text(size = 15),
           axis.text.y = element_text(size = 15),
           axis.title.y = element_text(size = 15))
@@ -580,7 +581,7 @@ group_flow <- ggplot(group_sum_data %>% filter(Flow == "Flowing Water (2 BL/s)")
     xlab("") +
     ylab("Proportion of Time with this Many Groups") +
     theme_light()+ 
-    scale_fill_manual(values=c("#0031B8","#1553BE","#2B76C4","#4098CA","#55BACF","#6BDDD5","#80FFDB")) +
+    scale_fill_manual(values=c("#0031B8","#1553BE","#2B76C4","#4098CA","#55BACF","#6BDDD5","#80FFDB","#FF0000")) +
     theme(axis.text.x = element_text(size = 15),
           axis.text.y = element_text(size = 15),
           axis.title.y = element_text(size = 15))

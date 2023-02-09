@@ -1,0 +1,157 @@
+---
+title: "Parallax Testing"
+format: html
+editor: visual
+---
+
+```{r}
+library(tidyverse)
+library(ggplot2)
+library(bbmle) #For ICtab
+library(car)
+library(ggpubr)
+library(ggdist)
+library(emmeans)
+library(viridis)
+
+```
+
+## Functions and Variables
+
+```{r}
+rad2deg <- function(rad) {(rad * 180) / (pi)}
+deg2rad <- function(deg) {(deg * pi) / (180)}
+round_any <- function(x, accuracy, f=round){f(x/ accuracy) * accuracy}
+ang_mean <- function(x){rad2deg(atan2(mean(sin(deg2rad(x))),mean(cos(deg2rad(x)))))}
+
+fold_angle_0_360_to_0_180 <- function(x){abs(abs(x-180)-180)}
+
+fold_angle_neg_180_180_to_neg_90_90 <- function(x){ifelse(x > 90,90-abs(90-x),ifelse(x < -90, -90+abs(-90-x), x))}
+
+min_n <- function(x,n){sort(x)[1:n]}
+max_n <- function(x,n){sort(x,decreasing = TRUE)[1:n]}
+
+light_no_ab_color = "#d4d7dd"
+light_ab_color = "#f5ba9e"
+dark_no_ab_color = "#5e94d4"
+sim_color = "#777777"
+
+flow_split_still = "#F59DE2"
+flow_split_flow = "#5DD492"
+
+dark_split_light = "#5e94d4"
+dark_split_dark = "#011627"
+
+tailbeat_len = 19
+
+allowed_flow_type = c("Still Water","Flowing Water (2 BL/s)")
+
+dot_binwidth = 0.0125
+```
+
+
+
+```{r}
+data_2d <- read.csv("Data/Fish_Comp_Values.csv") %>% mutate(Flow = ifelse(Flow == "0", "Flow 0", "Flow 2")) %>%
+                           mutate(Ablation = ifelse(Ablation == "N", "No Ablation", "Ablated")) %>%
+                           mutate(Darkness = ifelse(Darkness == "N", "Light", "Dark")) %>%
+                           mutate(Speed_Diff = abs(Speed_Diff)) %>%
+                           mutate(Heading_Diff = abs(Heading_Diff)) %>%
+                           mutate(quarter_heading_diff = abs(abs(Heading_Diff-90)-90)) %>%
+                           mutate(Is_Aligned = ifelse(Heading_Diff < 30, 1, 0)) %>%
+                           mutate(Is_Reversed = ifelse(Heading_Diff > 150, 1, 0))
+
+data_3d_xy <- read.csv("Data/Fish_Comp_Values_3D_xy.csv") %>% mutate(Flow = ifelse(Flow == "0", "Flow 0", "Flow 2")) %>%
+                           mutate(Ablation = ifelse(Ablation == "N", "No Ablation", "Ablated")) %>%
+                           mutate(Darkness = ifelse(Darkness == "N", "Light", "Dark")) %>%
+                           mutate(Speed_Diff = abs(Speed_Diff)) %>%
+                           mutate(Heading_Diff = abs(Heading_Diff)) %>%
+                           mutate(quarter_heading_diff = abs(abs(Heading_Diff-90)-90)) %>%
+                           mutate(Is_Aligned = ifelse(Heading_Diff < 30, 1, 0)) %>%
+                           mutate(Is_Reversed = ifelse(Heading_Diff > 150, 1, 0))
+```
+
+
+```{r}
+
+data_2d_still_sum <- data_2d %>% filter(Darkness == "Light" & Ablation == "No Ablation") %>%
+                                  mutate(round_fish1_x = round_any(Fish1_X/193,0.25),
+                                         round_fish1_y = round_any(Fish1_Y/193,0.25)) %>%
+                                  group_by(round_fish1_x,round_fish1_y) %>%
+                                  summarise(mean_dist_2d = mean(Distance, na.rm = TRUE)) %>%
+                                  ungroup()
+
+data_3d_xy_still_sum <- data_3d_xy %>% filter(Darkness == "Light" & Ablation == "No Ablation") %>%
+                                  mutate(round_fish1_x = round_any(Fish1_X/0.07862,0.25),
+                                         round_fish1_y = round_any(Fish1_Y/0.07862,0.25)) %>%
+                                  group_by(round_fish1_x,round_fish1_y) %>%
+                                  summarise(mean_dist_3d_xy = mean(Distance, na.rm = TRUE)) %>%
+                                  ungroup()
+
+data_both <- full_join(data_3d_xy_still_sum, data_2d_still_sum) %>% na.omit() %>%
+                      mutate(dist_diff = abs(mean_dist_3d_xy - mean_dist_2d))
+
+
+
+```
+
+
+Graphing NND in 2D
+```{r}
+ggplot(data_2d_still_sum, aes(round_fish1_x,round_fish1_y, color = mean_dist_2d))+
+  geom_point(size = 4, shape = 15)+
+  scale_color_viridis() +
+  theme_classic() +
+  coord_fixed()
+
+ggplot(data_3d_xy_still_sum, aes(round_fish1_x,round_fish1_y, color = mean_dist_3d_xy))+
+  geom_point(size = 2, shape = 15)+
+  scale_color_viridis() +
+  theme_classic() +
+  coord_fixed()
+
+ggplot(data_both, aes(round_fish1_x,round_fish1_y, color = dist_diff))+
+  geom_point(size = 8, shape = 15)+
+  scale_color_viridis() +
+  theme_classic() +
+  coord_fixed()
+
+ggplot(data_both, aes(round_fish1_x,dist_diff))+
+  geom_point()+
+  geom_smooth(method = "glm", formula = "y ~ poly(x,2)")+ 
+  theme_classic()
+
+ggplot(data_both, aes(round_fish1_y,dist_diff))+
+  geom_point()+
+  geom_smooth(method = "glm", formula = "y ~ poly(x,2)")+
+  theme_classic()
+```
+
+
+```{r}
+
+xy_glm <- glm(dist_diff ~ round_fish1_x + round_fish1_y, data = data_both)
+x2y_glm <- glm(dist_diff ~ I(round_fish1_x^2) + round_fish1_y, data = data_both)
+xy2_glm <- glm(dist_diff ~ round_fish1_x + I(round_fish1_y^2), data = data_both)
+xx2y_glm <- glm(dist_diff ~ round_fish1_x + I(round_fish1_x^2) + round_fish1_y, data = data_both)
+xyy2_glm <- glm(dist_diff ~ round_fish1_x + round_fish1_y + I(round_fish1_y^2), data = data_both)
+x2y2_glm <- glm(dist_diff ~ I(round_fish1_x^2) + I(round_fish1_y^2), data = data_both)
+
+xx2y_m_glm <- glm(dist_diff ~ (round_fish1_x + I(round_fish1_x^2)) * round_fish1_y, data = data_both)
+
+ICtab(xy_glm,x2y_glm,xy2_glm,xx2y_glm,xyy2_glm,x2y2_glm,xx2y_m_glm)
+
+Anova(xx2y_m_glm)
+
+data_both <- data_both %>% mutate(modeled = predict(xx2y_m_glm))
+
+
+ggplot(data_both, aes(round_fish1_x,round_fish1_y, color = modeled))+
+  geom_point(size = 8, shape = 15)+
+  scale_color_viridis() +
+  theme_classic() +
+  coord_fixed()
+
+
+```
+

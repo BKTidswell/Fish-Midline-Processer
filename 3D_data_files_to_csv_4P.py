@@ -349,8 +349,13 @@ class fish_data:
         #Some fish are gone entirely, and this breaks if I call an index when the fish don't have any points
         if(len(self.zero_crossings) > 0):
             tailbeat_lengths[0] += self.zero_crossings[0]
-            #Now we append this here so that they all stay the same length. This basically extends the last tailbeat.
-            self.tb_freq_reps = np.repeat(np.append(tb_freq,tb_freq[-1]),tailbeat_lengths) #[:len(tb_freq)])
+
+            #Sometimes there are no zero crossings, which seems wrong but I'm going to catching for it anyways rn
+            if len(tailbeat_lengths) == 1:
+                self.tb_freq_reps = np.repeat(0,tailbeat_lengths)
+            else:
+                #Now we append this here so that they all stay the same length. This basically extends the last tailbeat.
+                self.tb_freq_reps = np.repeat(np.append(tb_freq,tb_freq[-1]),tailbeat_lengths) #[:len(tb_freq)])
 
     #Thsi function allows me to graph values for any fish without trying to cram it into a for loop somewhere
     def graph_values(self):

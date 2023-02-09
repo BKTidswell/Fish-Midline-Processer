@@ -14,7 +14,7 @@ body_parts = ["head","midline2","tailbase","tailtip"]
 
 file_folder = "Final 3D/"
 
-three_d_files = os.listdir("Final 3D")
+three_d_files = os.listdir(file_folder)
 
 for file_name in three_d_files:
     if file_name.endswith(".csv"):
