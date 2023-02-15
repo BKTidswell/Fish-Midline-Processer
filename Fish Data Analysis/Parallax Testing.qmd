@@ -89,7 +89,7 @@ data_3d_xy_still_sum <- data_3d_xy %>% filter(Darkness == "Light" & Ablation == 
                                   ungroup()
 
 data_both <- full_join(data_3d_xy_still_sum, data_2d_still_sum) %>% na.omit() %>%
-                      mutate(dist_diff = abs(mean_dist_3d_xy - mean_dist_2d))
+                      mutate(dist_diff = mean_dist_3d_xy - mean_dist_2d)
 
 
 

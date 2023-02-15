@@ -697,6 +697,8 @@ class school_comps:
         self.school_areas = []
         self.school_groups = []
 
+        self.school_height = []
+
         self.calc_school_pos_stats()
 
         self.remove_and_smooth_points()
@@ -708,6 +710,7 @@ class school_comps:
         self.calc_tailbeat_cor()
         self.calc_school_area()
         self.calc_school_groups()
+        self.calc_school_height()
 
         #self.graph_values()
 
@@ -897,6 +900,12 @@ class school_comps:
             n_groups = len([len(c) for c in sorted(nx.connected_components(G), key=len, reverse=True)])
 
             self.school_groups[i] = n_groups
+
+    def calc_school_height(self):
+        school_zs = np.asarray([fish.head_z for fish in self.fishes])
+
+        self.school_height = np.nanmax(school_zs, axis = 0) - np.nanmin(school_zs, axis = 0)
+
 
     def graph_values(self):
         fig = plt.figure(figsize=(16, 10))
@@ -1159,10 +1168,11 @@ class trial:
         chunked_nnd = mean_tailbeat_chunk(self.school_comp.nearest_neighbor_distance,tailbeat_len)
         chunked_area = mean_tailbeat_chunk(self.school_comp.school_areas,tailbeat_len)
         chunked_groups = median_tailbeat_chunk(self.school_comp.school_groups,tailbeat_len)
+        chunked_height = mean_tailbeat_chunk(self.school_comp.school_height,tailbeat_len)
 
         short_data_length = min([len(chunked_x_center),len(chunked_y_center),len(chunked_x_sd),
                                  len(chunked_y_sd),len(chunked_group_speed),len(chunked_group_tb_freq),
-                                 len(chunked_nnd),len(chunked_area)])
+                                 len(chunked_nnd),len(chunked_area),len(chunked_groups),len(chunked_height)])
 
         d = {'Year': np.repeat(self.year,short_data_length),
              'Month': np.repeat(self.month,short_data_length),
@@ -1183,7 +1193,8 @@ class trial:
              'School_TB_Freq': chunked_group_tb_freq[:short_data_length], 
              'NND': chunked_nnd[:short_data_length],
              'Area': chunked_area[:short_data_length],
-             'Groups': chunked_groups[:short_data_length]}
+             'Groups': chunked_groups[:short_data_length],
+             'School_Height': chunked_height[:short_data_length]}
 
         out_data = pd.DataFrame(data=d)
 

@@ -333,7 +333,8 @@ school_data <- school_data %>% mutate(Flow = ifelse(Flow == "0", "Still Water", 
                                   Polar_Mean_Val = mean(School_Polar), Polar_SD_Val = sd(School_Polar),
                                   Speed_Mean_Val = mean(School_Speed), Speed_SD_Val = sd(School_Speed),
                                   Area_Mean_Val = mean(Area), Area_SD_Val = sd(Area),
-                                  Groups_Mean_Val = mean(Groups), Groups_SD_Val = sd(Groups)) %>%
+                                  Groups_Mean_Val = mean(Groups), Groups_SD_Val = sd(Groups),
+                                  Height_Mean_Val = mean(School_Height), Height_SD_Val = sd(School_Height)) %>%
                            ungroup()
 ```
 
@@ -354,7 +355,7 @@ nnd_still <- ggplot(school_data %>% filter(Flow == "Still Water"),
   scale_color_manual(values=c(light_no_ab_color, light_ab_color, dark_no_ab_color)) +
   #ggtitle("Effect of Available Senses on Nearest Neighbor Distance (NND) in Still Water") +
   xlab("") +
-  ylab("NND (BL)") +
+  ylab("School Height (BL)") +
   theme_light()+ 
   theme(legend.position = "none") +
   #ylim(0,3)+
@@ -377,7 +378,7 @@ nnd_flow <- ggplot(school_data %>% filter(Flow == "Flowing Water (2 BL/s)"),
   scale_color_manual(values=c(light_no_ab_color, light_ab_color, dark_no_ab_color)) +
   #ggtitle("Effect of Available Senses on Nearest Neighbor Distance (NND) in Flow (2 BL/s)") +
   xlab("") +
-  ylab("NND (BL)") +
+  ylab("School Height (BL)") +
   theme_light()+ 
   theme(legend.position = "none") +
   #ylim(0,3)+
@@ -389,6 +390,59 @@ nnd_flow <- ggplot(school_data %>% filter(Flow == "Flowing Water (2 BL/s)"),
 
 nnd_still
 nnd_flow
+```
+### Height Plot
+
+```{r}
+my_comparisons <- list( c("No Ablation, Light", "No Ablation, Dark"), c("No Ablation, Light", "Ablated, Light"))
+
+height_still <- ggplot(school_data %>% filter(Flow == "Still Water"),
+       aes(x = interaction(Ablation,Darkness,sep=", "), y = School_Height,
+           color = interaction(Ablation,Darkness,sep=", "),
+           fill = interaction(Ablation,Darkness,sep=", ")))+
+  stat_dots(side = "both", binwidth = unit(dot_binwidth, "npc")) +
+  geom_point(aes(y = Height_Mean_Val), size = 5, color = "Black") +
+  geom_errorbar(aes(ymin=Height_Mean_Val-Height_SD_Val, ymax=Height_Mean_Val+Height_SD_Val), width=.2, color = "Black")+
+  guides(fill = guide_legend(title = "Condition")) +
+  scale_fill_manual(values=c(light_no_ab_color, light_ab_color, dark_no_ab_color)) +
+  scale_color_manual(values=c(light_no_ab_color, light_ab_color, dark_no_ab_color)) +
+  #ggtitle("Effect of Available Senses on Nearest Neighbor Distance (NND) in Still Water") +
+  xlab("") +
+  ylab("NND (BL)") +
+  theme_light()+ 
+  theme(legend.position = "none") +
+  #ylim(0,3)+
+  stat_compare_means(comparisons = my_comparisons, label = "p.signif", hide.ns = TRUE) +
+  theme(axis.text.x = element_text(size = 15),
+        axis.text.y = element_text(size = 15),
+        axis.title.y = element_text(size = 15))
+
+my_comparisons <- list( c("No Ablation, Light", "No Ablation, Dark"), c("No Ablation, Light", "Ablated, Light"))
+
+height_flow <- ggplot(school_data %>% filter(Flow == "Flowing Water (2 BL/s)"),
+       aes(x = interaction(Ablation,Darkness,sep=", "), y = School_Height,
+           color = interaction(Ablation,Darkness,sep=", "),
+           fill = interaction(Ablation,Darkness,sep=", ")))+
+  stat_dots(side = "both", binwidth = unit(dot_binwidth, "npc")) +
+  geom_point(aes(y = Height_Mean_Val), size = 5, color = "Black") +
+  geom_errorbar(aes(ymin=Height_Mean_Val-Height_SD_Val, ymax=Height_Mean_Val+Height_SD_Val), width=.2, color = "Black")+
+  guides(fill = guide_legend(title = "Condition")) +
+  scale_fill_manual(values=c(light_no_ab_color, light_ab_color, dark_no_ab_color)) +
+  scale_color_manual(values=c(light_no_ab_color, light_ab_color, dark_no_ab_color)) +
+  #ggtitle("Effect of Available Senses on Nearest Neighbor Distance (NND) in Flow (2 BL/s)") +
+  xlab("") +
+  ylab("NND (BL)") +
+  theme_light()+ 
+  theme(legend.position = "none") +
+  #ylim(0,3)+
+  stat_compare_means(comparisons = my_comparisons, label = "p.signif", hide.ns = TRUE) +
+  theme(axis.text.x = element_text(size = 15),
+        axis.text.y = element_text(size = 15),
+        axis.title.y = element_text(size = 15))
+
+
+height_still
+height_flow
 ```
 
 ### Polarization
