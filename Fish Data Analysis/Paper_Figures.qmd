@@ -322,7 +322,7 @@ school_data <- na.omit(school_data)
 school_data <- school_data %>% mutate(Flow = ifelse(Flow == "0", "Still Water", "Flowing Water (2 BL/s)")) %>%
                            mutate(Ablation = ifelse(Ablation == "N", "No Ablation", "Ablated")) %>%
                            mutate(Darkness = ifelse(Darkness == "N", "Light", "Dark")) %>%
-                           #filter(School_Speed < 7) %>%
+                           filter(School_Speed <= 5) %>%
                            mutate(Flow = factor(Flow), Ablation = factor(Ablation), Darkness = factor(Darkness)) %>%
                            mutate(Flow = fct_relevel(Flow, c("Still Water","Flowing Water (2 BL/s)"))) %>%
                            mutate(Ablation = fct_relevel(Ablation, c("No Ablation","Ablated"))) %>%
@@ -334,6 +334,7 @@ school_data <- school_data %>% mutate(Flow = ifelse(Flow == "0", "Still Water", 
                                   Speed_Mean_Val = mean(School_Speed), Speed_SD_Val = sd(School_Speed),
                                   Area_Mean_Val = mean(Area), Area_SD_Val = sd(Area),
                                   Groups_Mean_Val = mean(Groups), Groups_SD_Val = sd(Groups),
+                                  Mean_Groups_Mean_Val = mean(Mean_Groups), Mean_Groups_SD_Val = sd(Mean_Groups),
                                   Height_Mean_Val = mean(School_Height), Height_SD_Val = sd(School_Height)) %>%
                            ungroup()
 ```
@@ -341,7 +342,7 @@ school_data <- school_data %>% mutate(Flow = ifelse(Flow == "0", "Still Water", 
 ### NND Plot
 
 ```{r}
-my_comparisons <- list( c("No Ablation, Light", "No Ablation, Dark"), c("No Ablation, Light", "Ablated, Light"))
+my_comparisons <- list( c("No Ablation, Light", "No Ablation, Dark"))
 
 nnd_still <- ggplot(school_data %>% filter(Flow == "Still Water"),
        aes(x = interaction(Ablation,Darkness,sep=", "), y = NND,
@@ -364,7 +365,7 @@ nnd_still <- ggplot(school_data %>% filter(Flow == "Still Water"),
         axis.text.y = element_text(size = 15),
         axis.title.y = element_text(size = 15))
 
-my_comparisons <- list( c("No Ablation, Light", "No Ablation, Dark"), c("No Ablation, Light", "Ablated, Light"))
+my_comparisons <- list( c("No Ablation, Light", "No Ablation, Dark"))
 
 nnd_flow <- ggplot(school_data %>% filter(Flow == "Flowing Water (2 BL/s)"),
        aes(x = interaction(Ablation,Darkness,sep=", "), y = NND,
@@ -390,11 +391,15 @@ nnd_flow <- ggplot(school_data %>% filter(Flow == "Flowing Water (2 BL/s)"),
 
 nnd_still
 nnd_flow
+
+nnd_glm <- glm(NND ~ Ablation:Darkness:Flow, data = school_data)
+emmeans(nnd_glm, specs = pairwise ~ Ablation:Darkness | Flow)
+
 ```
 ### Height Plot
 
 ```{r}
-my_comparisons <- list( c("No Ablation, Light", "No Ablation, Dark"), c("No Ablation, Light", "Ablated, Light"))
+my_comparisons <- list(c("No Ablation, Light", "Ablated, Light"))
 
 height_still <- ggplot(school_data %>% filter(Flow == "Still Water"),
        aes(x = interaction(Ablation,Darkness,sep=", "), y = School_Height,
@@ -443,13 +448,16 @@ height_flow <- ggplot(school_data %>% filter(Flow == "Flowing Water (2 BL/s)"),
 
 height_still
 height_flow
+
+height_glm <- glm(School_Height ~ Ablation:Darkness:Flow, data = school_data)
+emmeans(height_glm, specs = pairwise ~ Ablation:Darkness | Flow)
 ```
 
 ### Polarization
 
 ```{r}
 
-my_comparisons <- list( c("No Ablation, Light", "No Ablation, Dark"), c("No Ablation, Light", "Ablated, Light"))
+my_comparisons <- list()
 
 polar_still <- ggplot(school_data %>% filter(Flow == "Still Water"),
        aes(x = interaction(Ablation,Darkness,sep=", "), y = School_Polar,
@@ -472,7 +480,7 @@ polar_still <- ggplot(school_data %>% filter(Flow == "Still Water"),
         axis.text.y = element_text(size = 15),
         axis.title.y = element_text(size = 15))
 
-my_comparisons <- list( c("No Ablation, Light", "No Ablation, Dark"), c("No Ablation, Light", "Ablated, Light"))
+my_comparisons <- list()
 
 polar_flow <- ggplot(school_data %>% filter(Flow == "Flowing Water (2 BL/s)"),
        aes(x = interaction(Ablation,Darkness,sep=", "), y = School_Polar,
@@ -497,12 +505,15 @@ polar_flow <- ggplot(school_data %>% filter(Flow == "Flowing Water (2 BL/s)"),
 
 polar_still
 polar_flow
+
+polar_glm <- glm(School_Polar ~ Ablation:Darkness:Flow, data = school_data)
+emmeans(polar_glm, specs = pairwise ~ Ablation:Darkness | Flow)
 ```
 
 ### Speed
 
 ```{r}
-my_comparisons <- list( c("No Ablation, Light", "No Ablation, Dark"), c("No Ablation, Light", "Ablated, Light"))
+my_comparisons <- list(c("No Ablation, Light", "Ablated, Light"))
 
 speed_still <- ggplot(school_data %>% filter(Flow == "Still Water"),
        aes(x = interaction(Ablation,Darkness,sep=", "), y = School_Speed,
@@ -525,7 +536,7 @@ speed_still <- ggplot(school_data %>% filter(Flow == "Still Water"),
         axis.text.y = element_text(size = 15),
         axis.title.y = element_text(size = 15))
 
-my_comparisons <- list( c("No Ablation, Light", "No Ablation, Dark"), c("No Ablation, Light", "Ablated, Light"))
+my_comparisons <- list(c("No Ablation, Light", "Ablated, Light"))
 
 speed_flow <- ggplot(school_data %>% filter(Flow == "Flowing Water (2 BL/s)"),
        aes(x = interaction(Ablation,Darkness,sep=", "), y = School_Speed,
@@ -550,12 +561,15 @@ speed_flow <- ggplot(school_data %>% filter(Flow == "Flowing Water (2 BL/s)"),
 
 speed_still
 speed_flow
+
+speed_glm <- glm(School_Speed ~ Ablation:Darkness:Flow, data = school_data)
+emmeans(speed_glm, specs = pairwise ~ Ablation:Darkness | Flow)
 ```
 
 ### Area
 
 ```{r}
-my_comparisons <- list( c("No Ablation, Light", "No Ablation, Dark"), c("No Ablation, Light", "Ablated, Light"))
+my_comparisons <- list( c("No Ablation, Light", "No Ablation, Dark"))
 
 area_still <- ggplot(school_data %>% filter(Flow == "Still Water"),
        aes(x = interaction(Ablation,Darkness,sep=", "), y = Area,
@@ -578,7 +592,7 @@ area_still <- ggplot(school_data %>% filter(Flow == "Still Water"),
         axis.text.y = element_text(size = 15),
         axis.title.y = element_text(size = 15))
 
-my_comparisons <- list( c("No Ablation, Light", "No Ablation, Dark"), c("No Ablation, Light", "Ablated, Light"))
+my_comparisons <- list( c("No Ablation, Light", "No Ablation, Dark"))
 
 area_flow <- ggplot(school_data %>% filter(Flow == "Flowing Water (2 BL/s)"),
        aes(x = interaction(Ablation,Darkness,sep=", "), y = Area,
@@ -603,7 +617,64 @@ area_flow <- ggplot(school_data %>% filter(Flow == "Flowing Water (2 BL/s)"),
 
 area_still
 area_flow
+
+area_glm <- glm(Area ~ Ablation:Darkness:Flow, data = school_data)
+emmeans(area_glm, specs = pairwise ~ Ablation:Darkness | Flow)
 ```
+### Groups as Mean
+
+```{r}
+my_comparisons <- list( c("No Ablation, Light", "No Ablation, Dark"), c("No Ablation, Light", "Ablated, Light"))
+
+mean_group_still <- ggplot(school_data %>% filter(Flow == "Still Water"),
+       aes(x = interaction(Ablation,Darkness,sep=", "), y = Mean_Groups,
+           color = interaction(Ablation,Darkness,sep=", "),
+           fill = interaction(Ablation,Darkness,sep=", ")))+
+  stat_dots(side = "both", binwidth = unit(dot_binwidth, "npc")) +
+  geom_point(aes(y = Mean_Groups_Mean_Val), size = 5, color = "Black") +
+  geom_errorbar(aes(ymin=Mean_Groups_Mean_Val-Mean_Groups_SD_Val, ymax=Mean_Groups_Mean_Val+Mean_Groups_SD_Val), width=.2, color = "Black")+
+  guides(fill = guide_legend(title = "Condition")) +
+  scale_fill_manual(values=c(light_no_ab_color, light_ab_color, dark_no_ab_color)) +
+  scale_color_manual(values=c(light_no_ab_color, light_ab_color, dark_no_ab_color)) +
+  #ggtitle("Effect of Available Senses on Speed (BL/s) in Still Water") +
+  xlab("") +
+  ylab("Mean Number of Groups") +
+  theme_light()+ 
+  theme(legend.position = "none") +
+  #ylim(0,8.5)+
+  stat_compare_means(comparisons = my_comparisons, label = "p.signif", hide.ns = TRUE) +
+  theme(axis.text.x = element_text(size = 15),
+        axis.text.y = element_text(size = 15),
+        axis.title.y = element_text(size = 15))
+
+my_comparisons <- list( c("No Ablation, Light", "No Ablation, Dark"), c("No Ablation, Light", "Ablated, Light"))
+
+mean_group_flow <- ggplot(school_data %>% filter(Flow == "Flowing Water (2 BL/s)"),
+       aes(x = interaction(Ablation,Darkness,sep=", "), y = Mean_Groups,
+           color = interaction(Ablation,Darkness,sep=", "),
+           fill = interaction(Ablation,Darkness,sep=", ")))+
+  stat_dots(side = "both", binwidth = unit(dot_binwidth, "npc")) +
+  geom_point(aes(y = Mean_Groups_Mean_Val), size = 5, color = "Black") +
+  geom_errorbar(aes(ymin=Mean_Groups_Mean_Val-Mean_Groups_SD_Val, ymax=Mean_Groups_Mean_Val+Mean_Groups_SD_Val), width=.2, color = "Black")+
+  guides(fill = guide_legend(title = "Condition")) +
+  scale_fill_manual(values=c(light_no_ab_color, light_ab_color, dark_no_ab_color)) +
+  scale_color_manual(values=c(light_no_ab_color, light_ab_color, dark_no_ab_color)) +
+  #ggtitle("Effect of Available Senses on Speed (BL/s) in Still Water") +
+  xlab("") +
+  ylab("Mean Number of Groups") +
+  theme_light()+ 
+  theme(legend.position = "none") +
+  #ylim(0,8.5)+
+  stat_compare_means(comparisons = my_comparisons, label = "p.signif", hide.ns = TRUE) +
+  theme(axis.text.x = element_text(size = 15),
+        axis.text.y = element_text(size = 15),
+        axis.title.y = element_text(size = 15))
+
+mean_group_still
+mean_group_flow
+
+```
+
 
 ### Number of Groups
 
@@ -622,7 +693,7 @@ group_still <- ggplot(group_sum_data %>% filter(Flow == "Still Water"),
     xlab("") +
     ylab("Proportion of Time with this Many Groups") +
     theme_light()+ 
-    scale_fill_manual(values=c("#0031B8","#1553BE","#2B76C4","#4098CA","#55BACF","#6BDDD5","#80FFDB","#FF0000")) +
+    scale_fill_manual(values=c("#1D3557","#325A7C","#457B9D","#7BAFBF","#A8DADC","#D0EBE6","#F1FAEE","#e63946")) +
     theme(axis.text.x = element_text(size = 15),
           axis.text.y = element_text(size = 15),
           axis.title.y = element_text(size = 15))
@@ -635,7 +706,7 @@ group_flow <- ggplot(group_sum_data %>% filter(Flow == "Flowing Water (2 BL/s)")
     xlab("") +
     ylab("Proportion of Time with this Many Groups") +
     theme_light()+ 
-    scale_fill_manual(values=c("#0031B8","#1553BE","#2B76C4","#4098CA","#55BACF","#6BDDD5","#80FFDB","#FF0000")) +
+    scale_fill_manual(values=c("#1D3557","#325A7C","#457B9D","#7BAFBF","#A8DADC","#D0EBE6","#F1FAEE","#e63946")) +
     theme(axis.text.x = element_text(size = 15),
           axis.text.y = element_text(size = 15),
           axis.title.y = element_text(size = 15))
@@ -644,6 +715,8 @@ group_flow <- ggplot(group_sum_data %>% filter(Flow == "Flowing Water (2 BL/s)")
 group_still
 group_flow
 
+groups_glm <- glm(Groups ~ Ablation:Darkness:Flow, data = school_data)
+emmeans(area_glm, specs = pairwise ~ Ablation:Darkness | Flow)
 
 ```
 
@@ -685,8 +758,9 @@ startle_school_data <- startle_school_data %>% mutate(Flow = ifelse(Flow == "0",
                            mutate(Exp_Label = paste0("Darkness Pre-Startle ",Trial))
 
 startle_school_data_light <- school_data %>% filter(Darkness == "Light" & Ablation == "No Ablation" & Flow == "Still Water") %>%
-                                             mutate(Exp_Label = "Light") #%>%
-                                             #select(-c(Z_SD, Groups, Groups_Mean_Val,Groups_SD_Val))
+                                             mutate(Exp_Label = "Light") %>%
+                                             select(-c(Z_SD, Groups, Groups_Mean_Val,Groups_SD_Val,
+                                                       School_Height, Height_Mean_Val, Height_SD_Val))
 
 startle_school_data <- rbind(startle_school_data_light,startle_school_data) %>% 
                        mutate(Exp_Label = factor(Exp_Label)) %>%

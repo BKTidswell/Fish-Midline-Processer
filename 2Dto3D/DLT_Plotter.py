@@ -12,7 +12,7 @@ header = list(range(4))
 num_fish = 8
 body_parts = ["head","midline2","tailbase","tailtip"]
 
-file_folder = "Final 3D/"
+file_folder = "Final 3D Manual/"
 
 three_d_files = os.listdir(file_folder)
 
@@ -67,4 +67,4 @@ for file_name in three_d_files:
 
         file_id = file_name[0:22]
 
-        fig.write_html("Saved 3D Plots/{name}.html".format(name = file_id), auto_play=False)
+        fig.write_html("Saved 3D Plots Manual/{name}.html".format(name = file_id), auto_play=False)

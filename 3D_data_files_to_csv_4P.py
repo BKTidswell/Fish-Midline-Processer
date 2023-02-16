@@ -43,11 +43,11 @@ tailbeat_len = 19
 
 #Fish len is the median of all fish lengths in pixels
 #Scale is different becasue of calibration
-fish_len = 0.07862
+fish_len = 0.083197
 
 #Used to try and remove weird times where fish extend
 # Fish SD
-fish_sd = 0.39930
+fish_sd = 0.62998
 
 # Fish Len Max?
 fish_max_len = fish_len + 3*fish_sd
@@ -889,9 +889,19 @@ class school_comps:
 
             dm = np.zeros((len(points),len(points)))
 
-            points = points/fish_len
+            print(points)
+
+            points = points
+
+            print(points)
 
             dm = distance_matrix(points,points)
+
+            print(dm)
+
+            dm = dm/fish_len
+
+            print(dm)
 
             dm_min = dm <= min_BL_for_groups
 
@@ -900,6 +910,12 @@ class school_comps:
             n_groups = len([len(c) for c in sorted(nx.connected_components(G), key=len, reverse=True)])
 
             self.school_groups[i] = n_groups
+
+            pos = nx.spring_layout(G)
+            nx.draw(G, pos, with_labels=True)
+            plt.show()
+
+            sys.exit()
 
     def calc_school_height(self):
         school_zs = np.asarray([fish.head_z for fish in self.fishes])
@@ -946,6 +962,10 @@ class school_comps:
         ax7 = plt.subplot(gs[1,3])
         ax7.plot(range(len(self.nearest_neighbor_distance)), self.nearest_neighbor_distance)
         ax7.set_title("School NND")
+
+        ax8 = plt.subplot(gs[2,3])
+        ax8.plot(range(len(self.school_groups)), self.school_groups)
+        ax8.set_title("School Groups")
 
         plt.show()
 
@@ -1168,6 +1188,7 @@ class trial:
         chunked_nnd = mean_tailbeat_chunk(self.school_comp.nearest_neighbor_distance,tailbeat_len)
         chunked_area = mean_tailbeat_chunk(self.school_comp.school_areas,tailbeat_len)
         chunked_groups = median_tailbeat_chunk(self.school_comp.school_groups,tailbeat_len)
+        chunked_group_means = mean_tailbeat_chunk(self.school_comp.school_groups,tailbeat_len)
         chunked_height = mean_tailbeat_chunk(self.school_comp.school_height,tailbeat_len)
 
         short_data_length = min([len(chunked_x_center),len(chunked_y_center),len(chunked_x_sd),
@@ -1194,6 +1215,7 @@ class trial:
              'NND': chunked_nnd[:short_data_length],
              'Area': chunked_area[:short_data_length],
              'Groups': chunked_groups[:short_data_length],
+             'Mean_Groups': chunked_group_means[:short_data_length],
              'School_Height': chunked_height[:short_data_length]}
 
         out_data = pd.DataFrame(data=d)
@@ -1204,7 +1226,7 @@ data_folder = "3D_Finished_Fish_Data_4P_gaps/"
 
 trials = []
 
-single_file = ""#"2021_10_06_36_LY_DN_F2_3D_DLC_dlcrnetms5_DLC_2-2_4P_8F_Light_VentralMay10shuffle1_100000_el_filtered.csv"
+single_file = "2020_07_28_03_LN_DN_F2"#"2021_10_06_36_LY_DN_F2_3D_DLC_dlcrnetms5_DLC_2-2_4P_8F_Light_VentralMay10shuffle1_100000_el_filtered.csv"
 
 for file_name in os.listdir(data_folder):
     if file_name.endswith(".csv") and single_file in file_name:
@@ -1237,53 +1259,50 @@ fish_comp_dataframe.to_csv("Fish_Comp_Values_3D.csv")
 fish_raw_comp_dataframe.to_csv("Fish_Raw_Comp_Values_3D.csv")
 fish_school_dataframe.to_csv("Fish_School_Values_3D.csv")
 
-# #Recalculate when new data is added
-# all_trials_tailbeat_lens = []
-# all_trials_fish_lens = []
+#Recalculate when new data is added
+all_trials_tailbeat_lens = []
+all_trials_fish_lens = []
 
-# for trial in trials:
-#     all_trials_tailbeat_lens.extend(np.asarray(trial.return_tailbeat_lens()))
-#     all_trials_fish_lens.extend(np.asarray(trial.return_fish_lens()))
+for trial in trials:
+    all_trials_tailbeat_lens.extend(np.asarray(trial.return_tailbeat_lens()))
+    all_trials_fish_lens.extend(np.asarray(trial.return_fish_lens()))
 
-# all_trials_fish_lens = np.asarray(all_trials_fish_lens)
-# #all_trials_fish_lens = all_trials_fish_lens[all_trials_fish_lens < 1.25]
+all_trials_fish_lens = np.asarray(all_trials_fish_lens)
+#all_trials_fish_lens = all_trials_fish_lens[all_trials_fish_lens < 1.25]
 
-# print("Tailbeat Len Median")
-# print(np.nanmedian(all_trials_tailbeat_lens)) #18
+print("Tailbeat Len Median")
+print(np.nanmedian(all_trials_tailbeat_lens)) #18
 
-# print("Fish Len Median")
-# print(np.nanmedian(all_trials_fish_lens))
-# print(np.exp(np.nanmedian(np.log(all_trials_fish_lens))))
+print("Fish Len Median")
+print(np.nanmedian(all_trials_fish_lens))
 
-# print("Fish Len Mean")
-# print(np.nanmean(all_trials_fish_lens))
-# print(np.exp(np.nanmean(np.log(all_trials_fish_lens))))
+print("Fish Len Mean")
+print(np.nanmean(all_trials_fish_lens))
 
-# print("Fish Len SD")
-# print(np.nanstd(all_trials_fish_lens))
-# print(np.nanstd(np.log(all_trials_fish_lens)))
-# print(np.exp(np.nanstd(np.log(all_trials_fish_lens))))
+print("Fish Len SD")
+print(np.nanstd(all_trials_fish_lens))
 
-# print("Fish Len Max?")
-# print(np.nanmean(all_trials_fish_lens) + 3*np.nanstd(all_trials_fish_lens))
-# print(np.exp(np.nanmean(np.log(all_trials_fish_lens))) + 3*np.exp(np.nanstd(np.log(all_trials_fish_lens))))
+print("Fish Len Max?")
+print(np.nanmean(all_trials_fish_lens) + 3*np.nanstd(all_trials_fish_lens))
 
-# print("Fish Len Max Observed")
-# print(np.nanmax(all_trials_fish_lens))
+print("Fish Len Max Observed")
+print(np.nanmax(all_trials_fish_lens))
 
-# fig,ax = plt.subplots(1,2)
-# ax[0].hist(all_trials_fish_lens, bins = 30)
-# ax[1].hist(np.log(all_trials_fish_lens), bins = 30)
-# #ax.set_xlim(0,1.5)
-# plt.show()
+fig,ax = plt.subplots(1,2)
+ax[0].hist(all_trials_fish_lens, bins = 30)
+ax[1].hist(np.log(all_trials_fish_lens), bins = 30)
+#ax.set_xlim(0,1.5)
+plt.show()
 
 
-# ish Len Median
-# 0.06509714202072808
+# Fish Len Median
+# 0.08319703658979358
 # Fish Len Mean
-# 0.06978262158284285
+# 0.19260629745081745
 # Fish Len SD
-# 0.055777909686573444
+# 0.629985168386883
 # Fish Len Max?
-# 0.23711635064256317
+# 2.0825618026114663
+# Fish Len Max Observed
+# 26.877819857535037
 
