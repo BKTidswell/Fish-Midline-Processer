@@ -709,7 +709,10 @@ class school_comps:
         self.calc_nnd()
         self.calc_tailbeat_cor()
         self.calc_school_area()
-        self.calc_school_groups()
+
+        self.calc_school_groups_all_points()
+        #self.calc_school_groups()
+
         self.calc_school_height()
 
         #self.graph_values()
@@ -729,23 +732,6 @@ class school_comps:
 
     def remove_and_smooth_points(self):
         threshold = 0.01
-
-        #Removing the points leaves too many gaps to then fill in later
-        # median_school_center_x = medfilt(self.school_center_x, kernel_size = 11)
-        # median_school_center_y = medfilt(self.school_center_y, kernel_size = 11)
-        # median_school_center_z = medfilt(self.school_center_z, kernel_size = 11)
-
-        # difference_x = np.abs(self.school_center_x - median_school_center_x)
-        # difference_y = np.abs(self.school_center_y - median_school_center_y)
-        # difference_z = np.abs(self.school_center_z - median_school_center_z)
-
-        # outlier_id_x = difference_x > threshold
-        # outlier_id_y = difference_y > threshold
-        # outlier_id_z = difference_z > threshold
-
-        # self.school_center_x[outlier_id_x] = np.nan
-        # self.school_center_y[outlier_id_y] = np.nan
-        # self.school_center_z[outlier_id_z] = np.nan
 
         self.school_center_x = savgol_filter(self.school_center_x,31,1)
         self.school_center_y = savgol_filter(self.school_center_y,31,1)
@@ -861,7 +847,7 @@ class school_comps:
 
         self.school_groups = [np.nan for i in range(len(school_xs[0]))]
 
-        for i in range(len(school_xs[0])):
+        for i in range(87,len(school_xs[0])):
 
             x_row = school_xs[:,i]
             y_row = school_ys[:,i]
@@ -889,19 +875,11 @@ class school_comps:
 
             dm = np.zeros((len(points),len(points)))
 
-            print(points)
-
             points = points
-
-            print(points)
 
             dm = distance_matrix(points,points)
 
-            print(dm)
-
             dm = dm/fish_len
-
-            print(dm)
 
             dm_min = dm <= min_BL_for_groups
 
@@ -911,11 +889,77 @@ class school_comps:
 
             self.school_groups[i] = n_groups
 
-            pos = nx.spring_layout(G)
-            nx.draw(G, pos, with_labels=True)
-            plt.show()
+            # pos = nx.spring_layout(G)
+            # nx.draw(G, pos, with_labels=True)
+            # plt.show()
 
-            sys.exit()
+            # sys.exit()
+
+    def calc_school_groups_all_points(self):
+        min_BL_for_groups = 2
+
+        school_xs = np.asarray([fish.head_x for fish in self.fishes])
+
+        #Get all the fish head and tailtip points
+        school_heads = np.asarray([[fish.head_x for fish in self.fishes],[fish.head_y for fish in self.fishes],[fish.head_z for fish in self.fishes]])
+        school_tailtips = np.asarray([[fish.tailtip_x for fish in self.fishes],[fish.tailtip_y for fish in self.fishes],[fish.tailtip_z for fish in self.fishes]])
+
+        #Set up the final array to be filled in
+        self.school_groups = [np.nan for i in range(len(school_xs[0]))]
+
+        for i in range(87,len(school_xs[0])):
+
+            #Get just the points for the current frame
+            head_points = np.asarray([item for item in zip(school_heads[0][:,i], school_heads[1][:,i], school_heads[2][:,i])])
+            tailtip_points = np.asarray([item for item in zip(school_tailtips[0][:,i], school_tailtips[1][:,i], school_tailtips[2][:,i])])
+
+            #Remove NANs from head and tailtip so they aren't added as nodes later
+            mask = ~np.isnan(head_points) & ~np.isnan(tailtip_points)
+
+            #Reshape to make them fit and remove NANs with mask
+            head_points = head_points[mask]
+            head_points = head_points.reshape((int(len(head_points)/3), 3))
+
+            tailtip_points = tailtip_points[mask]
+            tailtip_points = tailtip_points.reshape((int(len(tailtip_points)/3), 3))
+
+            #Save them in an arrayto go over
+            point_types = [head_points,tailtip_points]
+
+            dm_array = []
+
+            #Get head vs head, head vs tail, etc
+            for p1 in point_types:
+                for p2 in point_types:
+
+                    dm_array.append(distance_matrix(p1,p2))
+
+            #Turn into an array
+            dm_array = np.asarray(dm_array)
+            #print(dm_array)
+
+            #Get the shortest distance combo of the four
+            dm_min = np.nanmin(dm_array, axis = 0)
+            #print(dm_min)
+
+            #Divide by fish length
+            dm_min = dm_min/fish_len
+
+            #Find where it is less than the set BL for grouping
+            dm_min_bl = dm_min <= min_BL_for_groups
+
+            #Make into a graph and then get the number of points.
+            G = nx.from_numpy_array(dm_min_bl)
+
+            n_groups = len([len(c) for c in sorted(nx.connected_components(G), key=len, reverse=True)])
+
+            self.school_groups[i] = n_groups
+
+            # pos = nx.spring_layout(G)
+            # nx.draw(G, pos, with_labels=True)
+            # plt.show()
+
+            # sys.exit()
 
     def calc_school_height(self):
         school_zs = np.asarray([fish.head_z for fish in self.fishes])
@@ -1226,7 +1270,7 @@ data_folder = "3D_Finished_Fish_Data_4P_gaps/"
 
 trials = []
 
-single_file = "2020_07_28_03_LN_DN_F2"#"2021_10_06_36_LY_DN_F2_3D_DLC_dlcrnetms5_DLC_2-2_4P_8F_Light_VentralMay10shuffle1_100000_el_filtered.csv"
+single_file = ""#"2020_07_28_03_LN_DN_F2"#"2021_10_06_36_LY_DN_F2_3D_DLC_dlcrnetms5_DLC_2-2_4P_8F_Light_VentralMay10shuffle1_100000_el_filtered.csv"
 
 for file_name in os.listdir(data_folder):
     if file_name.endswith(".csv") and single_file in file_name:
