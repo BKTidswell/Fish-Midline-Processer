@@ -710,6 +710,7 @@ class school_comps:
         self.calc_tailbeat_cor()
         self.calc_school_area()
 
+        #self.calc_school_groups_all_points_diff_xy_z()
         self.calc_school_groups_all_points()
         #self.calc_school_groups()
 
@@ -902,37 +903,45 @@ class school_comps:
 
         #Get all the fish head and tailtip points
         school_heads = np.asarray([[fish.head_x for fish in self.fishes],[fish.head_y for fish in self.fishes],[fish.head_z for fish in self.fishes]])
+        school_midlines = np.asarray([[fish.midline_x for fish in self.fishes],[fish.midline_y for fish in self.fishes],[fish.midline_z for fish in self.fishes]])
+        school_tailbases = np.asarray([[fish.tailbase_x for fish in self.fishes],[fish.tailbase_y for fish in self.fishes],[fish.tailbase_z for fish in self.fishes]])
         school_tailtips = np.asarray([[fish.tailtip_x for fish in self.fishes],[fish.tailtip_y for fish in self.fishes],[fish.tailtip_z for fish in self.fishes]])
 
         #Set up the final array to be filled in
         self.school_groups = [np.nan for i in range(len(school_xs[0]))]
 
-        for i in range(87,len(school_xs[0])):
+        for i in range(len(school_xs[0])):
 
             #Get just the points for the current frame
             head_points = np.asarray([item for item in zip(school_heads[0][:,i], school_heads[1][:,i], school_heads[2][:,i])])
+            midline_points = np.asarray([item for item in zip(school_midlines[0][:,i], school_midlines[1][:,i], school_midlines[2][:,i])])
+            tailbase_points = np.asarray([item for item in zip(school_tailbases[0][:,i], school_tailbases[1][:,i], school_tailbases[2][:,i])])
             tailtip_points = np.asarray([item for item in zip(school_tailtips[0][:,i], school_tailtips[1][:,i], school_tailtips[2][:,i])])
 
             #Remove NANs from head and tailtip so they aren't added as nodes later
-            mask = ~np.isnan(head_points) & ~np.isnan(tailtip_points)
+            mask = ~np.isnan(head_points) & ~np.isnan(midline_points) & ~np.isnan(tailbase_points) & ~np.isnan(tailtip_points)
 
             #Reshape to make them fit and remove NANs with mask
             head_points = head_points[mask]
             head_points = head_points.reshape((int(len(head_points)/3), 3))
 
+            midline_points = midline_points[mask]
+            midline_points = midline_points.reshape((int(len(midline_points)/3), 3))
+
+            tailbase_points = tailbase_points[mask]
+            tailbase_points = tailbase_points.reshape((int(len(tailbase_points)/3), 3))
+
             tailtip_points = tailtip_points[mask]
             tailtip_points = tailtip_points.reshape((int(len(tailtip_points)/3), 3))
 
             #Save them in an arrayto go over
-            point_types = [head_points,tailtip_points]
+            point_types = [head_points,midline_points,tailbase_points,tailtip_points]
 
             dm_array = []
 
-            #Get head vs head, head vs tail, etc
-            for p1 in point_types:
-                for p2 in point_types:
-
-                    dm_array.append(distance_matrix(p1,p2))
+            #Get head vs all other points
+            for p_other in point_types:
+                dm_array.append(distance_matrix(head_points,p_other))
 
             #Turn into an array
             dm_array = np.asarray(dm_array)
@@ -960,6 +969,119 @@ class school_comps:
             # plt.show()
 
             # sys.exit()
+
+    def calc_school_groups_all_points_diff_xy_z(self):
+        min_BL_for_groups_xy = 2
+        min_BL_for_groups_z = 1.5
+
+        school_xs = np.asarray([fish.head_x for fish in self.fishes])
+
+        #Get all the fish head and tailtip points
+        school_heads = np.asarray([[fish.head_x for fish in self.fishes],[fish.head_y for fish in self.fishes],[fish.head_z for fish in self.fishes]])
+        school_midlines = np.asarray([[fish.midline_x for fish in self.fishes],[fish.midline_y for fish in self.fishes],[fish.midline_z for fish in self.fishes]])
+        school_tailbases = np.asarray([[fish.tailbase_x for fish in self.fishes],[fish.tailbase_y for fish in self.fishes],[fish.tailbase_z for fish in self.fishes]])
+        school_tailtips = np.asarray([[fish.tailtip_x for fish in self.fishes],[fish.tailtip_y for fish in self.fishes],[fish.tailtip_z for fish in self.fishes]])
+
+        #Set up the final array to be filled in
+        self.school_groups = [np.nan for i in range(len(school_xs[0]))]
+
+        for i in range(len(school_xs[0])):
+
+            #Get just the points for the current frame
+            head_points_xy = np.asarray([item for item in zip(school_heads[0][:,i], school_heads[1][:,i])])
+            midline_points_xy = np.asarray([item for item in zip(school_midlines[0][:,i], school_midlines[1][:,i])])
+            tailbase_points_xy = np.asarray([item for item in zip(school_tailbases[0][:,i], school_tailbases[1][:,i])])
+            tailtip_points_xy = np.asarray([item for item in zip(school_tailtips[0][:,i], school_tailtips[1][:,i])])
+
+            #Remove NANs from head and tailtip so they aren't added as nodes later
+            mask = ~np.isnan(head_points_xy) & ~np.isnan(midline_points_xy) & ~np.isnan(tailbase_points_xy) & ~np.isnan(tailtip_points_xy)
+
+            #Reshape to make them fit and remove NANs with mask
+            head_points_xy = head_points_xy[mask]
+            head_points_xy = head_points_xy.reshape((int(len(head_points_xy)/2), 2))
+
+            midline_points_xy = midline_points_xy[mask]
+            midline_points_xy = midline_points_xy.reshape((int(len(midline_points_xy)/2), 2))
+
+            tailbase_points_xy = tailbase_points_xy[mask]
+            tailbase_points_xy = tailbase_points_xy.reshape((int(len(tailbase_points_xy)/2), 2))
+
+            tailtip_points_xy = tailtip_points_xy[mask]
+            tailtip_points_xy = tailtip_points_xy.reshape((int(len(tailtip_points_xy)/2), 2))
+
+            #Save them in an arrayto go over
+            point_types_xy = [head_points_xy,midline_points_xy,tailbase_points_xy,tailtip_points_xy]
+
+            dm_array_xy = []
+
+            #Get head vs all other points
+            for p_other in point_types_xy:
+                dm_array_xy.append(distance_matrix(head_points_xy,p_other))
+
+            #And then we do that all again for the z points
+
+            #Get just the points for the current frame
+            head_points_z = np.asarray([item for item in zip(school_heads[2][:,i])])
+            midline_points_z = np.asarray([item for item in zip(school_midlines[2][:,i])])
+            tailbase_points_z = np.asarray([item for item in zip(school_tailbases[2][:,i])])
+            tailtip_points_z = np.asarray([item for item in zip(school_tailtips[2][:,i])])
+
+            #Remove NANs from head and tailtip so they aren't added as nodes later
+            mask = ~np.isnan(head_points_z) & ~np.isnan(midline_points_z) & ~np.isnan(tailbase_points_z) & ~np.isnan(tailtip_points_z)
+
+            #Reshape to make them fit and remove NANs with mask
+            head_points_z = head_points_z[mask]
+            head_points_z = head_points_z.reshape((len(head_points_z), 1))
+
+            midline_points_z = midline_points_z[mask]
+            midline_points_z = midline_points_z.reshape((len(midline_points_z), 1))
+
+            tailbase_points_z = tailbase_points_z[mask]
+            tailbase_points_z = tailbase_points_z.reshape((len(tailbase_points_z), 1))
+
+            tailtip_points_z = tailtip_points_z[mask]
+            tailtip_points_z = tailtip_points_z.reshape((len(tailtip_points_z), 1))
+
+            #Save them in an arrayto go over
+            point_types_z = [head_points_z,midline_points_z,tailbase_points_z,tailtip_points_z]
+
+            dm_array_z = []
+
+            #Get head vs all other points
+            for p_other in point_types_z:
+                dm_array_z.append(distance_matrix(head_points_z,p_other))
+
+            #Turn into an array
+            dm_array_xy = np.asarray(dm_array_xy)
+            dm_array_z = np.asarray(dm_array_z)
+            #print(dm_array)
+
+            #Get the shortest distance combo of the four
+            dm_min_xy = np.nanmin(dm_array_xy, axis = 0)
+            dm_min_z = np.nanmin(dm_array_z, axis = 0)
+            #print(dm_min)
+
+            #Divide by fish length
+            dm_min_xy = dm_min_xy/fish_len
+            dm_min_z = dm_min_z/fish_len
+
+            #Find where it is less than the set BL for grouping
+            dm_min_bl_xy = dm_min_xy <= min_BL_for_groups_xy
+            dm_min_bl_z = dm_min_z <= min_BL_for_groups_z
+
+            dm_min_bl_both = dm_min_bl_xy & dm_min_bl_z
+
+            #Make into a graph and then get the number of points.
+            G = nx.from_numpy_array(dm_min_bl_both)
+
+            n_groups = len([len(c) for c in sorted(nx.connected_components(G), key=len, reverse=True)])
+
+            self.school_groups[i] = n_groups
+
+            # pos = nx.spring_layout(G)
+            # nx.draw(G, pos, with_labels=True)
+            # plt.show()
+            #sys.exit()
 
     def calc_school_height(self):
         school_zs = np.asarray([fish.head_z for fish in self.fishes])
@@ -1303,40 +1425,40 @@ fish_comp_dataframe.to_csv("Fish_Comp_Values_3D.csv")
 fish_raw_comp_dataframe.to_csv("Fish_Raw_Comp_Values_3D.csv")
 fish_school_dataframe.to_csv("Fish_School_Values_3D.csv")
 
-#Recalculate when new data is added
-all_trials_tailbeat_lens = []
-all_trials_fish_lens = []
+# #Recalculate when new data is added
+# all_trials_tailbeat_lens = []
+# all_trials_fish_lens = []
 
-for trial in trials:
-    all_trials_tailbeat_lens.extend(np.asarray(trial.return_tailbeat_lens()))
-    all_trials_fish_lens.extend(np.asarray(trial.return_fish_lens()))
+# for trial in trials:
+#     all_trials_tailbeat_lens.extend(np.asarray(trial.return_tailbeat_lens()))
+#     all_trials_fish_lens.extend(np.asarray(trial.return_fish_lens()))
 
-all_trials_fish_lens = np.asarray(all_trials_fish_lens)
-#all_trials_fish_lens = all_trials_fish_lens[all_trials_fish_lens < 1.25]
+# all_trials_fish_lens = np.asarray(all_trials_fish_lens)
+# #all_trials_fish_lens = all_trials_fish_lens[all_trials_fish_lens < 1.25]
 
-print("Tailbeat Len Median")
-print(np.nanmedian(all_trials_tailbeat_lens)) #18
+# print("Tailbeat Len Median")
+# print(np.nanmedian(all_trials_tailbeat_lens)) #18
 
-print("Fish Len Median")
-print(np.nanmedian(all_trials_fish_lens))
+# print("Fish Len Median")
+# print(np.nanmedian(all_trials_fish_lens))
 
-print("Fish Len Mean")
-print(np.nanmean(all_trials_fish_lens))
+# print("Fish Len Mean")
+# print(np.nanmean(all_trials_fish_lens))
 
-print("Fish Len SD")
-print(np.nanstd(all_trials_fish_lens))
+# print("Fish Len SD")
+# print(np.nanstd(all_trials_fish_lens))
 
-print("Fish Len Max?")
-print(np.nanmean(all_trials_fish_lens) + 3*np.nanstd(all_trials_fish_lens))
+# print("Fish Len Max?")
+# print(np.nanmean(all_trials_fish_lens) + 3*np.nanstd(all_trials_fish_lens))
 
-print("Fish Len Max Observed")
-print(np.nanmax(all_trials_fish_lens))
+# print("Fish Len Max Observed")
+# print(np.nanmax(all_trials_fish_lens))
 
-fig,ax = plt.subplots(1,2)
-ax[0].hist(all_trials_fish_lens, bins = 30)
-ax[1].hist(np.log(all_trials_fish_lens), bins = 30)
-#ax.set_xlim(0,1.5)
-plt.show()
+# fig,ax = plt.subplots(1,2)
+# ax[0].hist(all_trials_fish_lens, bins = 30)
+# ax[1].hist(np.log(all_trials_fish_lens), bins = 30)
+# #ax.set_xlim(0,1.5)
+# plt.show()
 
 
 # Fish Len Median

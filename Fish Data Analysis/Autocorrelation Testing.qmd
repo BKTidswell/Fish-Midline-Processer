@@ -1,0 +1,161 @@
+---
+title: "Autocorrelation Testing"
+format: html
+editor: visual
+---
+
+```{r}
+library(tidyverse)
+library(ggplot2)
+library(bbmle) #For ICtab
+library(car)
+library(ggpubr)
+library(ggdist)
+library(emmeans)
+```
+
+
+```{r}
+school_data <- read.csv("Data/Fish_School_Values_3D.csv")
+school_data <- na.omit(school_data)
+
+school_data <- school_data %>% mutate(Flow = ifelse(Flow == "0", "Still Water", "Flowing Water (2 BL/s)")) %>%
+                           mutate(Ablation = ifelse(Ablation == "N", "No Ablation", "Ablated")) %>%
+                           mutate(Darkness = ifelse(Darkness == "N", "Light", "Dark")) %>%
+                           filter(School_Speed <= 5) %>%
+                           mutate(Flow = factor(Flow), Ablation = factor(Ablation), Darkness = factor(Darkness)) %>%
+                           mutate(Flow = fct_relevel(Flow, c("Still Water","Flowing Water (2 BL/s)"))) %>%
+                           mutate(Ablation = fct_relevel(Ablation, c("No Ablation","Ablated"))) %>%
+                           mutate(Darkness = fct_relevel(Darkness, c("Light","Dark"))) %>%
+                           mutate(Flow_Ablation_Darkness = factor(paste(Flow,Ablation,Darkness,sep=", "))) %>%
+                           mutate(Date = paste(Year,Month,Day,sep="_"),
+                                  Date_Trial = paste(Year,Month,Day,Trial,sep="_"),)
+```
+
+### NND Autocorrelation 
+
+```{r}
+
+nnd_auto <- ggplot(school_data, aes(NND, lag(NND)))+
+  geom_point()+
+  geom_smooth(method = 'lm',formula='y ~ x',se =FALSE)+
+  facet_wrap(~Date_Trial) +
+  theme_classic()
+
+ggsave("Autocorrelation Figures/NND_AutoCorreation_Test.png",nnd_auto, width = 12, height = 12)
+
+```
+
+### Polar Autocorrelation 
+
+```{r}
+
+polar_auto <- ggplot(school_data, aes(School_Polar, lag(School_Polar)))+
+  geom_point()+
+  geom_smooth(method = 'lm',formula='y ~ x',se =FALSE)+
+  facet_wrap(~Date_Trial) +
+  theme_classic()
+
+ggsave("Autocorrelation Figures/Polar_AutoCorreation_Test.png",polar_auto, width = 12, height = 12)
+
+```
+
+### Speed Autocorrelation 
+
+```{r}
+
+speed_auto <- ggplot(school_data, aes(School_Speed, lag(School_Speed)))+
+  geom_point()+
+  geom_smooth(method = 'lm',formula='y ~ x',se =FALSE)+
+  facet_wrap(~Date_Trial) +
+  theme_classic()
+
+ggsave("Autocorrelation Figures/Speed_AutoCorreation_Test.png",speed_auto, width = 12, height = 12)
+
+```
+
+### Groups Autocorrelation 
+
+```{r}
+
+groups_auto <- ggplot(school_data, aes(Groups, lag(Groups)))+
+  geom_point()+
+  geom_smooth(method = 'lm',formula='y ~ x',se =FALSE)+
+  facet_wrap(~Date_Trial) +
+  theme_classic()
+
+ggsave("Autocorrelation Figures/Groups_AutoCorreation_Test.png",groups_auto, width = 12, height = 12)
+
+```
+
+### Area Autocorrelation 
+
+```{r}
+
+area_auto <- ggplot(school_data, aes(Area, lag(Area)))+
+  geom_point()+
+  geom_smooth(method = 'lm',formula='y ~ x',se =FALSE)+
+  facet_wrap(~Date_Trial) +
+  theme_classic()
+
+ggsave("Autocorrelation Figures/Area_AutoCorreation_Test.png",area_auto, width = 12, height = 12)
+
+```
+
+### Height Autocorrelation 
+
+```{r}
+
+height_auto <- ggplot(school_data, aes(School_Height, lag(School_Height)))+
+  geom_point()+
+  geom_smooth(method = 'lm',formula='y ~ x',se =FALSE)+
+  facet_wrap(~Date_Trial) +
+  theme_classic()
+
+ggsave("Autocorrelation Figures/Height_AutoCorreation_Test.png",height_auto, width = 12, height = 12)
+
+```
+
+
+### Correlation Tests
+
+```{r}
+
+last_ind <- length(school_data$NND)
+
+school_autocorrs <- school_data %>% group_by(Date_Trial) %>%
+                    filter(Date_Trial != "2021_3_25_30") %>%
+                    summarise(nnd_corr = cor.test(NND, lag(NND))$estimate,
+                              nnd_p = cor.test(NND, lag(NND))$p.value,
+                              polar_corr = cor.test(School_Polar, lag(School_Polar))$estimate,
+                              polar_p = cor.test(School_Polar, lag(School_Polar))$p.value,
+                              speed_corr = cor.test(School_Speed, lag(School_Speed))$estimate,
+                              speed_p = cor.test(School_Speed, lag(School_Speed))$p.value,
+                              groups_corr = cor.test(Groups, lag(Groups))$estimate,
+                              groups_p = cor.test(Groups, lag(Groups))$p.value,
+                              area_corr = cor.test(Area, lag(Area))$estimate,
+                              area_p = cor.test(Area, lag(Area))$p.value,
+                              height_corr = cor.test(School_Height, lag(School_Height))$estimate,
+                              height_p = cor.test(School_Height, lag(School_Height))$p.value)
+
+school_autocorrs
+
+auto_cor_avgs <- school_autocorrs %>% summarise(nnd_CorAvg = mean(nnd_corr, na.rm = TRUE),
+                                                nnd_SigPer = sum(nnd_p < 0.05,na.rm = TRUE)/n(),
+                                                polar_CorAvg = mean(polar_corr, na.rm = TRUE),
+                                                polar_SigPer = sum(polar_p < 0.05,na.rm = TRUE)/n(),
+                                                speed_CorAvg = mean(speed_corr, na.rm = TRUE),
+                                                speed_SigPer = sum(speed_p < 0.05,na.rm = TRUE)/n(),
+                                                groups_CorAvg = mean(groups_corr, na.rm = TRUE),
+                                                groups_SigPer = sum(groups_p < 0.05,na.rm = TRUE)/n(),
+                                                area_CorAvg = mean(area_corr, na.rm = TRUE),
+                                                area_SigPer = sum(area_p < 0.05,na.rm = TRUE)/n(),
+                                                height_CorAvg = mean(height_corr, na.rm = TRUE),
+                                                height_SigPer = sum(height_p < 0.05,na.rm = TRUE)/n())
+
+auto_cor_avgs %>% pivot_longer(everything(), names_to = "Type", values_to = "Value") %>%
+                  separate(Type, c("Type", "Stat")) %>%
+                  pivot_wider(names_from = Stat, values_from = Value)
+
+```
+

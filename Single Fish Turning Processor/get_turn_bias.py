@@ -125,7 +125,7 @@ def process_trial(folder,datafile):
                                       Fish_Left = num_LR[1],
                                       Fish_Right = num_LR[0]))
 
-f = open("eight_fish_turning.csv", "w")
+f = open("Single_Fish_Data.csv", "w")
 
 f.write("Year,Month,Day,Trial,Ablation,Darkness,Singles,Flow,Turn_Dir,Fish_Left,Fish_Right")
 
