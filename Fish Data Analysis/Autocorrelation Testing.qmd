@@ -14,7 +14,6 @@ library(ggdist)
 library(emmeans)
 ```
 
-
 ```{r}
 school_data <- read.csv("Data/Fish_School_Values_3D.csv")
 school_data <- na.omit(school_data)
@@ -32,11 +31,16 @@ school_data <- school_data %>% mutate(Flow = ifelse(Flow == "0", "Still Water", 
                                   Date_Trial = paste(Year,Month,Day,Trial,sep="_"),)
 ```
 
-### NND Autocorrelation 
+```{r}
+n_to_lag = 4
+```
+
+
+### NND Autocorrelation
 
 ```{r}
 
-nnd_auto <- ggplot(school_data, aes(NND, lag(NND)))+
+nnd_auto <- ggplot(school_data, aes(NND, lag(NND, n = n_to_lag)))+
   geom_point()+
   geom_smooth(method = 'lm',formula='y ~ x',se =FALSE)+
   facet_wrap(~Date_Trial) +
@@ -46,11 +50,11 @@ ggsave("Autocorrelation Figures/NND_AutoCorreation_Test.png",nnd_auto, width = 1
 
 ```
 
-### Polar Autocorrelation 
+### Polar Autocorrelation
 
 ```{r}
 
-polar_auto <- ggplot(school_data, aes(School_Polar, lag(School_Polar)))+
+polar_auto <- ggplot(school_data, aes(School_Polar, lag(School_Polar, n = n_to_lag)))+
   geom_point()+
   geom_smooth(method = 'lm',formula='y ~ x',se =FALSE)+
   facet_wrap(~Date_Trial) +
@@ -60,11 +64,11 @@ ggsave("Autocorrelation Figures/Polar_AutoCorreation_Test.png",polar_auto, width
 
 ```
 
-### Speed Autocorrelation 
+### Speed Autocorrelation
 
 ```{r}
 
-speed_auto <- ggplot(school_data, aes(School_Speed, lag(School_Speed)))+
+speed_auto <- ggplot(school_data, aes(School_Speed, lag(School_Speed, n = n_to_lag)))+
   geom_point()+
   geom_smooth(method = 'lm',formula='y ~ x',se =FALSE)+
   facet_wrap(~Date_Trial) +
@@ -74,11 +78,11 @@ ggsave("Autocorrelation Figures/Speed_AutoCorreation_Test.png",speed_auto, width
 
 ```
 
-### Groups Autocorrelation 
+### Groups Autocorrelation
 
 ```{r}
 
-groups_auto <- ggplot(school_data, aes(Groups, lag(Groups)))+
+groups_auto <- ggplot(school_data, aes(Groups, lag(Groups, n = n_to_lag)))+
   geom_point()+
   geom_smooth(method = 'lm',formula='y ~ x',se =FALSE)+
   facet_wrap(~Date_Trial) +
@@ -88,11 +92,11 @@ ggsave("Autocorrelation Figures/Groups_AutoCorreation_Test.png",groups_auto, wid
 
 ```
 
-### Area Autocorrelation 
+### Area Autocorrelation
 
 ```{r}
 
-area_auto <- ggplot(school_data, aes(Area, lag(Area)))+
+area_auto <- ggplot(school_data, aes(Area, lag(Area, n = n_to_lag)))+
   geom_point()+
   geom_smooth(method = 'lm',formula='y ~ x',se =FALSE)+
   facet_wrap(~Date_Trial) +
@@ -102,11 +106,11 @@ ggsave("Autocorrelation Figures/Area_AutoCorreation_Test.png",area_auto, width =
 
 ```
 
-### Height Autocorrelation 
+### Height Autocorrelation
 
 ```{r}
 
-height_auto <- ggplot(school_data, aes(School_Height, lag(School_Height)))+
+height_auto <- ggplot(school_data, aes(School_Height, lag(School_Height, n = n_to_lag)))+
   geom_point()+
   geom_smooth(method = 'lm',formula='y ~ x',se =FALSE)+
   facet_wrap(~Date_Trial) +
@@ -116,27 +120,24 @@ ggsave("Autocorrelation Figures/Height_AutoCorreation_Test.png",height_auto, wid
 
 ```
 
-
 ### Correlation Tests
 
 ```{r}
 
-last_ind <- length(school_data$NND)
-
 school_autocorrs <- school_data %>% group_by(Date_Trial) %>%
                     filter(Date_Trial != "2021_3_25_30") %>%
-                    summarise(nnd_corr = cor.test(NND, lag(NND))$estimate,
-                              nnd_p = cor.test(NND, lag(NND))$p.value,
-                              polar_corr = cor.test(School_Polar, lag(School_Polar))$estimate,
-                              polar_p = cor.test(School_Polar, lag(School_Polar))$p.value,
-                              speed_corr = cor.test(School_Speed, lag(School_Speed))$estimate,
-                              speed_p = cor.test(School_Speed, lag(School_Speed))$p.value,
-                              groups_corr = cor.test(Groups, lag(Groups))$estimate,
-                              groups_p = cor.test(Groups, lag(Groups))$p.value,
-                              area_corr = cor.test(Area, lag(Area))$estimate,
-                              area_p = cor.test(Area, lag(Area))$p.value,
-                              height_corr = cor.test(School_Height, lag(School_Height))$estimate,
-                              height_p = cor.test(School_Height, lag(School_Height))$p.value)
+                    summarise(nnd_corr = cor.test(NND, lag(NND, n = n_to_lag))$estimate,
+                              nnd_p = cor.test(NND, lag(NND, n = n_to_lag))$p.value,
+                              polar_corr = cor.test(School_Polar, lag(School_Polar, n = n_to_lag))$estimate,
+                              polar_p = cor.test(School_Polar, lag(School_Polar, n = n_to_lag))$p.value,
+                              speed_corr = cor.test(School_Speed, lag(School_Speed, n = n_to_lag))$estimate,
+                              speed_p = cor.test(School_Speed, lag(School_Speed, n = n_to_lag))$p.value,
+                              groups_corr = cor.test(Groups, lag(Groups, n = n_to_lag))$estimate,
+                              groups_p = cor.test(Groups, lag(Groups, n = n_to_lag))$p.value,
+                              area_corr = cor.test(Area, lag(Area, n = n_to_lag))$estimate,
+                              area_p = cor.test(Area, lag(Area, n = n_to_lag))$p.value,
+                              height_corr = cor.test(School_Height, lag(School_Height, n = n_to_lag))$estimate,
+                              height_p = cor.test(School_Height, lag(School_Height, n = n_to_lag))$p.value)
 
 school_autocorrs
 
@@ -156,6 +157,87 @@ auto_cor_avgs <- school_autocorrs %>% summarise(nnd_CorAvg = mean(nnd_corr, na.r
 auto_cor_avgs %>% pivot_longer(everything(), names_to = "Type", values_to = "Value") %>%
                   separate(Type, c("Type", "Stat")) %>%
                   pivot_wider(names_from = Stat, values_from = Value)
+
+```
+
+for loop lags
+```{r}
+
+for(i in seq(1:10)){
+  print(i)
+  
+  new_autocorrs <- school_data %>% group_by(Date_Trial) %>%
+                    filter(!Date_Trial %in% c("2021_3_25_30","2020_7_28_29","2021_7_7_16","2021_3_25_7","2021_10_6_34")) %>%
+                    summarise(nnd_corr = abs(cor.test(NND, lag(NND, n = i))$estimate),
+                              nnd_p = cor.test(NND, lag(NND, n = i))$p.value,
+                              polar_corr = abs(cor.test(School_Polar, lag(School_Polar, n = i))$estimate),
+                              polar_p = cor.test(School_Polar, lag(School_Polar, n = i))$p.value,
+                              speed_corr = abs(cor.test(School_Speed, lag(School_Speed, n = i))$estimate),
+                              speed_p = cor.test(School_Speed, lag(School_Speed, n = i))$p.value,
+                              groups_corr = abs(cor.test(Groups, lag(Groups, n = i))$estimate),
+                              groups_p = cor.test(Groups, lag(Groups, n = i))$p.value,
+                              area_corr = abs(cor.test(Area, lag(Area, n = i))$estimate),
+                              area_p = cor.test(Area, lag(Area, n = i))$p.value,
+                              height_corr = abs(cor.test(School_Height, lag(School_Height, n = i))$estimate),
+                              height_p = cor.test(School_Height, lag(School_Height, n = i))$p.value,
+                              lag = i)
+  
+  if(i == 1){
+    school_autocorrs <- new_autocorrs
+  }
+  else{
+    school_autocorrs <- rbind(school_autocorrs,new_autocorrs) 
+  }
+  
+}
+
+nnd_lag_plot <- ggplot(school_autocorrs, aes(as.factor(lag), nnd_corr, color = as.factor(lag)))+
+  stat_summary(fun.data = mean_se, geom = "errorbar", color = "black", width = 0.25) +
+  stat_summary(fun.y=mean, geom="point", size = 3) +
+  ylim(0,1)+
+  ggtitle("NND")+
+  theme_classic()
+
+polar_lag_plot <- ggplot(school_autocorrs, aes(as.factor(lag), polar_corr, color = as.factor(lag)))+
+  stat_summary(fun.data = mean_se, geom = "errorbar", color = "black", width = 0.25) +
+  stat_summary(fun.y=mean, geom="point", size = 3) +
+  ylim(0,1)+
+  ggtitle("Polar")+
+  theme_classic()
+
+speed_lag_plot <- ggplot(school_autocorrs, aes(as.factor(lag), speed_corr, color = as.factor(lag)))+
+  stat_summary(fun.data = mean_se, geom = "errorbar", color = "black", width = 0.25) +
+  stat_summary(fun.y=mean, geom="point", size = 3) +
+  ylim(0,1)+
+  ggtitle("Speed")+
+  theme_classic()
+
+groups_lag_plot <- ggplot(school_autocorrs, aes(as.factor(lag), groups_corr, color = as.factor(lag)))+
+  stat_summary(fun.data = mean_se, geom = "errorbar", color = "black", width = 0.25) +
+  stat_summary(fun.y=mean, geom="point", size = 3) +
+  ylim(0,1)+
+  ggtitle("Groups")+
+  theme_classic()
+
+area_lag_plot <- ggplot(school_autocorrs, aes(as.factor(lag), area_corr, color = as.factor(lag)))+
+  stat_summary(fun.data = mean_se, geom = "errorbar", color = "black", width = 0.25) +
+  stat_summary(fun.y=mean, geom="point", size = 3) +
+  ylim(0,1)+
+  ggtitle("Area")+
+  theme_classic()
+
+height_lag_plot <- ggplot(school_autocorrs, aes(as.factor(lag), height_corr, color = as.factor(lag)))+
+  stat_summary(fun.data = mean_se, geom = "errorbar", color = "black", width = 0.25) +
+  stat_summary(fun.y=mean, geom="point", size = 3) +
+  ylim(0,1)+
+  ggtitle("Area")+
+  theme_classic()
+
+lag_plots <- ggarrange(
+          nnd_lag_plot, polar_lag_plot, speed_lag_plot, groups_lag_plot, area_lag_plot, height_lag_plot,
+          ncol = 3, nrow = 2)
+
+ggsave("Autocorrelation Figures/Different_Lag_Figures.png", lag_plots, width = 22, height = 15)
 
 ```
 

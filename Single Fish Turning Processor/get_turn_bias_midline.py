@@ -14,6 +14,9 @@ fish_names = ["individual1","individual2",
               "individual5","individual6",
               "individual7","individual8"]
 
+x_edges = [250,2250]
+y_edges = [200,900]
+
 csv_output = "{Year},{Month},{Day},{Trial},{Ablation},{Darkness},{Singles},{Flow},{Turn_Dir},{Fish_Left},{Fish_Right}\n"
 
 def calc_mag(p1,p2):
@@ -41,7 +44,7 @@ def turn_frames(head_x_data,head_y_data,mid_x_data,mid_y_data):
 
         dot_prods[i] = np.dot(vec1,vec2)
 
-        print(vec1, vec2, dot_prods[i])
+        #print(vec1, vec2, dot_prods[i])
 
         if np.isnan(np.dot(vec1,vec2)):
             dot_prods[i] = 1
@@ -72,6 +75,8 @@ def turn_frames(head_x_data,head_y_data,mid_x_data,mid_y_data):
     #But I can do it with is_point_LR() for each point, comparing one head to the next...
     turn_dirs = []
 
+    final_peaks = []
+
     for p in peaks:
         #mid to head and mid to next
         m2h = np.pad(head_point_data[p] - mid_point_data[p], (0, 1), 'constant')
@@ -82,9 +87,14 @@ def turn_frames(head_x_data,head_y_data,mid_x_data,mid_y_data):
         if turn_dir == None:
             print(m2h,m2n)
 
-        turn_dirs.append(turn_dir)
+        #Also we want to check that they aren't too close to the edge!
+        if((head_point_data[p][0] > x_edges[0]) and (head_point_data[p][0] < x_edges[1]) and (head_point_data[p][1] > y_edges[0]) and (head_point_data[p][1] < y_edges[1])):
+            turn_dirs.append(turn_dir)
+            final_peaks.append(p)
+        else:
+            print("Edge case!")
 
-    return(peaks,turn_dirs)
+    return(final_peaks,turn_dirs)
 
 def is_point_LR(mid_to_head,mid_to_other):
     #Get the cross product to see if they turned left or right
@@ -175,7 +185,7 @@ def process_trial(folder,datafile):
 
 f = open("single_fish_turning.csv", "w")
 
-f.write("Year,Month,Day,Trial,Ablation,Darkness,Singles,Flow,Turn_Dir,Fish_Left,Fish_Right")
+f.write("Year,Month,Day,Trial,Ablation,Darkness,Singles,Flow,Turn_Dir,Fish_Left,Fish_Right\n")
 
 folder = "Single_Fish_Data/"
 
