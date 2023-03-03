@@ -14,6 +14,7 @@ library(car)
 library(ggpubr)
 library(ggdist)
 library(emmeans)
+library(lme4)
 
 ```
 
@@ -145,42 +146,14 @@ eight_fish_flow <- ggplot(turning_data_sum %>% filter(Type == "Eight Fish") %>% 
                                 "3:4","2:5","1:6","0:7"))+ 
   labs(color = "Sensory Conditions")
 
-only_still_model <- glm(turn_bool ~ Fish_Num_Ratio * Ablation * Darkness, 
-                 data = annushka_turning_data %>% filter(Flow == "Still Water"), 
-                 family = binomial)
-
-only_flow_model <- glm(turn_bool ~ Fish_Num_Ratio * Ablation * Darkness, 
-                 data = annushka_turning_data %>% filter(Flow == "Flowing Water (2 BL/s)"), 
-                 family = binomial)
-
-
 eight_fish_still
 eight_fish_flow
-
-turning_glm_still <- glm(turn_bool ~ Fish_Num_Ratio*(Ablation+Darkness),
-                         data = annushka_turning_data %>% filter(Flow == "Still Water"), family = binomial)
-Anova(turning_glm_still)
-
-turning_glm_flow <- glm(turn_bool ~ Fish_Num_Ratio*(Ablation+Darkness),
-                         data = annushka_turning_data %>% filter(Flow == "Flowing Water (2 BL/s)"), family = binomial)
-Anova(turning_glm_flow)
 
 ```
 
 ### All the Plots of Eight Fish vs Single in Still Water
 
 ```{r}
-
-dark_eight_and_single_model <- glm(turn_bool ~ Fish_Num_Ratio * Type, 
-                 data = all_turning_data %>% filter(Flow == "Still Water" & Darkness == "Dark"), 
-                 family = binomial)
-
-dark_eight_and_single_sum <- all_turning_data %>% filter(Flow == "Still Water" & Darkness == "Dark") %>%
-                                                  mutate(predicted = predict(dark_eight_and_single_model, type="response")) %>%
-                                                  group_by(Fish_Ratio,Fish_Num_Ratio,Flow,Ablation,Darkness,Flow_Ablation_Darkness,Type) %>%
-                                                  summarise(predicted = predicted, n = n()) %>%
-                                                  ungroup()
-
 
 dark_eight_and_single_graph <- ggplot(turning_data_sum %>% filter(Flow == "Still Water" & Darkness == "Dark"),
        aes(x = Fish_Num_Ratio, y = mean_right_turn, color = Type))+
@@ -199,19 +172,6 @@ dark_eight_and_single_graph <- ggplot(turning_data_sum %>% filter(Flow == "Still
   labs(color = "Sensory Conditions")
 
 
-
-
-ablation_eight_and_single_model <- glm(turn_bool ~ Fish_Num_Ratio * Type, 
-                 data = all_turning_data %>% filter(Flow == "Still Water" & Ablation == "Ablated"), 
-                 family = binomial)
-
-ablation_eight_and_single_sum <- all_turning_data %>% filter(Flow == "Still Water" & Ablation == "Ablated")  %>%
-                                                  mutate(predicted = predict(ablation_eight_and_single_model, type="response")) %>%
-                                                  group_by(Fish_Ratio,Fish_Num_Ratio,Flow,Ablation,Darkness,Flow_Ablation_Darkness,Type) %>%
-                                                  summarise(predicted = predicted, n = n()) %>%
-                                                  ungroup()
-
-
 ablation_eight_and_single_graph <- ggplot(turning_data_sum %>% filter(Flow == "Still Water" & Ablation == "Ablated"),
        aes(x = Fish_Num_Ratio, y = mean_right_turn, color = Type))+
   geom_point()+
@@ -227,16 +187,6 @@ ablation_eight_and_single_graph <- ggplot(turning_data_sum %>% filter(Flow == "S
                      labels = c("7:0","6:1","5:2","4:3",
                                 "3:4","2:5","1:6","0:7"))+ 
   labs(color = "Sensory Conditions")
-
-light_eight_and_single_model <- glm(turn_bool ~ Fish_Num_Ratio * Type, 
-                 data = all_turning_data %>% filter(Flow == "Still Water" & Ablation == "No Ablation" & Darkness == "Light"), 
-                 family = binomial)
-
-light_eight_and_single_sum <- all_turning_data %>% filter(Flow == "Still Water" & Ablation == "No Ablation" & Darkness == "Light")  %>%
-                                                  mutate(predicted = predict(light_eight_and_single_model, type="response")) %>%
-                                                  group_by(Fish_Ratio,Fish_Num_Ratio,Flow,Ablation,Darkness,Flow_Ablation_Darkness,Type) %>%
-                                                  summarise(predicted = predicted, n = n()) %>%
-                                                  ungroup()
 
 
 light_eight_and_single_graph <- ggplot(turning_data_sum %>% filter(Flow == "Still Water" & Ablation == "No Ablation" & Darkness == "Light"),
@@ -258,30 +208,58 @@ light_eight_and_single_graph <- ggplot(turning_data_sum %>% filter(Flow == "Stil
 light_eight_and_single_graph
 ablation_eight_and_single_graph
 dark_eight_and_single_graph
+```
 
-still_light_turning_glm <- glm(turn_bool ~ Fish_Num_Ratio*Type,
+### Turning Stats Table Here
+
+```{r}
+turning_glm_still <- glm(turn_bool ~ Fish_Num_Ratio*(Ablation+Darkness),
+                         data = annushka_turning_data %>% filter(Flow == "Still Water"), family = binomial)
+tgs_aov <- Anova(turning_glm_still)
+
+turning_glm_flow <- glm(turn_bool ~ Fish_Num_Ratio*(Ablation+Darkness),
+                         data = annushka_turning_data %>% filter(Flow == "Flowing Water (2 BL/s)"), family = binomial)
+tgf_aov <- Anova(turning_glm_flow)
+
+turning_results <- tibble(Flow_or_Still = c("Still","Still","Still","Still","Still","Flow","Flow","Flow","Flow","Flow"),
+       Factor = c("Fish_Num_Ratio","Ablation","Darkness","Fish_Num_Ratio:Ablation","Fish_Num_Ratio:Darkness",
+                  "Fish_Num_Ratio","Ablation","Darkness","Fish_Num_Ratio:Ablation","Fish_Num_Ratio:Darkness"),
+       DF = c(rep(length(turning_glm_still$y)-3,5),rep(length(turning_glm_flow$y)-3,5)),
+       LR_Chisq = c(tgs_aov$`LR Chisq`,tgf_aov$`LR Chisq`),
+       P_Val = c(tgs_aov$`Pr(>Chisq)`,tgf_aov$`Pr(>Chisq)`),
+       Is_Sig = P_Val < 0.05)
+
+
+# Single vs Eight fish
+light_turning_glm <- glm(turn_bool ~ Fish_Num_Ratio*Type,
                                data = all_turning_data  %>% filter(Flow == "Still Water" & Ablation == "No Ablation" & Darkness == "Light"),
                                family = binomial)
-Anova(still_light_turning_glm)
+ltg_aov <- Anova(light_turning_glm)
 
-ablated_light_turning_glm <- glm(turn_bool ~ Fish_Num_Ratio*Type,
+ablated_turning_glm <- glm(turn_bool ~ Fish_Num_Ratio*Type,
                                data = all_turning_data  %>% filter(Flow == "Still Water" & Ablation == "Ablated"),
                                family = binomial)
-Anova(ablated_light_turning_glm)
+altg_aov <- Anova(ablated_turning_glm)
 
 
-dark_light_turning_glm <- glm(turn_bool ~ Fish_Num_Ratio*Type,
+dark_turning_glm <- glm(turn_bool ~ Fish_Num_Ratio*Type,
                                data = all_turning_data  %>% filter(Flow == "Still Water" & Darkness == "Dark"),
                                family = binomial)
-Anova(dark_light_turning_glm)
+dtg_aov <- Anova(dark_turning_glm)
 
-#Emmeans doesn't quite work since it makes it all into groups and not lines?
-real_vs_sim_turning_glm <- glm(turn_bool ~ 0+Fish_Num_Ratio*Ablation*Darkness*Flow*Type, data = all_turning_data, family = binomial)
-summary(real_vs_sim_turning_glm)
-Anova(real_vs_sim_turning_glm)
-emmeans(real_vs_sim_turning_glm, specs = pairwise ~ Type | Flow:Ablation:Darkness)
+single_vs_eight_results <- tibble(Condition = c("Light","Light","Ablated","Ablated","Darkness","Darkness"),
+       Factor = c("Type","FNR:Type","Type","FNR:Type","Type","FNR:Type"),
+       DF = c(rep(length(light_turning_glm$y)-3,2),rep(length(ablated_turning_glm$y)-3,2),rep(length(dark_turning_glm$y)-3,2)),
+       LR_Chisq = c(ltg_aov$`LR Chisq`[2:3],altg_aov$`LR Chisq`[2:3],dtg_aov$`LR Chisq`[2:3]),
+       P_Val = c(ltg_aov$`Pr(>Chisq)`[2:3],altg_aov$`Pr(>Chisq)`[2:3],dtg_aov$`Pr(>Chisq)`[2:3]),
+       Is_Sig = P_Val < 0.05)
+
+turning_results
+single_vs_eight_results
 
 ```
+
+
 
 ### Now we combine it all
 
@@ -325,6 +303,15 @@ school_data <- school_data %>% mutate(Flow = ifelse(Flow == "0", "Still Water", 
                            mutate(Ablation = fct_relevel(Ablation, c("No Ablation","Ablated"))) %>%
                            mutate(Darkness = fct_relevel(Darkness, c("Light","Dark"))) %>%
                            mutate(Flow_Ablation_Darkness = factor(paste(Flow,Ablation,Darkness,sep=", "))) %>%
+                            
+                           # ### Used to remove every third point to reduce autocorrelation
+                           mutate(Date = paste(Year,Month,Day,sep="_"),
+                                  Date_Trial = paste(Year,Month,Day,Trial,sep="_")) %>%
+                           group_by(Date_Trial) %>%
+                           filter(row_number() %% 3 == 1) %>%
+                           ungroup() %>%
+                           # ###
+                          
                            group_by(Flow_Ablation_Darkness) %>%
                            mutate(NND_Mean_Val = mean(NND), NND_SD_Val = sd(NND),
                                   Polar_Mean_Val = mean(School_Polar), Polar_SD_Val = sd(School_Polar),
@@ -388,14 +375,6 @@ nnd_flow <- ggplot(school_data %>% filter(Flow == "Flowing Water (2 BL/s)"),
 
 nnd_still
 nnd_flow
-
-nnd_glm_still <- glm(NND ~ Ablation*Darkness, data = school_data %>% filter(Flow == "Still Water"))
-Anova(nnd_glm_still, test.statistic="F")
-length((school_data %>% filter(Flow == "Still Water"))$NND)
-
-nnd_glm_flow <- glm(NND ~ Ablation*Darkness, data = school_data %>% filter(Flow == "Flowing Water (2 BL/s)"))
-Anova(nnd_glm_flow, test.statistic="F")
-length((school_data %>% filter(Flow == "Flowing Water (2 BL/s)"))$NND)
 
 
 nnd_glm <- glm(NND ~ Ablation*Darkness*Flow, data = school_data)
@@ -699,6 +678,139 @@ Anova(groups_glm_flow, test.statistic="F")
 
 ```
 
+### School Stats Table Here
+
+```{r}
+
+nnd_glmer_still <- lmer(NND ~ Ablation*Darkness + (1|Date), data = school_data %>% filter(Flow == "Still Water"))
+nnd_s_aov_me <- Anova(nnd_glmer_still)
+
+nnd_glmer_flow <- lmer(NND ~ Ablation*Darkness + (1|Date), data = school_data %>% filter(Flow == "Flowing Water (2 BL/s)"))
+nnd_f_aov_me <- Anova(nnd_glmer_flow)
+
+height_glmer_still <- lmer(School_Height ~ Ablation*Darkness + (1|Date), data = school_data %>% filter(Flow == "Still Water"))
+height_s_aov_me <- Anova(height_glmer_still)
+
+height_glmer_flow <- lmer(School_Height ~ Ablation*Darkness + (1|Date), data = school_data %>% filter(Flow == "Flowing Water (2 BL/s)"))
+height_f_aov_me <- Anova(height_glmer_flow)
+
+polar_glmer_still <- lmer(School_Polar ~ Ablation*Darkness + (1|Date), data = school_data %>% filter(Flow == "Still Water"))
+polar_s_aov_me <- Anova(polar_glmer_still)
+
+polar_glmer_flow <- lmer(School_Polar ~ Ablation*Darkness + (1|Date), data = school_data %>% filter(Flow == "Flowing Water (2 BL/s)"))
+polar_f_aov_me <- Anova(polar_glmer_flow)
+
+speed_glmer_still <- lmer(School_Speed ~ Ablation*Darkness + (1|Date), data = school_data %>% filter(Flow == "Still Water"))
+speed_s_aov_me <- Anova(speed_glmer_still)
+
+speed_glmer_flow <- lmer(School_Speed ~ Ablation*Darkness + (1|Date), data = school_data %>% filter(Flow == "Flowing Water (2 BL/s)"))
+speed_f_aov_me <- Anova(speed_glmer_flow)
+
+area_glmer_still <- lmer(Area ~ Ablation*Darkness + (1|Date), data = school_data %>% filter(Flow == "Still Water"))
+area_s_aov_me <- Anova(area_glmer_still)
+
+area_glmer_flow <- lmer(Area ~ Ablation*Darkness + (1|Date), data = school_data %>% filter(Flow == "Flowing Water (2 BL/s)"))
+area_f_aov_me <- Anova(area_glmer_flow)
+
+groups_glmer_still <- lmer(Groups ~ Ablation*Darkness + (1|Date), data = school_data %>% filter(Flow == "Still Water"))
+groups_s_aov_me <- Anova(groups_glmer_still)
+
+groups_glmer_flow <- lmer(Groups ~ Ablation*Darkness + (1|Date), data = school_data %>% filter(Flow == "Flowing Water (2 BL/s)"))
+groups_f_aov_me <- Anova(groups_glmer_flow)
+
+
+
+glmm_school_stats_table <- tibble(Stat = c(rep("NND",4),rep("Height",4),rep("Polarization",4),rep("Speed",4),rep("Area",4),rep("Groups",4)),
+       Flow_or_Still = rep( c(rep("Still",2) , rep("Flow",2)), 6),
+       Condition = rep(c("Ablation","Darkness"), 12),
+       DF = rep(c(length(nnd_glmer_still@resp$y)-3,length(nnd_glmer_flow@resp$y)-3),12),
+       Chisq = c(nnd_s_aov_me$Chisq[1:2],nnd_f_aov_me$Chisq[1:2],
+                 height_s_aov_me$Chisq[1:2],height_f_aov_me$Chisq[1:2],
+                 polar_s_aov_me$Chisq[1:2],polar_f_aov_me$Chisq[1:2],
+                 speed_s_aov_me$Chisq[1:2],speed_f_aov_me$Chisq[1:2],
+                 area_s_aov_me$Chisq[1:2],area_f_aov_me$Chisq[1:2],
+                 groups_s_aov_me$Chisq[1:2],groups_f_aov_me$Chisq[1:2]),
+       
+       P_Val = c(nnd_s_aov_me$`Pr(>Chisq)`[1:2],nnd_f_aov_me$`Pr(>Chisq)`[1:2],
+                 height_s_aov_me$`Pr(>Chisq)`[1:2],height_f_aov_me$`Pr(>Chisq)`[1:2],
+                 polar_s_aov_me$`Pr(>Chisq)`[1:2],polar_f_aov_me$`Pr(>Chisq)`[1:2],
+                 speed_s_aov_me$`Pr(>Chisq)`[1:2],speed_f_aov_me$`Pr(>Chisq)`[1:2],
+                 area_s_aov_me$`Pr(>Chisq)`[1:2],area_f_aov_me$`Pr(>Chisq)`[1:2],
+                 groups_s_aov_me$`Pr(>Chisq)`[1:2],groups_f_aov_me$`Pr(>Chisq)`[1:2]),
+       
+       Is_Sig = P_Val < 0.05)
+
+
+glmm_school_stats_table
+
+
+nnd_glm_still <- glm(NND ~ Ablation*Darkness, data = school_data %>% filter(Flow == "Still Water"))
+nnd_s_aov <- Anova(nnd_glm_still)
+
+nnd_glm_flow <- glm(NND ~ Ablation*Darkness, data = school_data %>% filter(Flow == "Flowing Water (2 BL/s)"))
+nnd_f_aov <- Anova(nnd_glm_flow)
+
+height_glm_still <- glm(School_Height ~ Ablation*Darkness, data = school_data %>% filter(Flow == "Still Water"))
+height_s_aov <- Anova(height_glm_still)
+
+height_glm_flow <- glm(School_Height ~ Ablation*Darkness, data = school_data %>% filter(Flow == "Flowing Water (2 BL/s)"))
+height_f_aov <- Anova(height_glm_flow)
+
+polar_glm_still <- glm(School_Polar ~ Ablation*Darkness, data = school_data %>% filter(Flow == "Still Water"))
+polar_s_aov <- Anova(polar_glm_still)
+
+polar_glm_flow <- glm(School_Polar ~ Ablation*Darkness, data = school_data %>% filter(Flow == "Flowing Water (2 BL/s)"))
+polar_f_aov <- Anova(polar_glm_flow)
+
+speed_glm_still <- glm(School_Speed ~ Ablation*Darkness, data = school_data %>% filter(Flow == "Still Water"))
+speed_s_aov <- Anova(speed_glm_still)
+
+speed_glm_flow <- glm(School_Speed ~ Ablation*Darkness, data = school_data %>% filter(Flow == "Flowing Water (2 BL/s)"))
+speed_f_aov <- Anova(speed_glm_flow)
+
+area_glm_still <- glm(Area ~ Ablation*Darkness, data = school_data %>% filter(Flow == "Still Water"))
+area_s_aov <- Anova(area_glm_still)
+
+area_glm_flow <- glm(Area ~ Ablation*Darkness, data = school_data %>% filter(Flow == "Flowing Water (2 BL/s)"))
+area_f_aov <- Anova(area_glm_flow)
+
+groups_glm_still <- glm(Groups ~ Ablation*Darkness, data = school_data %>% filter(Flow == "Still Water"))
+groups_s_aov <- Anova(groups_glm_still)
+
+groups_glm_flow <- glm(Groups ~ Ablation*Darkness, data = school_data %>% filter(Flow == "Flowing Water (2 BL/s)"))
+groups_f_aov <- Anova(groups_glm_flow)
+
+
+glm_school_stats_table <- tibble(Stat = c(rep("NND",4),rep("Height",4),rep("Polarization",4),rep("Speed",4),rep("Area",4),rep("Groups",4)),
+       Flow_or_Still = rep( c(rep("Still",2) , rep("Flow",2)), 6),
+       Condition = rep(c("Ablation","Darkness"), 12),
+       DF = rep(c(length(nnd_glm_still$y)-3,length(nnd_glm_flow$y)-3),12),
+       Chisq = c(nnd_s_aov$`LR Chisq`[1:2],nnd_f_aov$`LR Chisq`[1:2],
+                 height_s_aov$`LR Chisq`[1:2],height_f_aov$`LR Chisq`[1:2],
+                 polar_s_aov$`LR Chisq`[1:2],polar_f_aov$`LR Chisq`[1:2],
+                 speed_s_aov$`LR Chisq`[1:2],speed_f_aov$`LR Chisq`[1:2],
+                 area_s_aov$`LR Chisq`[1:2],area_f_aov$`LR Chisq`[1:2],
+                 groups_s_aov$`LR Chisq`[1:2],groups_f_aov$`LR Chisq`[1:2]),
+       
+       P_Val = c(nnd_s_aov$`Pr(>Chisq)`[1:2],nnd_f_aov$`Pr(>Chisq)`[1:2],
+                 height_s_aov$`Pr(>Chisq)`[1:2],height_f_aov$`Pr(>Chisq)`[1:2],
+                 polar_s_aov$`Pr(>Chisq)`[1:2],polar_f_aov$`Pr(>Chisq)`[1:2],
+                 speed_s_aov$`Pr(>Chisq)`[1:2],speed_f_aov$`Pr(>Chisq)`[1:2],
+                 area_s_aov$`Pr(>Chisq)`[1:2],area_f_aov$`Pr(>Chisq)`[1:2],
+                 groups_s_aov$`Pr(>Chisq)`[1:2],groups_f_aov$`Pr(>Chisq)`[1:2]),
+       
+       Is_Sig = P_Val < 0.05)
+
+
+glm_school_stats_table
+
+sum(glm_school_stats_table$Is_Sig == glmm_school_stats_table$Is_Sig)
+sum(glm_school_stats_table$Is_Sig == 1 & glmm_school_stats_table$Is_Sig == 1) / sum(glm_school_stats_table$Is_Sig == 1)
+
+
+```
+
+
 ### Now we combine them
 
 ```{r}
@@ -712,116 +824,4 @@ school_stats_mega_plot <- ggarrange(nnd_still, nnd_flow,
 ggsave("Paper Figures/school_stats_mega_plot.png", school_stats_mega_plot, width = 14, height = 30)
 ```
 
-## Startle Conditions
 
-```{r}
-
-startle_school_data <- read.csv("Data/Startle_First_Half_Fish_School_Values.csv")
-startle_school_data <- na.omit(startle_school_data)
-
-startle_school_data <- startle_school_data %>% mutate(Flow = ifelse(Flow == "0", "Still Water", "Flowing Water (2 BL/s)")) %>%
-                           mutate(Ablation = ifelse(Ablation == "N", "No Ablation", "Ablated")) %>%
-                           mutate(Darkness = ifelse(Darkness == "N", "Light", "Dark")) %>%
-                           filter(School_Speed < 7) %>%
-                           mutate(Flow = factor(Flow), Ablation = factor(Ablation), Darkness = factor(Darkness)) %>%
-                           mutate(Flow = fct_relevel(Flow, c("Still Water","Flowing Water (2 BL/s)"))) %>%
-                           mutate(Ablation = fct_relevel(Ablation, c("No Ablation","Ablated"))) %>%
-                           mutate(Darkness = fct_relevel(Darkness, c("Light","Dark"))) %>%
-                           mutate(Flow_Ablation_Darkness = factor(paste(Flow,Ablation,Darkness,sep=", "))) %>%
-                           group_by(Flow_Ablation_Darkness) %>%
-                           mutate(NND_Mean_Val = mean(NND), NND_SD_Val = sd(NND),
-                                  Polar_Mean_Val = mean(School_Polar), Polar_SD_Val = sd(School_Polar),
-                                  Speed_Mean_Val = mean(School_Speed), Speed_SD_Val = sd(School_Speed),
-                                  Area_Mean_Val = mean(Area), Area_SD_Val = sd(Area)) %>%
-                           ungroup() %>% 
-                           mutate(Exp_Label = paste0("Darkness Pre-Startle ",Trial))
-
-startle_school_data_light <- school_data %>% filter(Darkness == "Light" & Ablation == "No Ablation" & Flow == "Still Water") %>%
-                                             mutate(Exp_Label = "Light") %>%
-                                             select(-c(Z_SD, Groups, Groups_Mean_Val,Groups_SD_Val,
-                                                       School_Height, Height_Mean_Val, Height_SD_Val))
-
-startle_school_data <- rbind(startle_school_data_light,startle_school_data) %>% 
-                       mutate(Exp_Label = factor(Exp_Label)) %>%
-                       mutate(Exp_Label = fct_relevel(Exp_Label,c("Light",
-                                                                  "Darkness Pre-Startle 1",
-                                                                  "Darkness Pre-Startle 5",
-                                                                  "Darkness Pre-Startle 30")))
-
-```
-
-```{r}
-
-my_comparisons <- list(c("Light", "Darkness Pre-Startle 1"), c("Light", "Darkness Pre-Startle 5"), c("Light", "Darkness Pre-Startle 30"))
-
-nnd_startle <- ggplot(startle_school_data,
-       aes(x = Exp_Label, y = NND,
-           color = interaction(Ablation,Darkness,sep=", "),
-           fill = interaction(Ablation,Darkness,sep=", ")))+
-  stat_dots(side = "both", binwidth = unit(dot_binwidth, "npc")) +
-  geom_point(aes(y = NND_Mean_Val), size = 3, color = "Black") +
-  geom_errorbar(aes(ymin=NND_Mean_Val-NND_SD_Val, ymax=NND_Mean_Val+NND_SD_Val), width=.2, color = "Black")+
-  guides(fill = guide_legend(title = "Condition")) +
-  scale_fill_manual(values=c(light_no_ab_color, dark_no_ab_color, dark_no_ab_color)) +
-  scale_color_manual(values=c(light_no_ab_color, dark_no_ab_color, dark_no_ab_color)) +
-  #ggtitle("Effect of Available Senses on Nearest Neighbor Distance (NND) in Still Water") +
-  xlab("") +
-  ylab("NND (BL)") +
-  theme_light()+ 
-  theme(legend.position = "none") +
-  #ylim(0,3)+
-  stat_compare_means(comparisons = my_comparisons, label = "p.signif", hide.ns = TRUE) +
-  theme(axis.text.x = element_text(size = 15),
-        axis.text.y = element_text(size = 15),
-        axis.title.y = element_text(size = 15))
-
-polar_startle <- ggplot(startle_school_data,
-       aes(x = Exp_Label, y = School_Polar,
-           color = interaction(Ablation,Darkness,sep=", "),
-           fill = interaction(Ablation,Darkness,sep=", ")))+
-  stat_dots(side = "both", binwidth = unit(dot_binwidth, "npc")) +
-  geom_point(aes(y = Polar_Mean_Val), size = 5, color = "Black") +
-  geom_errorbar(aes(ymin=Polar_Mean_Val-Polar_SD_Val, ymax=Polar_Mean_Val+Polar_SD_Val), width=.2, color = "Black")+
-  guides(fill = guide_legend(title = "Condition")) +
-  scale_fill_manual(values=c(light_no_ab_color, dark_no_ab_color, dark_no_ab_color)) +
-  scale_color_manual(values=c(light_no_ab_color, dark_no_ab_color, dark_no_ab_color)) +
-  #ggtitle("Effect of Available Senses on Polarization in Still Water") +
-  xlab("") +
-  ylab("Polarization") +
-  theme_light()+ 
-  theme(legend.position = "none") +
-  #ylim(0,1.15)+
-  stat_compare_means(comparisons = my_comparisons, label = "p.signif", hide.ns = TRUE) +
-  theme(axis.text.x = element_text(size = 15),
-        axis.text.y = element_text(size = 15),
-        axis.title.y = element_text(size = 15))
-
-speed_startle <- ggplot(startle_school_data,
-       aes(x = Exp_Label, y = School_Speed,
-           color = interaction(Ablation,Darkness,sep=", "),
-           fill = interaction(Ablation,Darkness,sep=", ")))+
-  stat_dots(side = "both", binwidth = unit(dot_binwidth, "npc")) +
-  geom_point(aes(y = Speed_Mean_Val), size = 5, color = "Black") +
-  geom_errorbar(aes(ymin=Speed_Mean_Val-Speed_SD_Val, ymax=Speed_Mean_Val+Speed_SD_Val), width=.2, color = "Black")+
-  guides(fill = guide_legend(title = "Condition")) +
-  scale_fill_manual(values=c(light_no_ab_color, dark_no_ab_color, dark_no_ab_color)) +
-  scale_color_manual(values=c(light_no_ab_color, dark_no_ab_color, dark_no_ab_color)) +
-  #ggtitle("Effect of Available Senses on Speed (BL/s) in Still Water") +
-  xlab("") +
-  ylab("Speed (BL/s)") +
-  theme_light()+ 
-  theme(legend.position = "none") +
-  #ylim(0,8.5)+
-  stat_compare_means(comparisons = my_comparisons, label = "p.signif", hide.ns = TRUE) +
-  theme(axis.text.x = element_text(size = 15),
-        axis.text.y = element_text(size = 15),
-        axis.title.y = element_text(size = 15))
-
-nnd_startle
-polar_startle
-speed_startle
-
-
-ggsave("Paper Figures/startle_nnd.png", nnd_startle, width = 12, height = 7)
-
-```
