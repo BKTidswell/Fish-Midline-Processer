@@ -4,6 +4,7 @@ import pandas as pd
 import math
 #import plotly.express as px
 from scipy import linalg
+import sys
 
 #Header list for reading the raw location CSVs
 header = list(range(4))
@@ -23,6 +24,11 @@ body_parts = ["head","midline2","tailbase","tailtip"]
 def DLTdvRecon(Ls, uvs):
 
     #uvs are in format [[v1_xs,v1_ys],[v2_xs,v2_ys]]
+
+    print(Ls)
+    print(uvs)
+
+    sys.exit()
 
     Ls = np.array(Ls)
     uvs = np.array(uvs)

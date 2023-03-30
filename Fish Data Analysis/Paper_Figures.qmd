@@ -48,7 +48,9 @@ tailbeat_len = 19
 
 allowed_flow_type = c("Still Water","Flowing Water (2 BL/s)")
 
-dot_binwidth = 0.0125
+dot_binwidth = 0.03
+
+text_size = 16
 ```
 
 ## Fish Turning Graphs
@@ -126,7 +128,10 @@ eight_fish_still <- ggplot(turning_data_sum %>% filter(Type == "Eight Fish") %>%
                                 0.5,0.625,0.75,0.875),
                      labels = c("7:0","6:1","5:2","4:3",
                                 "3:4","2:5","1:6","0:7"))+ 
-  labs(color = "Sensory Conditions")
+  labs(color = "Sensory Conditions")+
+  theme(axis.text.x = element_text(size = text_size),
+        axis.text.y = element_text(size = text_size),
+        axis.title.y = element_text(size = text_size))
 
 eight_fish_flow <- ggplot(turning_data_sum %>% filter(Type == "Eight Fish") %>% filter(Flow == "Flowing Water (2 BL/s)"),
        aes(x = Fish_Num_Ratio, y = mean_right_turn, color = interaction(Ablation, Darkness, sep =", ")))+
@@ -144,7 +149,10 @@ eight_fish_flow <- ggplot(turning_data_sum %>% filter(Type == "Eight Fish") %>% 
                                 0.5,0.625,0.75,0.875),
                      labels = c("7:0","6:1","5:2","4:3",
                                 "3:4","2:5","1:6","0:7"))+ 
-  labs(color = "Sensory Conditions")
+  labs(color = "Sensory Conditions")+
+  theme(axis.text.x = element_text(size = text_size),
+        axis.text.y = element_text(size = text_size),
+        axis.title.y = element_text(size = text_size))
 
 eight_fish_still
 eight_fish_flow
@@ -163,13 +171,17 @@ dark_eight_and_single_graph <- ggplot(turning_data_sum %>% filter(Flow == "Still
   xlab("# Fish on Left : # Fish on Right") +
   ylab("Probability of a Right Turn") +
   ylim(0,1) +
-  scale_colour_manual(values = c(sim_color,dark_no_ab_color)) +
+  scale_colour_manual(values = c(sim_color,dark_no_ab_color), labels=function(x){sub("\\s", "\n", x)}) +
   #ggtitle("Observed Probability of a Right Turn Based on Ratio of Fish to the Left and Right") +
   scale_x_continuous(breaks = c(0,0.125,0.25,0.375,
                                 0.5,0.625,0.75,0.875),
                      labels = c("7:0","6:1","5:2","4:3",
                                 "3:4","2:5","1:6","0:7"))+ 
-  labs(color = "Sensory Conditions")
+  labs(color = "Sensory\nConditions")+
+  theme(axis.text.x = element_text(size = text_size/2),
+        axis.text.y = element_text(size = text_size/2),
+        axis.title.y = element_text(size = text_size/2),
+        legend.position = "none")
 
 
 ablation_eight_and_single_graph <- ggplot(turning_data_sum %>% filter(Flow == "Still Water" & Ablation == "Ablated"),
@@ -180,13 +192,17 @@ ablation_eight_and_single_graph <- ggplot(turning_data_sum %>% filter(Flow == "S
   xlab("# Fish on Left : # Fish on Right") +
   ylab("Probability of a Right Turn") +
   ylim(0,1) +
-  scale_colour_manual(values = c(sim_color,light_ab_color)) +
+  scale_colour_manual(values = c(sim_color,light_ab_color), labels=function(x){sub("\\s", "\n", x)}) +
   #ggtitle("Observed Probability of a Right Turn Based on Ratio of Fish to the Left and Right") +
   scale_x_continuous(breaks = c(0,0.125,0.25,0.375,
                                 0.5,0.625,0.75,0.875),
                      labels = c("7:0","6:1","5:2","4:3",
                                 "3:4","2:5","1:6","0:7"))+ 
-  labs(color = "Sensory Conditions")
+  labs(color = "Sensory\nConditions")+
+  theme(axis.text.x = element_text(size = text_size/2),
+        axis.text.y = element_text(size = text_size/2),
+        axis.title.y = element_text(size = text_size/2),
+        legend.position = "none")
 
 
 light_eight_and_single_graph <- ggplot(turning_data_sum %>% filter(Flow == "Still Water" & Ablation == "No Ablation" & Darkness == "Light"),
@@ -197,13 +213,17 @@ light_eight_and_single_graph <- ggplot(turning_data_sum %>% filter(Flow == "Stil
   xlab("# Fish on Left : # Fish on Right") +
   ylab("Probability of a Right Turn") +
   ylim(0,1) +
-  scale_colour_manual(values = c(sim_color,light_no_ab_color)) +
+  scale_colour_manual(values = c(sim_color,light_no_ab_color), labels=function(x){sub("\\s", "\n", x)}) +
   #ggtitle("Observed Probability of a Right Turn Based on Ratio of Fish to the Left and Right") +
   scale_x_continuous(breaks = c(0,0.125,0.25,0.375,
                                 0.5,0.625,0.75,0.875),
                      labels = c("7:0","6:1","5:2","4:3",
                                 "3:4","2:5","1:6","0:7"))+ 
-  labs(color = "Sensory Conditions")
+  labs(color = "Sensory\nConditions")+
+  theme(axis.text.x = element_text(size = text_size/2),
+        axis.text.y = element_text(size = text_size/2),
+        axis.title.y = element_text(size = text_size/2),
+        legend.position = "none")
 
 light_eight_and_single_graph
 ablation_eight_and_single_graph
@@ -275,7 +295,7 @@ turning_both_plot <- ggarrange(eight_fish_still, eight_fish_flow,
           labels = c("A", "B"),
           ncol = 2, nrow = 1)
 
-ggsave("Paper Figures/turning_both_plot.png", turning_both_plot, width = 15, height = 7)
+ggsave("Paper Figures/turning_both_plot.png", turning_both_plot, width = 12, height = 6)
 
 
 turning_single_test_plot <- ggarrange(
@@ -283,7 +303,7 @@ turning_single_test_plot <- ggarrange(
           labels = c("A", "B", "C"),
           ncol = 3, nrow = 1)
 
-ggsave("Paper Figures/turning_single_test_plot.png", turning_single_test_plot, width = 22, height = 7)
+ggsave("Paper Figures/turning_single_test_plot.png", turning_single_test_plot, width = 9, height = 3)
 
 
 ```
@@ -302,7 +322,7 @@ school_data <- school_data %>% mutate(Flow = ifelse(Flow == "0", "Still Water", 
                            mutate(Flow = fct_relevel(Flow, c("Still Water","Flowing Water (2 BL/s)"))) %>%
                            mutate(Ablation = fct_relevel(Ablation, c("No Ablation","Ablated"))) %>%
                            mutate(Darkness = fct_relevel(Darkness, c("Light","Dark"))) %>%
-                           mutate(Flow_Ablation_Darkness = factor(paste(Flow,Ablation,Darkness,sep=", "))) %>%
+                           mutate(Flow_Ablation_Darkness = factor(paste(Flow,Ablation,Darkness,sep="/n"))) %>%
                             
                            # ### Used to remove every third point to reduce autocorrelation
                            mutate(Date = paste(Year,Month,Day,sep="_"),
@@ -326,7 +346,7 @@ school_data <- school_data %>% mutate(Flow = ifelse(Flow == "0", "Still Water", 
 ### NND Plot
 
 ```{r}
-my_comparisons <- list( c("No Ablation, Light", "No Ablation, Dark"),  c("No Ablation, Light", "Ablated, Light"))
+my_comparisons <- list( c("No Ablation, Light", "No Ablation, Dark"))
 
 nnd_still <- ggplot(school_data %>% filter(Flow == "Still Water"),
        aes(x = interaction(Ablation,Darkness,sep=", "), y = NND,
@@ -343,13 +363,14 @@ nnd_still <- ggplot(school_data %>% filter(Flow == "Still Water"),
   ylab("School NND (BL)") +
   theme_light()+ 
   theme(legend.position = "none") +
-  #ylim(0,3)+
-  stat_compare_means(comparisons = my_comparisons, label = "p.signif", hide.ns = TRUE) +
-  theme(axis.text.x = element_text(size = 15),
-        axis.text.y = element_text(size = 15),
-        axis.title.y = element_text(size = 15))
+  ylim(0,2)+
+  stat_compare_means(comparisons = my_comparisons, label.y = c(1.75), label = "p.signif", hide.ns = TRUE) +
+  theme(axis.text.x = element_text(size = text_size),
+        axis.text.y = element_text(size = text_size),
+        axis.title.y = element_text(size = text_size))+
+  scale_x_discrete(labels=function(x){sub(",\\s", "\n", x)})
 
-my_comparisons <- list( c("No Ablation, Light", "No Ablation, Dark"))
+my_comparisons <- list()
 
 nnd_flow <- ggplot(school_data %>% filter(Flow == "Flowing Water (2 BL/s)"),
        aes(x = interaction(Ablation,Darkness,sep=", "), y = NND,
@@ -366,11 +387,12 @@ nnd_flow <- ggplot(school_data %>% filter(Flow == "Flowing Water (2 BL/s)"),
   ylab("School NND (BL)") +
   theme_light()+ 
   theme(legend.position = "none") +
-  #ylim(0,3)+
+  ylim(0,2)+
   stat_compare_means(comparisons = my_comparisons, label = "p.signif", hide.ns = TRUE) +
-  theme(axis.text.x = element_text(size = 15),
-        axis.text.y = element_text(size = 15),
-        axis.title.y = element_text(size = 15))
+  theme(axis.text.x = element_text(size = text_size),
+        axis.text.y = element_text(size = text_size),
+        axis.title.y = element_text(size = text_size))+
+  scale_x_discrete(labels=function(x){sub(",\\s", "\n", x)})
 
 
 nnd_still
@@ -386,7 +408,7 @@ emmeans(nnd_glm, specs = pairwise ~ Ablation:Darkness | Flow)
 ### Height Plot
 
 ```{r}
-my_comparisons <- list(c("No Ablation, Light", "Ablated, Light"))
+my_comparisons <- list()
 
 height_still <- ggplot(school_data %>% filter(Flow == "Still Water"),
        aes(x = interaction(Ablation,Darkness,sep=", "), y = School_Height,
@@ -405,11 +427,12 @@ height_still <- ggplot(school_data %>% filter(Flow == "Still Water"),
   theme(legend.position = "none") +
   #ylim(0,3)+
   stat_compare_means(comparisons = my_comparisons, label = "p.signif", hide.ns = TRUE) +
-  theme(axis.text.x = element_text(size = 15),
-        axis.text.y = element_text(size = 15),
-        axis.title.y = element_text(size = 15))
+  theme(axis.text.x = element_text(size = text_size),
+        axis.text.y = element_text(size = text_size),
+        axis.title.y = element_text(size = text_size))+
+  scale_x_discrete(labels=function(x){sub(",\\s", "\n", x)})
 
-my_comparisons <- list(c("No Ablation, Light", "Ablated, Light"))
+my_comparisons <- list()
 
 height_flow <- ggplot(school_data %>% filter(Flow == "Flowing Water (2 BL/s)"),
        aes(x = interaction(Ablation,Darkness,sep=", "), y = School_Height,
@@ -428,9 +451,10 @@ height_flow <- ggplot(school_data %>% filter(Flow == "Flowing Water (2 BL/s)"),
   theme(legend.position = "none") +
   #ylim(0,3)+
   stat_compare_means(comparisons = my_comparisons, label = "p.signif", hide.ns = TRUE) +
-  theme(axis.text.x = element_text(size = 15),
-        axis.text.y = element_text(size = 15),
-        axis.title.y = element_text(size = 15))
+  theme(axis.text.x = element_text(size = text_size),
+        axis.text.y = element_text(size = text_size),
+        axis.title.y = element_text(size = text_size))+
+  scale_x_discrete(labels=function(x){sub(",\\s", "\n", x)})
 
 
 height_still
@@ -462,11 +486,12 @@ polar_still <- ggplot(school_data %>% filter(Flow == "Still Water"),
   ylab("Polarization") +
   theme_light()+ 
   theme(legend.position = "none") +
-  #ylim(0,1.15)+
+  ylim(0,1.15)+
   stat_compare_means(comparisons = my_comparisons, label = "p.signif", hide.ns = TRUE) +
-  theme(axis.text.x = element_text(size = 15),
-        axis.text.y = element_text(size = 15),
-        axis.title.y = element_text(size = 15))
+  theme(axis.text.x = element_text(size = text_size),
+        axis.text.y = element_text(size = text_size),
+        axis.title.y = element_text(size = text_size))+
+  scale_x_discrete(labels=function(x){sub(",\\s", "\n", x)})
 
 my_comparisons <- list()
 
@@ -485,11 +510,12 @@ polar_flow <- ggplot(school_data %>% filter(Flow == "Flowing Water (2 BL/s)"),
   ylab("Polarization") +
   theme_light()+ 
   theme(legend.position = "none") +
-  #ylim(0,1.15)+
+  ylim(0,1.15)+
   stat_compare_means(comparisons = my_comparisons, label = "p.signif", hide.ns = TRUE) +
-  theme(axis.text.x = element_text(size = 15),
-        axis.text.y = element_text(size = 15),
-        axis.title.y = element_text(size = 15))
+  theme(axis.text.x = element_text(size = text_size),
+        axis.text.y = element_text(size = text_size),
+        axis.title.y = element_text(size = text_size))+
+  scale_x_discrete(labels=function(x){sub(",\\s", "\n", x)})
 
 polar_still
 polar_flow
@@ -508,7 +534,7 @@ Anova(polar_glm_flow, test.statistic="F")
 ### Speed
 
 ```{r}
-my_comparisons <- list( c("No Ablation, Light", "No Ablation, Dark"), c("No Ablation, Light", "Ablated, Light"))
+my_comparisons <- list()
 
 speed_still <- ggplot(school_data %>% filter(Flow == "Still Water"),
        aes(x = interaction(Ablation,Darkness,sep=", "), y = School_Speed,
@@ -525,11 +551,12 @@ speed_still <- ggplot(school_data %>% filter(Flow == "Still Water"),
   ylab("Speed (BL/s)") +
   theme_light()+ 
   theme(legend.position = "none") +
-  #ylim(-0.1,8.5)+
+  ylim(0,6)+
   stat_compare_means(comparisons = my_comparisons, label = "p.signif", hide.ns = TRUE) +
-  theme(axis.text.x = element_text(size = 15),
-        axis.text.y = element_text(size = 15),
-        axis.title.y = element_text(size = 15))
+  theme(axis.text.x = element_text(size = text_size),
+        axis.text.y = element_text(size = text_size),
+        axis.title.y = element_text(size = text_size))+
+  scale_x_discrete(labels=function(x){sub(",\\s", "\n", x)})
 
 my_comparisons <- list(c("No Ablation, Light", "Ablated, Light"))
 
@@ -548,11 +575,12 @@ speed_flow <- ggplot(school_data %>% filter(Flow == "Flowing Water (2 BL/s)"),
   ylab("Speed (BL/s)") +
   theme_light()+ 
   theme(legend.position = "none") +
-  #ylim(0,8.5)+
-  stat_compare_means(comparisons = my_comparisons, label = "p.signif", hide.ns = TRUE) +
-  theme(axis.text.x = element_text(size = 15),
-        axis.text.y = element_text(size = 15),
-        axis.title.y = element_text(size = 15))
+  ylim(0,6)+
+  stat_compare_means(comparisons = my_comparisons, label.y = c(5.5), label = "p.signif", hide.ns = TRUE) +
+  theme(axis.text.x = element_text(size = text_size),
+        axis.text.y = element_text(size = text_size),
+        axis.title.y = element_text(size = text_size))+
+  scale_x_discrete(labels=function(x){sub(",\\s", "\n", x)})
 
 speed_still
 speed_flow
@@ -590,11 +618,12 @@ area_still <- ggplot(school_data %>% filter(Flow == "Still Water"),
   theme(legend.position = "none") +
   #ylim(0,8.5)+
   stat_compare_means(comparisons = my_comparisons, label = "p.signif", hide.ns = TRUE) +
-  theme(axis.text.x = element_text(size = 15),
-        axis.text.y = element_text(size = 15),
-        axis.title.y = element_text(size = 15))
+  theme(axis.text.x = element_text(size = text_size),
+        axis.text.y = element_text(size = text_size),
+        axis.title.y = element_text(size = text_size))+
+  scale_x_discrete(labels=function(x){sub(",\\s", "\n", x)})
 
-my_comparisons <- list( c("No Ablation, Light", "No Ablation, Dark"))
+my_comparisons <- list()
 
 area_flow <- ggplot(school_data %>% filter(Flow == "Flowing Water (2 BL/s)"),
        aes(x = interaction(Ablation,Darkness,sep=", "), y = Area,
@@ -613,9 +642,10 @@ area_flow <- ggplot(school_data %>% filter(Flow == "Flowing Water (2 BL/s)"),
   theme(legend.position = "none") +
   #ylim(0,8.5)+
   stat_compare_means(comparisons = my_comparisons, label = "p.signif", hide.ns = TRUE) +
-  theme(axis.text.x = element_text(size = 15),
-        axis.text.y = element_text(size = 15),
-        axis.title.y = element_text(size = 15))
+  theme(axis.text.x = element_text(size = text_size),
+        axis.text.y = element_text(size = text_size),
+        axis.title.y = element_text(size = text_size))+
+  scale_x_discrete(labels=function(x){sub(",\\s", "\n", x)})
 
 area_still
 area_flow
@@ -640,13 +670,14 @@ group_still <- ggplot(group_sum_data %>% filter(Flow == "Still Water"),
            fill = Groups)) + 
     geom_bar(position="fill", stat="identity")+
     xlab("") +
-    ylab("Proportion of Time with this Many Groups") +
+    ylab("Proportion of Time") +
     theme_light()+ 
     scale_fill_manual(values=c("8" = "#1D3557","7" = "#325A7C","6" = "#457B9D","5" = "#7BAFBF",
                                "4" = "#A8DADC","3" = "#D0EBE6","2" = "#F1FAEE","1" = "#e63946")) +
-    theme(axis.text.x = element_text(size = 15),
-          axis.text.y = element_text(size = 15),
-          axis.title.y = element_text(size = 15))
+    theme(axis.text.x = element_text(size = text_size),
+          axis.text.y = element_text(size = text_size),
+          axis.title.y = element_text(size = text_size))+
+  scale_x_discrete(labels=function(x){sub(",\\s", "\n", x)})
 
 group_flow <- ggplot(group_sum_data %>% filter(Flow == "Flowing Water (2 BL/s)"),
        aes(x = interaction(Ablation,Darkness,sep=", "),
@@ -654,13 +685,14 @@ group_flow <- ggplot(group_sum_data %>% filter(Flow == "Flowing Water (2 BL/s)")
            fill = Groups)) + 
     geom_bar(position="fill", stat="identity")+
     xlab("") +
-    ylab("Proportion of Time with this Many Groups") +
+    ylab("Proportion of Time") +
     theme_light()+ 
     scale_fill_manual(values=c("8" = "#1D3557","7" = "#325A7C","6" = "#457B9D","5" = "#7BAFBF",
                                "4" = "#A8DADC","3" = "#D0EBE6","2" = "#F1FAEE","1" = "#e63946")) +
-    theme(axis.text.x = element_text(size = 15),
-          axis.text.y = element_text(size = 15),
-          axis.title.y = element_text(size = 15))
+    theme(axis.text.x = element_text(size = text_size),
+          axis.text.y = element_text(size = text_size),
+          axis.title.y = element_text(size = text_size))+
+  scale_x_discrete(labels=function(x){sub(",\\s", "\n", x)})
 
 
 group_still
@@ -819,9 +851,29 @@ school_stats_mega_plot <- ggarrange(nnd_still, nnd_flow,
                                     speed_still, speed_flow,
                                     group_still, group_flow,
           labels = c("A", "B", "C", "D", "E", "F", "G", "H"),
-          ncol = 2, nrow = 4)
+          ncol = 2, nrow = 4)  
 
-ggsave("Paper Figures/school_stats_mega_plot.png", school_stats_mega_plot, width = 14, height = 30)
+ggsave("Paper Figures/school_stats_mega_plot.png", school_stats_mega_plot, width = 10, height = 17)
+```
+
+Parallax
+
+```{r}
+para_vals <- read.csv("Data/Parallax_Distances.csv") %>% mutate(BLs = Distance / 200)
+
+breaks <- c("0.1")
+
+para_plot <- ggplot(para_vals, aes(X, Y, z = BLs))+
+  geom_contour_filled(bins = 5)+
+  scale_fill_viridis_d("Projection Error (BL)", 
+                       labels = c("< 0.1", "0.1 - 0.2", "0.2 - 0.3","0.3 - 0.4","0.4 - 0.5"))+
+  theme_classic()+
+  coord_fixed() +
+  ylab("Vertical Distance from Principal Point (pixels)")+
+  xlab("Hoizontal Distance from Principal Point (pixels)")+ 
+  theme(text = element_text(size = 20))  
+
+ggsave("Paper Figures/parallax_model.png", para_plot, width = 14, height = 7)
 ```
 
 

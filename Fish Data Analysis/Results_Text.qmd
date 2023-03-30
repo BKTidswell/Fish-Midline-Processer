@@ -1,0 +1,530 @@
+---
+title: "Results Text"
+format: html
+editor: visual
+---
+
+## Loading in the Libraries for Everything
+
+```{r}
+library(tidyverse)
+library(ggplot2)
+library(bbmle) #For ICtab
+library(car)
+library(ggpubr)
+library(ggdist)
+library(emmeans)
+library(lme4)
+```
+
+## Functions and Variables
+
+```{r}
+rad2deg <- function(rad) {(rad * 180) / (pi)}
+deg2rad <- function(deg) {(deg * pi) / (180)}
+round_any <- function(x, accuracy, f=round){f(x/ accuracy) * accuracy}
+ang_mean <- function(x){rad2deg(atan2(mean(sin(deg2rad(x))),mean(cos(deg2rad(x)))))}
+
+fold_angle_0_360_to_0_180 <- function(x){abs(abs(x-180)-180)}
+
+fold_angle_neg_180_180_to_neg_90_90 <- function(x){ifelse(x > 90,90-abs(90-x),ifelse(x < -90, -90+abs(-90-x), x))}
+
+min_n <- function(x,n){sort(x)[1:n]}
+max_n <- function(x,n){sort(x,decreasing = TRUE)[1:n]}
+
+light_no_ab_color = "#d4d7dd"
+light_ab_color = "#f5ba9e"
+dark_no_ab_color = "#5e94d4"
+sim_color = "#777777"
+
+flow_split_still = "#F59DE2"
+flow_split_flow = "#5DD492"
+
+dark_split_light = "#5e94d4"
+dark_split_dark = "#011627"
+
+tailbeat_len = 19
+
+allowed_flow_type = c("Still Water","Flowing Water (2 BL/s)")
+
+dot_binwidth = 0.03
+
+text_size = 16
+```
+
+## School Summary Stats
+
+```{r}
+school_data <- read.csv("Data/Fish_School_Values_3D.csv")
+school_data <- na.omit(school_data)
+
+school_data <- school_data %>% mutate(Flow = ifelse(Flow == "0", "Still Water", "Flowing Water (2 BL/s)")) %>%
+                           mutate(Ablation = ifelse(Ablation == "N", "No Ablation", "Ablated")) %>%
+                           mutate(Darkness = ifelse(Darkness == "N", "Light", "Dark")) %>%
+                           filter(School_Speed <= 5) %>%
+                           mutate(Flow = factor(Flow), Ablation = factor(Ablation), Darkness = factor(Darkness)) %>%
+                           mutate(Flow = fct_relevel(Flow, c("Still Water","Flowing Water (2 BL/s)"))) %>%
+                           mutate(Ablation = fct_relevel(Ablation, c("No Ablation","Ablated"))) %>%
+                           mutate(Darkness = fct_relevel(Darkness, c("Light","Dark"))) %>%
+                           mutate(Flow_Ablation_Darkness = factor(paste(Flow,Ablation,Darkness,sep="/n"))) %>%
+                            
+                           # ### Used to remove every third point to reduce autocorrelation
+                           mutate(Date = paste(Year,Month,Day,sep="_"),
+                                  Date_Trial = paste(Year,Month,Day,Trial,sep="_")) %>%
+                           group_by(Date_Trial) %>%
+                           filter(row_number() %% 3 == 1) %>%
+                           ungroup() %>%
+                           # ###
+                          
+                           group_by(Flow_Ablation_Darkness) %>%
+                           mutate(NND_Mean_Val = mean(NND), NND_SD_Val = sd(NND),
+                                  Polar_Mean_Val = mean(School_Polar), Polar_SD_Val = sd(School_Polar),
+                                  Speed_Mean_Val = mean(School_Speed), Speed_SD_Val = sd(School_Speed),
+                                  Area_Mean_Val = mean(Area), Area_SD_Val = sd(Area),
+                                  Groups_Mean_Val = mean(Groups), Groups_SD_Val = sd(Groups),
+                                  Mean_Groups_Mean_Val = mean(Mean_Groups), Mean_Groups_SD_Val = sd(Mean_Groups),
+                                  Height_Mean_Val = mean(School_Height), Height_SD_Val = sd(School_Height)) %>%
+                           ungroup()
+```
+
+### School Stats Table Here
+
+```{r}
+
+nnd_glmer_still <- lmer(NND ~ Ablation*Darkness + (1|Date), data = school_data %>% filter(Flow == "Still Water"))
+nnd_s_aov_me <- Anova(nnd_glmer_still)
+
+nnd_glmer_flow <- lmer(NND ~ Ablation*Darkness + (1|Date), data = school_data %>% filter(Flow == "Flowing Water (2 BL/s)"))
+nnd_f_aov_me <- Anova(nnd_glmer_flow)
+
+height_glmer_still <- lmer(School_Height ~ Ablation*Darkness + (1|Date), data = school_data %>% filter(Flow == "Still Water"))
+height_s_aov_me <- Anova(height_glmer_still)
+
+height_glmer_flow <- lmer(School_Height ~ Ablation*Darkness + (1|Date), data = school_data %>% filter(Flow == "Flowing Water (2 BL/s)"))
+height_f_aov_me <- Anova(height_glmer_flow)
+
+polar_glmer_still <- lmer(School_Polar ~ Ablation*Darkness + (1|Date), data = school_data %>% filter(Flow == "Still Water"))
+polar_s_aov_me <- Anova(polar_glmer_still)
+
+polar_glmer_flow <- lmer(School_Polar ~ Ablation*Darkness + (1|Date), data = school_data %>% filter(Flow == "Flowing Water (2 BL/s)"))
+polar_f_aov_me <- Anova(polar_glmer_flow)
+
+speed_glmer_still <- lmer(School_Speed ~ Ablation*Darkness + (1|Date), data = school_data %>% filter(Flow == "Still Water"))
+speed_s_aov_me <- Anova(speed_glmer_still)
+
+speed_glmer_flow <- lmer(School_Speed ~ Ablation*Darkness + (1|Date), data = school_data %>% filter(Flow == "Flowing Water (2 BL/s)"))
+speed_f_aov_me <- Anova(speed_glmer_flow)
+
+area_glmer_still <- lmer(Area ~ Ablation*Darkness + (1|Date), data = school_data %>% filter(Flow == "Still Water"))
+area_s_aov_me <- Anova(area_glmer_still)
+
+area_glmer_flow <- lmer(Area ~ Ablation*Darkness + (1|Date), data = school_data %>% filter(Flow == "Flowing Water (2 BL/s)"))
+area_f_aov_me <- Anova(area_glmer_flow)
+
+groups_glmer_still <- lmer(Groups ~ Ablation*Darkness + (1|Date), data = school_data %>% filter(Flow == "Still Water"))
+groups_s_aov_me <- Anova(groups_glmer_still)
+
+groups_glmer_flow <- lmer(Groups ~ Ablation*Darkness + (1|Date), data = school_data %>% filter(Flow == "Flowing Water (2 BL/s)"))
+groups_f_aov_me <- Anova(groups_glmer_flow)
+
+
+
+glmm_school_stats_table <- tibble(Stat = c(rep("NND",4),rep("Height",4),rep("Polarization",4),rep("Speed",4),rep("Area",4),rep("Groups",4)),
+       Flow_or_Still = rep( c(rep("Still",2) , rep("Flow",2)), 6),
+       Condition = rep(c("Ablation","Darkness"), 12),
+       DF = rep(c(rep(length(nnd_glmer_still@resp$y)-3,2),
+                  rep(length(nnd_glmer_flow@resp$y)-3,2)),times = 6),
+       Chisq = c(nnd_s_aov_me$Chisq[1:2],nnd_f_aov_me$Chisq[1:2],
+                 height_s_aov_me$Chisq[1:2],height_f_aov_me$Chisq[1:2],
+                 polar_s_aov_me$Chisq[1:2],polar_f_aov_me$Chisq[1:2],
+                 speed_s_aov_me$Chisq[1:2],speed_f_aov_me$Chisq[1:2],
+                 area_s_aov_me$Chisq[1:2],area_f_aov_me$Chisq[1:2],
+                 groups_s_aov_me$Chisq[1:2],groups_f_aov_me$Chisq[1:2]),
+       
+       P_Val = c(nnd_s_aov_me$`Pr(>Chisq)`[1:2],nnd_f_aov_me$`Pr(>Chisq)`[1:2],
+                 height_s_aov_me$`Pr(>Chisq)`[1:2],height_f_aov_me$`Pr(>Chisq)`[1:2],
+                 polar_s_aov_me$`Pr(>Chisq)`[1:2],polar_f_aov_me$`Pr(>Chisq)`[1:2],
+                 speed_s_aov_me$`Pr(>Chisq)`[1:2],speed_f_aov_me$`Pr(>Chisq)`[1:2],
+                 area_s_aov_me$`Pr(>Chisq)`[1:2],area_f_aov_me$`Pr(>Chisq)`[1:2],
+                 groups_s_aov_me$`Pr(>Chisq)`[1:2],groups_f_aov_me$`Pr(>Chisq)`[1:2]),
+       
+       Is_Sig = P_Val < 0.05)
+
+glmm_school_stats_table
+
+```
+
+```{r}
+
+paste0("Placing the fish in darkness allowed us to understand the effect of swimming without vision on the schooling behavior of the giant danios. In still water, fish in darkness swam further from their neighbors ",
+       
+       "(F(1,",
+       (glmm_school_stats_table %>% filter(Stat == "NND" & Flow_or_Still == "Still" & Condition == "Darkness"))$DF,
+       ") = ",
+       round((glmm_school_stats_table %>% filter(Stat == "NND" & Flow_or_Still == "Still" & Condition == "Darkness"))$Chisq,3),
+       ", p = ",
+       round((glmm_school_stats_table %>% filter(Stat == "NND" & Flow_or_Still == "Still" & Condition == "Darkness"))$P_Val,3),
+       ")",
+       
+       ", but with the same polarization ",
+       
+       "(F(1,",
+       (glmm_school_stats_table %>% filter(Stat == "Polarization" & Flow_or_Still == "Still" & Condition == "Darkness"))$DF,
+       ") = ",
+       round((glmm_school_stats_table %>% filter(Stat == "Polarization" & Flow_or_Still == "Still" & Condition == "Darkness"))$Chisq,3),
+       ", p = ",
+       round((glmm_school_stats_table %>% filter(Stat == "Polarization" & Flow_or_Still == "Still" & Condition == "Darkness"))$P_Val,3),
+       ")",
+       
+       ", and in more groups ",
+       
+       "(F(1,",
+       (glmm_school_stats_table %>% filter(Stat == "Groups" & Flow_or_Still == "Still" & Condition == "Darkness"))$DF,
+       ") = ",
+       round((glmm_school_stats_table %>% filter(Stat == "Groups" & Flow_or_Still == "Still" & Condition == "Darkness"))$Chisq,3),
+       ", p = ",
+       round((glmm_school_stats_table %>% filter(Stat == "Groups" & Flow_or_Still == "Still" & Condition == "Darkness"))$P_Val,3),
+       ")",
+       
+       ", compared to fish in light. The average speed of the school was also the same ",
+       
+       "(F(1,",
+       (glmm_school_stats_table %>% filter(Stat == "Speed" & Flow_or_Still == "Still" & Condition == "Darkness"))$DF,
+       ") = ",
+       round((glmm_school_stats_table %>% filter(Stat == "Speed" & Flow_or_Still == "Still" & Condition == "Darkness"))$Chisq,3),
+       ", p = ",
+       round((glmm_school_stats_table %>% filter(Stat == "Speed" & Flow_or_Still == "Still" & Condition == "Darkness"))$P_Val,3),
+       ").",
+       
+       " In flowing water, the fish in darkness behaved more similarly to fish in light. The fish in darkness did not swim further apart from their neighbors ",
+       
+       "(F(1,",
+       (glmm_school_stats_table %>% filter(Stat == "NND" & Flow_or_Still == "Flow" & Condition == "Darkness"))$DF,
+       ") = ",
+       round((glmm_school_stats_table %>% filter(Stat == "NND" & Flow_or_Still == "Flow" & Condition == "Darkness"))$Chisq,3),
+       ", p = ",
+       round((glmm_school_stats_table %>% filter(Stat == "NND" & Flow_or_Still == "Flow" & Condition == "Darkness"))$P_Val,3),
+       ").",
+       
+       " They had the same polarization ",
+        
+       "(F(1,",
+       (glmm_school_stats_table %>% filter(Stat == "Polarization" & Flow_or_Still == "Flow" & Condition == "Darkness"))$DF,
+       ") = ",
+       round((glmm_school_stats_table %>% filter(Stat == "Polarization" & Flow_or_Still == "Flow" & Condition == "Darkness"))$Chisq,3),
+       ", p = ",
+       round((glmm_school_stats_table %>% filter(Stat == "Polarization" & Flow_or_Still == "Flow" & Condition == "Darkness"))$P_Val,3),
+       ")",
+       
+       ", and were not split into more groups ",
+       
+       "(F(1,",
+       (glmm_school_stats_table %>% filter(Stat == "Groups" & Flow_or_Still == "Flow" & Condition == "Darkness"))$DF,
+       ") = ",
+       round((glmm_school_stats_table %>% filter(Stat == "Groups" & Flow_or_Still == "Flow" & Condition == "Darkness"))$Chisq,3),
+       ", p = ",
+       round((glmm_school_stats_table %>% filter(Stat == "Groups" & Flow_or_Still == "Flow" & Condition == "Darkness"))$P_Val,3),
+       ")",
+       
+       ", compared to fish in light in flowing water. The average speed of the school was also the same ",
+       
+       "(F(1,",
+       (glmm_school_stats_table %>% filter(Stat == "Speed" & Flow_or_Still == "Flow" & Condition == "Darkness"))$DF,
+       ") = ",
+       round((glmm_school_stats_table %>% filter(Stat == "Speed" & Flow_or_Still == "Flow" & Condition == "Darkness"))$Chisq,3),
+       ", p = ",
+       round((glmm_school_stats_table %>% filter(Stat == "Speed" & Flow_or_Still == "Flow" & Condition == "Darkness"))$P_Val,3),
+       ").",
+       
+       " While polarity and speed were the same for fish in darkness, the fact that they broke up into many more subgroups and had a higher average NND shows that they were not one cohesive school. While these results were not the same when the fish were in flowing water, this may have been due to the influence of the flow as an outside orienting  force."
+       )
+
+
+```
+
+```{r}
+
+paste0("Manipulating the lateral line of the fish with gentamicin produced relatively few in the schooling kinematics of our fish. In still water, treated fish swam the same distance from neighbors ",
+       
+       "(F(1,",
+       (glmm_school_stats_table %>% filter(Stat == "NND" & Flow_or_Still == "Still" & Condition == "Ablation"))$DF,
+       ") = ",
+       round((glmm_school_stats_table %>% filter(Stat == "NND" & Flow_or_Still == "Still" & Condition == "Ablation"))$Chisq,3),
+       ", p = ",
+       round((glmm_school_stats_table %>% filter(Stat == "NND" & Flow_or_Still == "Still" & Condition == "Ablation"))$P_Val,3),
+       ")",
+       
+       ", with the same polarization ",
+       
+       "(F(1,",
+       (glmm_school_stats_table %>% filter(Stat == "Polarization" & Flow_or_Still == "Still" & Condition == "Ablation"))$DF,
+       ") = ",
+       round((glmm_school_stats_table %>% filter(Stat == "Polarization" & Flow_or_Still == "Still" & Condition == "Ablation"))$Chisq,3),
+       ", p = ",
+       round((glmm_school_stats_table %>% filter(Stat == "Polarization" & Flow_or_Still == "Still" & Condition == "Ablation"))$P_Val,3),
+       ")",
+       
+       ", and in the same number of groups ",
+       
+       "(F(1,",
+       (glmm_school_stats_table %>% filter(Stat == "Groups" & Flow_or_Still == "Still" & Condition == "Ablation"))$DF,
+       ") = ",
+       round((glmm_school_stats_table %>% filter(Stat == "Groups" & Flow_or_Still == "Still" & Condition == "Ablation"))$Chisq,3),
+       ", p = ",
+       round((glmm_school_stats_table %>% filter(Stat == "Groups" & Flow_or_Still == "Still" & Condition == "Ablation"))$P_Val,3),
+       ")",
+       
+       ", compared to fish in light. The average speed of the school was also the same ",
+       
+       "(F(1,",
+       (glmm_school_stats_table %>% filter(Stat == "Speed" & Flow_or_Still == "Still" & Condition == "Ablation"))$DF,
+       ") = ",
+       round((glmm_school_stats_table %>% filter(Stat == "Speed" & Flow_or_Still == "Still" & Condition == "Ablation"))$Chisq,3),
+       ", p = ",
+       round((glmm_school_stats_table %>% filter(Stat == "Speed" & Flow_or_Still == "Still" & Condition == "Ablation"))$P_Val,3),
+       ").",
+       
+       " In flowing water, the ablated behaved almost exactly the same as when they were in still water. They did not swim further apart from their neighbors ",
+       
+       "(F(1,",
+       (glmm_school_stats_table %>% filter(Stat == "NND" & Flow_or_Still == "Flow" & Condition == "Ablation"))$DF,
+       ") = ",
+       round((glmm_school_stats_table %>% filter(Stat == "NND" & Flow_or_Still == "Flow" & Condition == "Ablation"))$Chisq,3),
+       ", p = ",
+       round((glmm_school_stats_table %>% filter(Stat == "NND" & Flow_or_Still == "Flow" & Condition == "Ablation"))$P_Val,3),
+       ").",
+       
+       " They had the same polarization ",
+        
+       "(F(1,",
+       (glmm_school_stats_table %>% filter(Stat == "Polarization" & Flow_or_Still == "Flow" & Condition == "Ablation"))$DF,
+       ") = ",
+       round((glmm_school_stats_table %>% filter(Stat == "Polarization" & Flow_or_Still == "Flow" & Condition == "Ablation"))$Chisq,3),
+       ", p = ",
+       round((glmm_school_stats_table %>% filter(Stat == "Polarization" & Flow_or_Still == "Flow" & Condition == "Ablation"))$P_Val,3),
+       ")",
+       
+       ", and were not split into more groups ",
+       
+       "(F(1,",
+       (glmm_school_stats_table %>% filter(Stat == "Groups" & Flow_or_Still == "Flow" & Condition == "Ablation"))$DF,
+       ") = ",
+       round((glmm_school_stats_table %>% filter(Stat == "Groups" & Flow_or_Still == "Flow" & Condition == "Ablation"))$Chisq,3),
+       ", p = ",
+       round((glmm_school_stats_table %>% filter(Stat == "Groups" & Flow_or_Still == "Flow" & Condition == "Ablation"))$P_Val,3),
+       ")",
+       
+       ", compared to fish in light in flowing water. However, the average speed of the school was lower ",
+       
+       "(F(1,",
+       (glmm_school_stats_table %>% filter(Stat == "Speed" & Flow_or_Still == "Flow", Condition == "Ablation"))$DF,
+       ") = ",
+       round((glmm_school_stats_table %>% filter(Stat == "Speed" & Flow_or_Still == "Flow", Condition == "Ablation"))$Chisq,3),
+       ", p = ",
+       round((glmm_school_stats_table %>% filter(Stat == "Speed" & Flow_or_Still == "Flow", Condition == "Ablation"))$P_Val,3),
+       ").",
+       
+       " While the speed of the treated school was different in flowing water, ablated fish preformed almost exactly the same as fish with their lateral lines intact, indicating that treated fish were still able to maintain a cohesive school."
+       )
+
+
+```
+
+### Turning Results Text
+
+```{r}
+annushka_turning_data <- read.csv("Data/Annushka_Turning_Data_Wall.csv") %>%
+                           #filter(Next.to.Wall == 0) %>%
+                           mutate(Flow = ifelse(Flow == "F0", "Still Water", "Flowing Water (2 BL/s)")) %>%
+                           mutate(Ablation = ifelse(Ablation %in% c("LN","TN"), "No Ablation", "Ablated")) %>%
+                           mutate(Darkness = ifelse(Darkness == "DN", "Light", "Dark")) %>%
+                           mutate(Flow = factor(Flow), Ablation = factor(Ablation), Darkness = factor(Darkness)) %>%
+                           mutate(Flow = fct_relevel(Flow, c("Still Water","Flowing Water (2 BL/s)"))) %>%
+                           mutate(Ablation = fct_relevel(Ablation, c("No Ablation","Ablated"))) %>%
+                           mutate(Darkness = fct_relevel(Darkness, c("Light","Dark"))) %>%
+                           mutate(Flow_Ablation_Darkness = factor(paste(Flow,Ablation,Darkness,sep=", "))) %>%
+                           mutate(Fish_Num_Ratio = No..Fish.Right/8) %>%
+                           mutate(Fish_Ratio = paste(No..Fish.Left,No..Fish.Right,sep=":")) %>%
+                           filter(Fish_Ratio %in% c("7:0","6:1","5:2","4:3","3:4","2:5","1:6","0:7")) %>%
+                           mutate(Fish_Ratio = fct_relevel(Fish_Ratio,
+                                                           c("7:0","6:1","5:2","4:3",
+                                                             "3:4","2:5","1:6","0:7"))) %>%
+                           mutate(turn_bool = ifelse(Turn.Direction == "right",1,0)) %>% 
+                           select(-c("Turn.Start.Frame","Turn.End.Frame","Fish","Appox.Turn.Angle","X","Next.to.Wall")) %>%
+                           rename("Turn_Dir" = "Turn.Direction")  %>%
+                           rename("Fish_Left" = "No..Fish.Left")  %>%
+                           rename("Fish_Right" = "No..Fish.Right")  %>%
+                           mutate(Type = "Eight Fish")
+
+single_fish_turning_data <- read.csv("Data/single_fish_turning.csv") %>%
+                           mutate(Flow = ifelse(Flow == "0", "Still Water", "Flowing Water (2 BL/s)")) %>%
+                           mutate(Ablation = ifelse(Ablation  == "N", "No Ablation", "Ablated")) %>%
+                           mutate(Darkness = ifelse(Darkness == "N", "Light", "Dark")) %>%
+                           mutate(Flow = factor(Flow), Ablation = factor(Ablation), Darkness = factor(Darkness)) %>%
+                           mutate(Flow = fct_relevel(Flow, c("Still Water","Flowing Water (2 BL/s)"))) %>%
+                           mutate(Ablation = fct_relevel(Ablation, c("No Ablation","Ablated"))) %>%
+                           mutate(Darkness = fct_relevel(Darkness, c("Light","Dark"))) %>%
+                           mutate(Flow_Ablation_Darkness = factor(paste(Flow,Ablation,Darkness,sep=", "))) %>%
+                           mutate(Fish_Num_Ratio = Fish_Right/8) %>%
+                           mutate(Fish_Ratio = paste(Fish_Left,Fish_Right,sep=":")) %>%
+                           filter(Fish_Ratio %in% c("7:0","6:1","5:2","4:3","3:4","2:5","1:6","0:7")) %>%
+                           mutate(Fish_Ratio = fct_relevel(Fish_Ratio,
+                                                           c("7:0","6:1","5:2","4:3",
+                                                             "3:4","2:5","1:6","0:7"))) %>%
+                           mutate(turn_bool = ifelse(Turn_Dir == 0,1,0)) %>% 
+                           select(-c("Singles")) %>%
+                           mutate(Type = "Combined Single")
+
+all_turning_data <- rbind(annushka_turning_data,single_fish_turning_data)
+```
+
+```{r}
+turning_glm_still <- glm(turn_bool ~ Fish_Num_Ratio*(Ablation+Darkness),
+                         data = annushka_turning_data %>% filter(Flow == "Still Water"), family = binomial)
+tgs_aov <- Anova(turning_glm_still)
+
+turning_glm_flow <- glm(turn_bool ~ Fish_Num_Ratio*(Ablation+Darkness),
+                         data = annushka_turning_data %>% filter(Flow == "Flowing Water (2 BL/s)"), family = binomial)
+tgf_aov <- Anova(turning_glm_flow)
+
+turning_results <- tibble(Flow_or_Still = c("Still","Still","Still","Still","Still","Flow","Flow","Flow","Flow","Flow"),
+       Factor = c("FNR","Ablation","Darkness","FNR:Ablation","FNR:Darkness",
+                  "FNR","Ablation","Darkness","FNR:Ablation","FNR:Darkness"),
+       DF = c(rep(length(turning_glm_still$y)-3,5),rep(length(turning_glm_flow$y)-3,5)),
+       LR_Chisq = c(tgs_aov$`LR Chisq`,tgf_aov$`LR Chisq`),
+       P_Val = c(tgs_aov$`Pr(>Chisq)`,tgf_aov$`Pr(>Chisq)`),
+       Is_Sig = P_Val < 0.05)
+
+
+# Single vs Eight fish
+light_turning_glm <- glm(turn_bool ~ Fish_Num_Ratio*Type,
+                               data = all_turning_data  %>% filter(Flow == "Still Water" & Ablation == "No Ablation" & Darkness == "Light"),
+                               family = binomial)
+ltg_aov <- Anova(light_turning_glm)
+
+ablated_turning_glm <- glm(turn_bool ~ Fish_Num_Ratio*Type,
+                               data = all_turning_data  %>% filter(Flow == "Still Water" & Ablation == "Ablated"),
+                               family = binomial)
+altg_aov <- Anova(ablated_turning_glm)
+
+
+dark_turning_glm <- glm(turn_bool ~ Fish_Num_Ratio*Type,
+                               data = all_turning_data  %>% filter(Flow == "Still Water" & Darkness == "Dark"),
+                               family = binomial)
+dtg_aov <- Anova(dark_turning_glm)
+
+single_vs_eight_results <- tibble(Condition = c("Light","Light","Ablated","Ablated","Darkness","Darkness"),
+       Factor = c("Type","FNR:Type","Type","FNR:Type","Type","FNR:Type"),
+       DF = c(rep(length(light_turning_glm$y)-3,2),rep(length(ablated_turning_glm$y)-3,2),rep(length(dark_turning_glm$y)-3,2)),
+       LR_Chisq = c(ltg_aov$`LR Chisq`[2:3],altg_aov$`LR Chisq`[2:3],dtg_aov$`LR Chisq`[2:3]),
+       P_Val = c(ltg_aov$`Pr(>Chisq)`[2:3],altg_aov$`Pr(>Chisq)`[2:3],dtg_aov$`Pr(>Chisq)`[2:3]),
+       Is_Sig = P_Val < 0.05)
+
+turning_results
+single_vs_eight_results
+```
+
+
+```{r}
+paste0("We found that there were significant differences between the turning behavior of the artificial “school” and the real group of eight fish under each sensory condition. Specifically, the probability of making a right turn, based on the ratio of fish on the left and right of the focal fish, was different when they were schooling in light with their lateral line intact ",
+       
+       "(F(1,",
+       (single_vs_eight_results %>% filter(Factor == "FNR:Type" & Condition == "Light"))$DF,
+       ") = ",
+       round((single_vs_eight_results %>% filter(Factor == "FNR:Type" & Condition == "Light"))$LR_Chisq,3),
+       ", p = ",
+       round((single_vs_eight_results %>% filter(Factor == "FNR:Type" & Condition == "Light"))$P_Val,3),
+       ").",
+       
+       "when their lateral line was ablated ",
+       
+       "(F(1,",
+       (single_vs_eight_results %>% filter(Factor == "FNR:Type" & Condition == "Ablated"))$DF,
+       ") = ",
+       round((single_vs_eight_results %>% filter(Factor == "FNR:Type" & Condition == "Ablated"))$LR_Chisq,3),
+       ", p = ",
+       round((single_vs_eight_results %>% filter(Factor == "FNR:Type" & Condition == "Ablated"))$P_Val,5),
+       ").",
+       
+       "and when the fish were in darkness ",
+       
+       "(F(1,",
+       (single_vs_eight_results %>% filter(Factor == "FNR:Type" & Condition == "Darkness"))$DF,
+       ") = ",
+       round((single_vs_eight_results %>% filter(Factor == "FNR:Type" & Condition == "Darkness"))$LR_Chisq,3),
+       ", p = ",
+       round((single_vs_eight_results %>% filter(Factor == "FNR:Type" & Condition == "Darkness"))$P_Val,3),
+       ").",
+       
+       "(Figure XX). Therefore, the effects we saw were not because of the constraints of our tank, but because of actual changes in fish schooling behavior.")
+```
+
+
+```{r}
+paste0("We found that fish were significantly more likely to turn towards where there were more fish, and that the likelihood of turning towards the majority of fish was similar even when fish had an ablated lateral line or were swimming in darkness. Overall, we found that fish in each experimental condition were more likely to turn towards other fish, in both still ",
+
+       "(F(1,",
+       (turning_results %>% filter(Factor == "FNR" & Flow_or_Still == "Still"))$DF,
+       ") = ",
+       round((turning_results %>% filter(Factor == "FNR" & Flow_or_Still == "Still"))$LR_Chisq,3),
+       ", p = ",
+       round((turning_results %>% filter(Factor == "FNR" & Flow_or_Still == "Still"))$P_Val,3),
+       ")",
+       
+       " and flowing water ",
+       
+       "(F(1,",
+       (turning_results %>% filter(Factor == "FNR" & Flow_or_Still == "Flow"))$DF,
+       ") = ",
+       round((turning_results %>% filter(Factor == "FNR" & Flow_or_Still == "Flow"))$LR_Chisq,3),
+       ", p = ",
+       round((turning_results %>% filter(Factor == "FNR" & Flow_or_Still == "Flow"))$P_Val,3),
+       ")",
+       
+       " (Figure XX). We found that there was not a significant change in the turning behavior of fish in darkness ",
+       
+       "(F(1,",
+       (turning_results %>% filter(Factor == "FNR:Darkness" & Flow_or_Still == "Still"))$DF,
+       ") = ",
+       round((turning_results %>% filter(Factor == "FNR:Darkness" & Flow_or_Still == "Still"))$LR_Chisq,3),
+       ", p = ",
+       round((turning_results %>% filter(Factor == "FNR:Darkness" & Flow_or_Still == "Still"))$P_Val,3),
+       ")",
+       
+       " or with an ablated lateral line ",
+       
+       "(F(1,",
+       (turning_results %>% filter(Factor == "FNR:Ablation" & Flow_or_Still == "Still"))$DF,
+       ") = ",
+       round((turning_results %>% filter(Factor == "FNR:Ablation" & Flow_or_Still == "Still"))$LR_Chisq,3),
+       ", p = ",
+       round((turning_results %>% filter(Factor == "FNR:Ablation" & Flow_or_Still == "Still"))$P_Val,3),
+       ")",
+       
+       " in still water. In flowing water there was not a significant change from swimming in darkness ",
+       
+       "(F(1,",
+       (turning_results %>% filter(Factor == "FNR:Darkness" & Flow_or_Still == "Flow"))$DF,
+       ") = ",
+       round((turning_results %>% filter(Factor == "FNR:Darkness" & Flow_or_Still == "Flow"))$LR_Chisq,3),
+       ", p = ",
+       round((turning_results %>% filter(Factor == "FNR:Darkness" & Flow_or_Still == "Flow"))$P_Val,3),
+       ")",
+       
+       ", but fish with ablated lateral lines were less influenced by the number of fish on either side of them when turning",
+       
+       "(F(1,",
+       (turning_results %>% filter(Factor == "FNR:Ablation" & Flow_or_Still == "Flow"))$DF,
+       ") = ",
+       round((turning_results %>% filter(Factor == "FNR:Ablation" & Flow_or_Still == "Flow"))$LR_Chisq,3),
+       ", p = ",
+       round((turning_results %>% filter(Factor == "FNR:Ablation" & Flow_or_Still == "Flow"))$P_Val,3),
+       ")",
+       
+       ". These results suggest that turning fish were able to tell where the other fish around them were, even in darkness, because fish in darkness did not have a significantly different probability of turning left or right from those fish swimming in light."
+  
+  
+)
+```
+
+
