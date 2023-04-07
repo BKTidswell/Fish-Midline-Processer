@@ -28,7 +28,7 @@ board = aniposelib.boards.CharucoBoard(squaresX=6, squaresY=6,
 # For paths on Windows machines, be careful not to remove the r at the beginning of the quote; 
 #  without it, all backslashes will be registered as special characters.
 
-videopath = r'/Users/Ben/Desktop/Charuco_DLT/charuco_boards/2023_02_09'
+videopath = r'//Users/Ben/Desktop/Fish-Midline-Processer/Charuco_DLT/charuco_boards/2023_04_06'
 videonames = ['checkerboard_V1.mp4','checkerboard_V2.mp4']
 
 #This will detect points in the first video, just for testing purposes.
