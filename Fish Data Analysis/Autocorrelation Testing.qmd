@@ -163,11 +163,11 @@ auto_cor_avgs %>% pivot_longer(everything(), names_to = "Type", values_to = "Val
 for loop lags
 ```{r}
 
-for(i in seq(1:10)){
+for(i in seq(1:5)){
   print(i)
   
   new_autocorrs <- school_data %>% group_by(Date_Trial) %>%
-                    filter(!Date_Trial %in% c("2021_3_25_30","2020_7_28_29","2021_7_7_16","2021_3_25_7","2021_10_6_34")) %>%
+                    filter(!Date_Trial %in% c("2021_3_25_30","2020_7_28_29")) %>%
                     summarise(nnd_corr = abs(cor.test(NND, lag(NND, n = i))$estimate),
                               nnd_p = cor.test(NND, lag(NND, n = i))$p.value,
                               polar_corr = abs(cor.test(School_Polar, lag(School_Polar, n = i))$estimate),
@@ -195,49 +195,62 @@ nnd_lag_plot <- ggplot(school_autocorrs, aes(as.factor(lag), nnd_corr, color = a
   stat_summary(fun.data = mean_se, geom = "errorbar", color = "black", width = 0.25) +
   stat_summary(fun.y=mean, geom="point", size = 3) +
   ylim(0,1)+
-  ggtitle("NND")+
-  theme_classic()
+  ylab("NND Autocorrelation")+
+  xlab("Lag Values")+
+  theme_classic()+ 
+  theme(legend.position = "none")
 
 polar_lag_plot <- ggplot(school_autocorrs, aes(as.factor(lag), polar_corr, color = as.factor(lag)))+
   stat_summary(fun.data = mean_se, geom = "errorbar", color = "black", width = 0.25) +
   stat_summary(fun.y=mean, geom="point", size = 3) +
   ylim(0,1)+
-  ggtitle("Polar")+
-  theme_classic()
+  ylab("Polarity Autocorrelation")+
+  xlab("Lag Values")+
+  theme_classic()+ 
+  theme(legend.position = "none")
 
 speed_lag_plot <- ggplot(school_autocorrs, aes(as.factor(lag), speed_corr, color = as.factor(lag)))+
   stat_summary(fun.data = mean_se, geom = "errorbar", color = "black", width = 0.25) +
   stat_summary(fun.y=mean, geom="point", size = 3) +
   ylim(0,1)+
-  ggtitle("Speed")+
-  theme_classic()
+  ylab("Speed Autocorrelation")+
+  xlab("Lag Values")+
+  theme_classic()+ 
+  theme(legend.position = "none")
 
 groups_lag_plot <- ggplot(school_autocorrs, aes(as.factor(lag), groups_corr, color = as.factor(lag)))+
   stat_summary(fun.data = mean_se, geom = "errorbar", color = "black", width = 0.25) +
   stat_summary(fun.y=mean, geom="point", size = 3) +
   ylim(0,1)+
-  ggtitle("Groups")+
-  theme_classic()
+  ylab("Groups Autocorrelation")+
+  xlab("Lag Values")+
+  theme_classic()+ 
+  theme(legend.position = "none")
 
 area_lag_plot <- ggplot(school_autocorrs, aes(as.factor(lag), area_corr, color = as.factor(lag)))+
   stat_summary(fun.data = mean_se, geom = "errorbar", color = "black", width = 0.25) +
   stat_summary(fun.y=mean, geom="point", size = 3) +
   ylim(0,1)+
-  ggtitle("Area")+
-  theme_classic()
+  ylab("Area Autocorrelation")+
+  xlab("Lag Values")+
+  theme_classic()+ 
+  theme(legend.position = "none")
 
 height_lag_plot <- ggplot(school_autocorrs, aes(as.factor(lag), height_corr, color = as.factor(lag)))+
   stat_summary(fun.data = mean_se, geom = "errorbar", color = "black", width = 0.25) +
   stat_summary(fun.y=mean, geom="point", size = 3) +
   ylim(0,1)+
-  ggtitle("Area")+
-  theme_classic()
+  ylab("School Height Autocorrelation")+
+  xlab("Lag Values")+
+  theme_classic()+ 
+  theme(legend.position = "none")
 
 lag_plots <- ggarrange(
-          nnd_lag_plot, polar_lag_plot, speed_lag_plot, groups_lag_plot, area_lag_plot, height_lag_plot,
-          ncol = 3, nrow = 2)
+          nnd_lag_plot, polar_lag_plot, speed_lag_plot, groups_lag_plot,
+          ncol = 2, nrow = 2,
+          labels = c("A", "B", "C", "D"))
 
-ggsave("Autocorrelation Figures/Different_Lag_Figures.png", lag_plots, width = 22, height = 15)
+ggsave("Paper Figures/Different_Lag_Figures.png", lag_plots, width = 7, height = 7)
 
 ```
 

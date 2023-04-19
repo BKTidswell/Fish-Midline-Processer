@@ -163,123 +163,100 @@ eight_fish_flow
 
 ```{r}
 
+
+placeholder_tibble <- tibble("Fish_Ratio" = c("0:7","0:7","3:4"),
+                             "Fish_Num_Ratio" = c(0.875,0.875,0.5),
+                             "Flow" = c("Still Water","Still Water","Still Water"),
+                             "Ablation" = c("No Ablation","Ablated","Ablated"),
+                             "Darkness" = c("Light","Light","Light"),
+                             "Type" = c("Combined Single","Combined Single","Combined Single"),
+                             "n" = c(0,0,0))
+
+turning_data_sum <- turning_data_sum %>% ungroup()
+
+turning_data_sum <- full_join(turning_data_sum,placeholder_tibble)
+
+
 dark_eight_and_single_graph <- ggplot(turning_data_sum %>% filter(Flow == "Still Water" & Darkness == "Dark"),
        aes(x = Fish_Num_Ratio, y = mean_right_turn, color = Type))+
   geom_point()+
+  geom_col(aes(x = Fish_Num_Ratio, y = n/80, fill = Type), color = NA, alpha = 0.3, position = "dodge2")+
   geom_smooth(se = F, method = glm, formula = y ~ x, method.args = list(family = "binomial"))+
   theme_classic() +
   xlab("# Fish on Left : # Fish on Right") +
   ylab("Probability of a Right Turn") +
-  ylim(0,1) +
   scale_colour_manual(values = c(sim_color,dark_no_ab_color), labels=function(x){sub("\\s", "\n", x)}) +
+  scale_fill_manual(values = c(sim_color,dark_no_ab_color), labels=function(x){sub("\\s", "\n", x)}) +
   #ggtitle("Observed Probability of a Right Turn Based on Ratio of Fish to the Left and Right") +
   scale_x_continuous(breaks = c(0,0.125,0.25,0.375,
                                 0.5,0.625,0.75,0.875),
                      labels = c("7:0","6:1","5:2","4:3",
                                 "3:4","2:5","1:6","0:7"))+ 
-  labs(color = "Sensory\nConditions")+
+  labs(color = "School Type")+
   theme(axis.text.x = element_text(size = text_size/2),
         axis.text.y = element_text(size = text_size/2),
-        axis.title.y = element_text(size = text_size/2),
-        legend.position = "none")
+        axis.title.y = element_text(size = text_size/2))+
+  guides(fill = FALSE)+
+  scale_y_continuous("Probability of a Right Turn",
+                     sec.axis = sec_axis(~.*80, name = "Number of Datapoints"),
+                     limits = c(0, 1))
+  
 
 
 ablation_eight_and_single_graph <- ggplot(turning_data_sum %>% filter(Flow == "Still Water" & Ablation == "Ablated"),
        aes(x = Fish_Num_Ratio, y = mean_right_turn, color = Type))+
   geom_point()+
+  geom_col(aes(x = Fish_Num_Ratio, y = n/80, fill = Type), color = NA, alpha = 0.3, position = "dodge2")+
   geom_smooth(se = F, method = glm, formula = y ~ x, method.args = list(family = "binomial"))+
   theme_classic() +
   xlab("# Fish on Left : # Fish on Right") +
   ylab("Probability of a Right Turn") +
   ylim(0,1) +
   scale_colour_manual(values = c(sim_color,light_ab_color), labels=function(x){sub("\\s", "\n", x)}) +
+  scale_fill_manual(values = c(sim_color,light_ab_color), labels=function(x){sub("\\s", "\n", x)}) +
   #ggtitle("Observed Probability of a Right Turn Based on Ratio of Fish to the Left and Right") +
   scale_x_continuous(breaks = c(0,0.125,0.25,0.375,
                                 0.5,0.625,0.75,0.875),
                      labels = c("7:0","6:1","5:2","4:3",
                                 "3:4","2:5","1:6","0:7"))+ 
-  labs(color = "Sensory\nConditions")+
+  labs(color = "School Type")+
   theme(axis.text.x = element_text(size = text_size/2),
         axis.text.y = element_text(size = text_size/2),
-        axis.title.y = element_text(size = text_size/2),
-        legend.position = "none")
+        axis.title.y = element_text(size = text_size/2))+
+  guides(fill = FALSE)+
+  scale_y_continuous("Probability of a Right Turn",
+                     sec.axis = sec_axis(~.*80, name = "Number of Datapoints"),
+                     limits = c(0, 1))
 
 
 light_eight_and_single_graph <- ggplot(turning_data_sum %>% filter(Flow == "Still Water" & Ablation == "No Ablation" & Darkness == "Light"),
        aes(x = Fish_Num_Ratio, y = mean_right_turn, color = Type))+
   geom_point()+
+  geom_col(aes(x = Fish_Num_Ratio, y = n/80, fill = Type, color = none), color = NA, alpha = 0.3, position = "dodge2")+
   geom_smooth(se = F, method = glm, formula = y ~ x, method.args = list(family = "binomial"))+
   theme_classic() +
   xlab("# Fish on Left : # Fish on Right") +
-  ylab("Probability of a Right Turn") +
   ylim(0,1) +
   scale_colour_manual(values = c(sim_color,light_no_ab_color), labels=function(x){sub("\\s", "\n", x)}) +
+  scale_fill_manual(values = c(sim_color,light_no_ab_color), labels=function(x){sub("\\s", "\n", x)}) +
   #ggtitle("Observed Probability of a Right Turn Based on Ratio of Fish to the Left and Right") +
   scale_x_continuous(breaks = c(0,0.125,0.25,0.375,
                                 0.5,0.625,0.75,0.875),
                      labels = c("7:0","6:1","5:2","4:3",
                                 "3:4","2:5","1:6","0:7"))+ 
-  labs(color = "Sensory\nConditions")+
+  labs(color = "School Type")+
   theme(axis.text.x = element_text(size = text_size/2),
         axis.text.y = element_text(size = text_size/2),
-        axis.title.y = element_text(size = text_size/2),
-        legend.position = "none")
+        axis.title.y = element_text(size = text_size/2))+
+  guides(fill = FALSE)+
+  scale_y_continuous("Probability of a Right Turn",
+                     sec.axis = sec_axis(~.*80, name = "Number of Datapoints"),
+                     limits = c(0, 1))
 
 light_eight_and_single_graph
 ablation_eight_and_single_graph
 dark_eight_and_single_graph
 ```
-
-### Turning Stats Table Here
-
-```{r}
-turning_glm_still <- glm(turn_bool ~ Fish_Num_Ratio*(Ablation+Darkness),
-                         data = annushka_turning_data %>% filter(Flow == "Still Water"), family = binomial)
-tgs_aov <- Anova(turning_glm_still)
-
-turning_glm_flow <- glm(turn_bool ~ Fish_Num_Ratio*(Ablation+Darkness),
-                         data = annushka_turning_data %>% filter(Flow == "Flowing Water (2 BL/s)"), family = binomial)
-tgf_aov <- Anova(turning_glm_flow)
-
-turning_results <- tibble(Flow_or_Still = c("Still","Still","Still","Still","Still","Flow","Flow","Flow","Flow","Flow"),
-       Factor = c("Fish_Num_Ratio","Ablation","Darkness","Fish_Num_Ratio:Ablation","Fish_Num_Ratio:Darkness",
-                  "Fish_Num_Ratio","Ablation","Darkness","Fish_Num_Ratio:Ablation","Fish_Num_Ratio:Darkness"),
-       DF = c(rep(length(turning_glm_still$y)-3,5),rep(length(turning_glm_flow$y)-3,5)),
-       LR_Chisq = c(tgs_aov$`LR Chisq`,tgf_aov$`LR Chisq`),
-       P_Val = c(tgs_aov$`Pr(>Chisq)`,tgf_aov$`Pr(>Chisq)`),
-       Is_Sig = P_Val < 0.05)
-
-
-# Single vs Eight fish
-light_turning_glm <- glm(turn_bool ~ Fish_Num_Ratio*Type,
-                               data = all_turning_data  %>% filter(Flow == "Still Water" & Ablation == "No Ablation" & Darkness == "Light"),
-                               family = binomial)
-ltg_aov <- Anova(light_turning_glm)
-
-ablated_turning_glm <- glm(turn_bool ~ Fish_Num_Ratio*Type,
-                               data = all_turning_data  %>% filter(Flow == "Still Water" & Ablation == "Ablated"),
-                               family = binomial)
-altg_aov <- Anova(ablated_turning_glm)
-
-
-dark_turning_glm <- glm(turn_bool ~ Fish_Num_Ratio*Type,
-                               data = all_turning_data  %>% filter(Flow == "Still Water" & Darkness == "Dark"),
-                               family = binomial)
-dtg_aov <- Anova(dark_turning_glm)
-
-single_vs_eight_results <- tibble(Condition = c("Light","Light","Ablated","Ablated","Darkness","Darkness"),
-       Factor = c("Type","FNR:Type","Type","FNR:Type","Type","FNR:Type"),
-       DF = c(rep(length(light_turning_glm$y)-3,2),rep(length(ablated_turning_glm$y)-3,2),rep(length(dark_turning_glm$y)-3,2)),
-       LR_Chisq = c(ltg_aov$`LR Chisq`[2:3],altg_aov$`LR Chisq`[2:3],dtg_aov$`LR Chisq`[2:3]),
-       P_Val = c(ltg_aov$`Pr(>Chisq)`[2:3],altg_aov$`Pr(>Chisq)`[2:3],dtg_aov$`Pr(>Chisq)`[2:3]),
-       Is_Sig = P_Val < 0.05)
-
-turning_results
-single_vs_eight_results
-
-```
-
-
 
 ### Now we combine it all
 
@@ -301,9 +278,9 @@ ggsave("Paper Figures/turning_both_plot.png", turning_both_plot, width = 12, hei
 turning_single_test_plot <- ggarrange(
           light_eight_and_single_graph, ablation_eight_and_single_graph, dark_eight_and_single_graph,
           labels = c("A", "B", "C"),
-          ncol = 3, nrow = 1)
+          ncol = 2, nrow = 2)
 
-ggsave("Paper Figures/turning_single_test_plot.png", turning_single_test_plot, width = 9, height = 3)
+ggsave("Paper Figures/turning_single_test_plot.png", turning_single_test_plot, width = 10, height = 7)
 
 
 ```
@@ -542,7 +519,7 @@ speed_still <- ggplot(school_data %>% filter(Flow == "Still Water"),
            fill = interaction(Ablation,Darkness,sep=", ")))+
   stat_dots(side = "both", binwidth = unit(dot_binwidth, "npc")) +
   geom_point(aes(y = Speed_Mean_Val), size = 5, color = "Black") +
-  geom_errorbar(aes(ymin=Speed_Mean_Val-Speed_SD_Val, ymax=Speed_Mean_Val+Speed_SD_Val), width=.2, color = "Black")+
+  geom_errorbar(aes(ymin=max(Speed_Mean_Val-Speed_SD_Val,0), ymax=Speed_Mean_Val+Speed_SD_Val), width=.2, color = "Black")+
   guides(fill = guide_legend(title = "Condition")) +
   scale_fill_manual(values=c(light_no_ab_color, light_ab_color, dark_no_ab_color)) +
   scale_color_manual(values=c(light_no_ab_color, light_ab_color, dark_no_ab_color)) +
@@ -673,7 +650,7 @@ group_still <- ggplot(group_sum_data %>% filter(Flow == "Still Water"),
     ylab("Proportion of Time") +
     theme_light()+ 
     scale_fill_manual(values=c("8" = "#1D3557","7" = "#325A7C","6" = "#457B9D","5" = "#7BAFBF",
-                               "4" = "#A8DADC","3" = "#D0EBE6","2" = "#F1FAEE","1" = "#e63946")) +
+                               "4" = "#A8DADC","3" = "#D0EBE6","2" = "#F1FAEE","1" = "#3ae639")) +
     theme(axis.text.x = element_text(size = text_size),
           axis.text.y = element_text(size = text_size),
           axis.title.y = element_text(size = text_size))+
@@ -688,7 +665,7 @@ group_flow <- ggplot(group_sum_data %>% filter(Flow == "Flowing Water (2 BL/s)")
     ylab("Proportion of Time") +
     theme_light()+ 
     scale_fill_manual(values=c("8" = "#1D3557","7" = "#325A7C","6" = "#457B9D","5" = "#7BAFBF",
-                               "4" = "#A8DADC","3" = "#D0EBE6","2" = "#F1FAEE","1" = "#e63946")) +
+                               "4" = "#A8DADC","3" = "#D0EBE6","2" = "#F1FAEE","1" = "#3ae639")) +
     theme(axis.text.x = element_text(size = text_size),
           axis.text.y = element_text(size = text_size),
           axis.title.y = element_text(size = text_size))+
@@ -707,138 +684,6 @@ Anova(groups_glm_still, test.statistic="F")
 
 groups_glm_flow <- glm(Groups ~ Ablation*Darkness, data = school_data %>% filter(Flow == "Flowing Water (2 BL/s)"), family  = poisson)
 Anova(groups_glm_flow, test.statistic="F")
-
-```
-
-### School Stats Table Here
-
-```{r}
-
-nnd_glmer_still <- lmer(NND ~ Ablation*Darkness + (1|Date), data = school_data %>% filter(Flow == "Still Water"))
-nnd_s_aov_me <- Anova(nnd_glmer_still)
-
-nnd_glmer_flow <- lmer(NND ~ Ablation*Darkness + (1|Date), data = school_data %>% filter(Flow == "Flowing Water (2 BL/s)"))
-nnd_f_aov_me <- Anova(nnd_glmer_flow)
-
-height_glmer_still <- lmer(School_Height ~ Ablation*Darkness + (1|Date), data = school_data %>% filter(Flow == "Still Water"))
-height_s_aov_me <- Anova(height_glmer_still)
-
-height_glmer_flow <- lmer(School_Height ~ Ablation*Darkness + (1|Date), data = school_data %>% filter(Flow == "Flowing Water (2 BL/s)"))
-height_f_aov_me <- Anova(height_glmer_flow)
-
-polar_glmer_still <- lmer(School_Polar ~ Ablation*Darkness + (1|Date), data = school_data %>% filter(Flow == "Still Water"))
-polar_s_aov_me <- Anova(polar_glmer_still)
-
-polar_glmer_flow <- lmer(School_Polar ~ Ablation*Darkness + (1|Date), data = school_data %>% filter(Flow == "Flowing Water (2 BL/s)"))
-polar_f_aov_me <- Anova(polar_glmer_flow)
-
-speed_glmer_still <- lmer(School_Speed ~ Ablation*Darkness + (1|Date), data = school_data %>% filter(Flow == "Still Water"))
-speed_s_aov_me <- Anova(speed_glmer_still)
-
-speed_glmer_flow <- lmer(School_Speed ~ Ablation*Darkness + (1|Date), data = school_data %>% filter(Flow == "Flowing Water (2 BL/s)"))
-speed_f_aov_me <- Anova(speed_glmer_flow)
-
-area_glmer_still <- lmer(Area ~ Ablation*Darkness + (1|Date), data = school_data %>% filter(Flow == "Still Water"))
-area_s_aov_me <- Anova(area_glmer_still)
-
-area_glmer_flow <- lmer(Area ~ Ablation*Darkness + (1|Date), data = school_data %>% filter(Flow == "Flowing Water (2 BL/s)"))
-area_f_aov_me <- Anova(area_glmer_flow)
-
-groups_glmer_still <- lmer(Groups ~ Ablation*Darkness + (1|Date), data = school_data %>% filter(Flow == "Still Water"))
-groups_s_aov_me <- Anova(groups_glmer_still)
-
-groups_glmer_flow <- lmer(Groups ~ Ablation*Darkness + (1|Date), data = school_data %>% filter(Flow == "Flowing Water (2 BL/s)"))
-groups_f_aov_me <- Anova(groups_glmer_flow)
-
-
-
-glmm_school_stats_table <- tibble(Stat = c(rep("NND",4),rep("Height",4),rep("Polarization",4),rep("Speed",4),rep("Area",4),rep("Groups",4)),
-       Flow_or_Still = rep( c(rep("Still",2) , rep("Flow",2)), 6),
-       Condition = rep(c("Ablation","Darkness"), 12),
-       DF = rep(c(length(nnd_glmer_still@resp$y)-3,length(nnd_glmer_flow@resp$y)-3),12),
-       Chisq = c(nnd_s_aov_me$Chisq[1:2],nnd_f_aov_me$Chisq[1:2],
-                 height_s_aov_me$Chisq[1:2],height_f_aov_me$Chisq[1:2],
-                 polar_s_aov_me$Chisq[1:2],polar_f_aov_me$Chisq[1:2],
-                 speed_s_aov_me$Chisq[1:2],speed_f_aov_me$Chisq[1:2],
-                 area_s_aov_me$Chisq[1:2],area_f_aov_me$Chisq[1:2],
-                 groups_s_aov_me$Chisq[1:2],groups_f_aov_me$Chisq[1:2]),
-       
-       P_Val = c(nnd_s_aov_me$`Pr(>Chisq)`[1:2],nnd_f_aov_me$`Pr(>Chisq)`[1:2],
-                 height_s_aov_me$`Pr(>Chisq)`[1:2],height_f_aov_me$`Pr(>Chisq)`[1:2],
-                 polar_s_aov_me$`Pr(>Chisq)`[1:2],polar_f_aov_me$`Pr(>Chisq)`[1:2],
-                 speed_s_aov_me$`Pr(>Chisq)`[1:2],speed_f_aov_me$`Pr(>Chisq)`[1:2],
-                 area_s_aov_me$`Pr(>Chisq)`[1:2],area_f_aov_me$`Pr(>Chisq)`[1:2],
-                 groups_s_aov_me$`Pr(>Chisq)`[1:2],groups_f_aov_me$`Pr(>Chisq)`[1:2]),
-       
-       Is_Sig = P_Val < 0.05)
-
-
-glmm_school_stats_table
-
-
-nnd_glm_still <- glm(NND ~ Ablation*Darkness, data = school_data %>% filter(Flow == "Still Water"))
-nnd_s_aov <- Anova(nnd_glm_still)
-
-nnd_glm_flow <- glm(NND ~ Ablation*Darkness, data = school_data %>% filter(Flow == "Flowing Water (2 BL/s)"))
-nnd_f_aov <- Anova(nnd_glm_flow)
-
-height_glm_still <- glm(School_Height ~ Ablation*Darkness, data = school_data %>% filter(Flow == "Still Water"))
-height_s_aov <- Anova(height_glm_still)
-
-height_glm_flow <- glm(School_Height ~ Ablation*Darkness, data = school_data %>% filter(Flow == "Flowing Water (2 BL/s)"))
-height_f_aov <- Anova(height_glm_flow)
-
-polar_glm_still <- glm(School_Polar ~ Ablation*Darkness, data = school_data %>% filter(Flow == "Still Water"))
-polar_s_aov <- Anova(polar_glm_still)
-
-polar_glm_flow <- glm(School_Polar ~ Ablation*Darkness, data = school_data %>% filter(Flow == "Flowing Water (2 BL/s)"))
-polar_f_aov <- Anova(polar_glm_flow)
-
-speed_glm_still <- glm(School_Speed ~ Ablation*Darkness, data = school_data %>% filter(Flow == "Still Water"))
-speed_s_aov <- Anova(speed_glm_still)
-
-speed_glm_flow <- glm(School_Speed ~ Ablation*Darkness, data = school_data %>% filter(Flow == "Flowing Water (2 BL/s)"))
-speed_f_aov <- Anova(speed_glm_flow)
-
-area_glm_still <- glm(Area ~ Ablation*Darkness, data = school_data %>% filter(Flow == "Still Water"))
-area_s_aov <- Anova(area_glm_still)
-
-area_glm_flow <- glm(Area ~ Ablation*Darkness, data = school_data %>% filter(Flow == "Flowing Water (2 BL/s)"))
-area_f_aov <- Anova(area_glm_flow)
-
-groups_glm_still <- glm(Groups ~ Ablation*Darkness, data = school_data %>% filter(Flow == "Still Water"))
-groups_s_aov <- Anova(groups_glm_still)
-
-groups_glm_flow <- glm(Groups ~ Ablation*Darkness, data = school_data %>% filter(Flow == "Flowing Water (2 BL/s)"))
-groups_f_aov <- Anova(groups_glm_flow)
-
-
-glm_school_stats_table <- tibble(Stat = c(rep("NND",4),rep("Height",4),rep("Polarization",4),rep("Speed",4),rep("Area",4),rep("Groups",4)),
-       Flow_or_Still = rep( c(rep("Still",2) , rep("Flow",2)), 6),
-       Condition = rep(c("Ablation","Darkness"), 12),
-       DF = rep(c(length(nnd_glm_still$y)-3,length(nnd_glm_flow$y)-3),12),
-       Chisq = c(nnd_s_aov$`LR Chisq`[1:2],nnd_f_aov$`LR Chisq`[1:2],
-                 height_s_aov$`LR Chisq`[1:2],height_f_aov$`LR Chisq`[1:2],
-                 polar_s_aov$`LR Chisq`[1:2],polar_f_aov$`LR Chisq`[1:2],
-                 speed_s_aov$`LR Chisq`[1:2],speed_f_aov$`LR Chisq`[1:2],
-                 area_s_aov$`LR Chisq`[1:2],area_f_aov$`LR Chisq`[1:2],
-                 groups_s_aov$`LR Chisq`[1:2],groups_f_aov$`LR Chisq`[1:2]),
-       
-       P_Val = c(nnd_s_aov$`Pr(>Chisq)`[1:2],nnd_f_aov$`Pr(>Chisq)`[1:2],
-                 height_s_aov$`Pr(>Chisq)`[1:2],height_f_aov$`Pr(>Chisq)`[1:2],
-                 polar_s_aov$`Pr(>Chisq)`[1:2],polar_f_aov$`Pr(>Chisq)`[1:2],
-                 speed_s_aov$`Pr(>Chisq)`[1:2],speed_f_aov$`Pr(>Chisq)`[1:2],
-                 area_s_aov$`Pr(>Chisq)`[1:2],area_f_aov$`Pr(>Chisq)`[1:2],
-                 groups_s_aov$`Pr(>Chisq)`[1:2],groups_f_aov$`Pr(>Chisq)`[1:2]),
-       
-       Is_Sig = P_Val < 0.05)
-
-
-glm_school_stats_table
-
-sum(glm_school_stats_table$Is_Sig == glmm_school_stats_table$Is_Sig)
-sum(glm_school_stats_table$Is_Sig == 1 & glmm_school_stats_table$Is_Sig == 1) / sum(glm_school_stats_table$Is_Sig == 1)
-
 
 ```
 
@@ -875,5 +720,99 @@ para_plot <- ggplot(para_vals, aes(X, Y, z = BLs))+
 
 ggsave("Paper Figures/parallax_model.png", para_plot, width = 14, height = 7)
 ```
+
+
+Autocorrelation Figure
+
+```{r}
+
+school_data_no_removals <- read.csv("Data/Fish_School_Values_3D.csv")
+school_data_no_removals <- na.omit(school_data_no_removals)
+
+school_data_no_removals <- school_data_no_removals %>% mutate(Flow = ifelse(Flow == "0", "Still Water", "Flowing Water (2 BL/s)")) %>%
+                           mutate(Ablation = ifelse(Ablation == "N", "No Ablation", "Ablated")) %>%
+                           mutate(Darkness = ifelse(Darkness == "N", "Light", "Dark")) %>%
+                           filter(School_Speed <= 5) %>%
+                           mutate(Flow = factor(Flow), Ablation = factor(Ablation), Darkness = factor(Darkness)) %>%
+                           mutate(Flow = fct_relevel(Flow, c("Still Water","Flowing Water (2 BL/s)"))) %>%
+                           mutate(Ablation = fct_relevel(Ablation, c("No Ablation","Ablated"))) %>%
+                           mutate(Darkness = fct_relevel(Darkness, c("Light","Dark"))) %>%
+                           mutate(Flow_Ablation_Darkness = factor(paste(Flow,Ablation,Darkness,sep=", "))) %>%
+                           mutate(Date = paste(Year,Month,Day,sep="_"),
+                                  Date_Trial = paste(Year,Month,Day,Trial,sep="_"),)
+
+for(i in seq(1:5)){
+  print(i)
+  
+  new_autocorrs <- school_data_no_removals %>% group_by(Date_Trial) %>%
+                    filter(!Date_Trial %in% c("2021_3_25_30","2020_7_28_29")) %>%
+                    summarise(nnd_corr = abs(cor.test(NND, lag(NND, n = i))$estimate),
+                              nnd_p = cor.test(NND, lag(NND, n = i))$p.value,
+                              polar_corr = abs(cor.test(School_Polar, lag(School_Polar, n = i))$estimate),
+                              polar_p = cor.test(School_Polar, lag(School_Polar, n = i))$p.value,
+                              speed_corr = abs(cor.test(School_Speed, lag(School_Speed, n = i))$estimate),
+                              speed_p = cor.test(School_Speed, lag(School_Speed, n = i))$p.value,
+                              groups_corr = abs(cor.test(Groups, lag(Groups, n = i))$estimate),
+                              groups_p = cor.test(Groups, lag(Groups, n = i))$p.value,
+                              area_corr = abs(cor.test(Area, lag(Area, n = i))$estimate),
+                              area_p = cor.test(Area, lag(Area, n = i))$p.value,
+                              height_corr = abs(cor.test(School_Height, lag(School_Height, n = i))$estimate),
+                              height_p = cor.test(School_Height, lag(School_Height, n = i))$p.value,
+                              lag = i)
+  
+  if(i == 1){
+    school_autocorrs <- new_autocorrs
+  }
+  else{
+    school_autocorrs <- rbind(school_autocorrs,new_autocorrs) 
+  }
+  
+}
+
+nnd_lag_plot <- ggplot(school_autocorrs, aes(as.factor(lag), nnd_corr))+
+  stat_summary(fun.data = mean_se, geom = "errorbar", color = "black", width = 0.25) +
+  stat_summary(fun.y=mean, geom="point", size = 3) +
+  ylim(0,1)+
+  ylab("NND Autocorrelation")+
+  xlab("Offest")+
+  theme_classic()+ 
+  theme(legend.position = "none")
+
+polar_lag_plot <- ggplot(school_autocorrs, aes(as.factor(lag), polar_corr))+
+  stat_summary(fun.data = mean_se, geom = "errorbar", color = "black", width = 0.25) +
+  stat_summary(fun.y=mean, geom="point", size = 3) +
+  ylim(0,1)+
+  ylab("Polarity Autocorrelation")+
+  xlab("Offest")+
+  theme_classic()+ 
+  theme(legend.position = "none")
+
+speed_lag_plot <- ggplot(school_autocorrs, aes(as.factor(lag), speed_corr))+
+  stat_summary(fun.data = mean_se, geom = "errorbar", color = "black", width = 0.25) +
+  stat_summary(fun.y=mean, geom="point", size = 3) +
+  ylim(0,1)+
+  ylab("Speed Autocorrelation")+
+  xlab("Offest")+
+  theme_classic()+ 
+  theme(legend.position = "none")
+
+groups_lag_plot <- ggplot(school_autocorrs, aes(as.factor(lag), groups_corr))+
+  stat_summary(fun.data = mean_se, geom = "errorbar", color = "black", width = 0.25) +
+  stat_summary(fun.y=mean, geom="point", size = 3) +
+  ylim(0,1)+
+  ylab("Numebr of Groups Autocorrelation")+
+  xlab("Offest")+
+  theme_classic()+ 
+  theme(legend.position = "none")
+
+lag_plots <- ggarrange(
+          nnd_lag_plot, polar_lag_plot, speed_lag_plot, groups_lag_plot,
+          ncol = 2, nrow = 2,
+          labels = c("A", "B", "C", "D"))
+
+ggsave("Paper Figures/Different_Lag_Figures.png", lag_plots, width = 7, height = 7)
+
+```
+
 
 
