@@ -39,7 +39,7 @@ moving_average_n = 35
 tailbeat_len = 19
 
 #Fish len is the median of all fish lengths in pixels
-fish_len = 0.07862 #193 0.07862 #
+fish_len = 193 #0.07862 #193 0.07862 #
 
 #Header list for reading the raw location CSVs
 header = list(range(4))
@@ -764,35 +764,36 @@ class school_comps:
         fig = plt.figure(figsize=(16, 10))
         gs = gridspec.GridSpec(ncols = 5, nrows = 3) 
 
-        ax0 = plt.subplot(gs[:,0])
+        ax0 = plt.subplot(gs[:,:2])
+        ax0.set_aspect(1)
         for fish in self.fishes:
             ax0.scatter(fish.head_x, fish.head_y, c = np.linspace(0,1,num = len(fish.head_x)), s = 2)
 
-        ax1 = plt.subplot(gs[0,1])
+        ax1 = plt.subplot(gs[0,2])
         ax1.plot(range(len(self.school_center_x)), self.school_center_x)
         ax1.set_title("School X")
 
-        ax2 = plt.subplot(gs[1,1])
+        ax2 = plt.subplot(gs[1,2])
         ax2.plot(range(len(self.school_center_y)), self.school_center_y)
         ax2.set_title("School Y")
 
-        ax3 = plt.subplot(gs[0,2])
+        ax3 = plt.subplot(gs[0,3])
         ax3.plot(range(len(self.group_speed)), self.group_speed)
         ax3.set_title("School Speed")
 
-        ax4 = plt.subplot(gs[1,2])
+        ax4 = plt.subplot(gs[1,3])
         ax4.plot(range(len(self.group_tb_freq)), self.group_tb_freq)
         ax4.set_title("School TB Freq")
 
-        ax5 = plt.subplot(gs[2,2])
+        ax5 = plt.subplot(gs[2,3])
         ax5.plot(range(len(self.polarization)), self.polarization)
         ax5.set_title("School Polarization")
 
-        ax6 = plt.subplot(gs[0,3])
+        ax6 = plt.subplot(gs[0,4])
         ax6.plot(range(len(self.school_areas)), self.school_areas)
         ax6.set_title("School Area")
 
-        ax7 = plt.subplot(gs[1,3])
+        ax7 = plt.subplot(gs[1,4])
         ax7.plot(range(len(self.nearest_neighbor_distance)), self.nearest_neighbor_distance)
         ax7.set_title("School NND")
 
@@ -960,8 +961,7 @@ class trial:
             dists = get_dist_np(0,0,current_comp.x_diff,current_comp.y_diff)
 
             short_data_length = min([len(current_comp.x_diff),len(current_comp.y_diff),len(dists),
-                                     len(current_comp.angle),len(current_comp.heading_diff),len(current_comp.speed_diff),
-                                     len(current_comp.tailbeat_offset_reps)])
+                                     len(current_comp.angle),len(current_comp.heading_diff),len(current_comp.speed_diff)])
 
             # print([len(current_comp.x_diff),len(current_comp.y_diff),len(dists),
             #                          len(current_comp.angle),len(current_comp.heading_diff),len(current_comp.speed_diff),
@@ -991,9 +991,13 @@ class trial:
                      'Heading_Diff': current_comp.heading_diff[:short_data_length],
                      'Fish1_Speed': current_comp.f1.speed[:short_data_length],
                      'Fish2_Speed': current_comp.f2.speed[:short_data_length],
-                     'Speed_Diff': current_comp.speed_diff[:short_data_length],
-                     'Spatial_Auto': current_comp.spatial_autocor[:short_data_length],
-                     'Sync': current_comp.tailbeat_offset_reps[:short_data_length]}
+                     'Fish1_Heading': current_comp.f1.heading[:short_data_length],
+                     'Fish2_Heading': current_comp.f2.heading[:short_data_length],
+                     'Fish1_X': current_comp.f1.head_x[:short_data_length],
+                     'Fish1_Y': current_comp.f1.head_y[:short_data_length],
+                     'Fish2_X': current_comp.f2.head_x[:short_data_length],
+                     'Fish2_Y': current_comp.f2.head_y[:short_data_length],
+                     'Speed_Diff': current_comp.speed_diff[:short_data_length]}
 
                 if firstfish:
                     out_data = pd.DataFrame(data=d)
@@ -1043,7 +1047,7 @@ class trial:
 
         return(out_data)
 
-data_folder = "3D_Finished_Fish_Data_4P_gaps/"
+data_folder = "Finished_Fish_Data_4P_gaps/"
 
 trials = []
 
@@ -1077,10 +1081,10 @@ for trial in trials:
 
 add_on = ""
 
-fish_sigular_dataframe.to_csv(add_on+"Fish_Individual_Values_3D_xy.csv")
-fish_comp_dataframe.to_csv(add_on+"Fish_Comp_Values_3D_xy.csv")
-fish_raw_comp_dataframe.to_csv(add_on+"Fish_Raw_Comp_Values_3D_xy.csv")
-fish_school_dataframe.to_csv(add_on+"Fish_School_Values_3D_xy.csv")
+fish_sigular_dataframe.to_csv(add_on+"Fish_Individual_Values_2D.csv")
+fish_comp_dataframe.to_csv(add_on+"Fish_Comp_Values_2D.csv")
+fish_raw_comp_dataframe.to_csv(add_on+"Fish_Raw_Comp_Values_2D.csv")
+fish_school_dataframe.to_csv(add_on+"Fish_School_Values_2D.csv")
 
 #Recalculate when new data is added
 # all_trials_tailbeat_lens = []

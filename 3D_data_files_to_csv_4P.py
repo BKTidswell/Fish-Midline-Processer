@@ -1247,6 +1247,12 @@ class trial:
             chunked_pitch_heading_diffs = angular_mean_tailbeat_chunk(current_comp.pitch_heading_diff,tailbeat_len)
             chunked_f1_speed = mean_tailbeat_chunk(current_comp.f1.speed,tailbeat_len)
             chunked_f2_speed = mean_tailbeat_chunk(current_comp.f2.speed,tailbeat_len)
+            chunked_f1_X = mean_tailbeat_chunk(current_comp.f1.head_x,tailbeat_len)
+            chunked_f1_Y = mean_tailbeat_chunk(current_comp.f1.head_y,tailbeat_len)
+            chunked_f1_Z = mean_tailbeat_chunk(current_comp.f1.head_z,tailbeat_len)
+            chunked_f2_X = mean_tailbeat_chunk(current_comp.f2.head_x,tailbeat_len)
+            chunked_f2_Y = mean_tailbeat_chunk(current_comp.f2.head_y,tailbeat_len)
+            chunked_f2_Z = mean_tailbeat_chunk(current_comp.f2.head_z,tailbeat_len)
             chunked_speed_diffs = mean_tailbeat_chunk(current_comp.speed_diff,tailbeat_len)
             chunked_tailbeat_offsets = mean_tailbeat_chunk(current_comp.tailbeat_offset_reps,tailbeat_len)
 
@@ -1273,6 +1279,12 @@ class trial:
                  'Pitch Heading_Diff': chunked_pitch_heading_diffs[:short_data_length],
                  'Fish1_Speed': chunked_f1_speed[:short_data_length],
                  'Fish2_Speed': chunked_f2_speed[:short_data_length],
+                 'Fish1_X': chunked_f1_X[:short_data_length],
+                 'Fish1_Y': chunked_f1_Y[:short_data_length],
+                 'Fish1_Z': chunked_f1_Z[:short_data_length],
+                 'Fish2_X': chunked_f2_X[:short_data_length],
+                 'Fish2_Y': chunked_f2_Y[:short_data_length],
+                 'Fish2_Z': chunked_f2_Z[:short_data_length],
                  'Speed_Diff': chunked_speed_diffs[:short_data_length],
                  'Sync': chunked_tailbeat_offsets[:short_data_length]}
 
@@ -1295,7 +1307,7 @@ class trial:
 
             short_data_length = min([len(current_comp.x_diff),len(current_comp.y_diff),len(current_comp.z_diff),len(dists),
                                      len(current_comp.angle),len(current_comp.yaw_heading_diff),len(current_comp.pitch_heading_diff),
-                                     len(current_comp.speed_diff),len(current_comp.tailbeat_offset_reps)])
+                                     len(current_comp.speed_diff)])
 
             # print([len(current_comp.x_diff),len(current_comp.y_diff),len(dists),
             #                          len(current_comp.angle),len(current_comp.heading_diff),len(current_comp.speed_diff),
@@ -1329,8 +1341,13 @@ class trial:
                      'Pitch_Heading_Diff': current_comp.pitch_heading_diff[:short_data_length],
                      'Fish1_Speed': current_comp.f1.speed[:short_data_length],
                      'Fish2_Speed': current_comp.f2.speed[:short_data_length],
-                     'Speed_Diff': current_comp.speed_diff[:short_data_length],
-                     'Sync': current_comp.tailbeat_offset_reps[:short_data_length]}
+                     'Fish1_X': current_comp.f1.head_x[:short_data_length],
+                     'Fish1_Y': current_comp.f1.head_y[:short_data_length],
+                     'Fish1_Z': current_comp.f1.head_z[:short_data_length],
+                     'Fish2_X': current_comp.f2.head_x[:short_data_length],
+                     'Fish2_Y': current_comp.f2.head_y[:short_data_length],
+                     'Fish2_Z': current_comp.f2.head_z[:short_data_length],
+                     'Speed_Diff': current_comp.speed_diff[:short_data_length]}
 
                 if firstfish:
                     out_data = pd.DataFrame(data=d)

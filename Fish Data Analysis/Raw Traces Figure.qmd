@@ -1,0 +1,349 @@
+---
+title: "Raw Traces"
+format: html
+editor: visual
+---
+
+```{r}
+library(tidyverse)
+library(ggplot2)
+library(ggpubr)
+```
+
+This is to make sure that it's the smae size after I do supsmu
+```{r}
+rad2deg <- function(rad) {(rad * 180) / (pi)}
+deg2rad <- function(deg) {(deg * pi) / (180)}
+round_any <- function(x, accuracy, f=round){f(x/ accuracy) * accuracy}
+ang_mean <- function(x){rad2deg(atan2(mean(sin(deg2rad(x))),mean(cos(deg2rad(x)))))}
+
+fold_angle_0_360_to_0_180 <- function(x){abs(abs(x-180)-180)}
+
+fold_angle_neg_180_180_to_neg_90_90 <- function(x){ifelse(x > 90,90-abs(90-x),ifelse(x < -90, -90+abs(-90-x), x))}
+
+supsmu_right_length_y <- function(x_data,y_data){
+  output <- rep(NA,length(y_data))
+  
+  smooth_x <- supsmu(x_data,y_data)$x
+  smooth_y <- supsmu(x_data,y_data)$y
+  
+  for(i in 1:length(smooth_x)){
+    output[smooth_x[i]] <- smooth_y[i]
+  }
+  
+  return(output)
+}
+
+```
+
+
+Load the Data
+
+```{r}
+comp_data <- read.csv("Data/Fish_Raw_Comp_Values_3D.csv") %>% separate(Fish, c("Fish1", "Fish2"),sep="x") %>% mutate(Data_ID = paste(Year,Month,Day,Trial, sep = "_"))
+```
+
+
+```{r}
+comp_data <- comp_data %>% filter(Data_ID == "2021_8_3_17")
+
+comp_data_switch_fish <- comp_data %>% mutate(Fish3 = Fish1,
+                                              Fish3_X = Fish1_X,
+                                              Fish3_Y = Fish1_Y,
+                                              Fish3_Z = Fish1_Z,
+                                              Fish3_Yaw_Heading = Fish1_Yaw_Heading,
+                                              Fish3_Pitch_Heading = Fish1_Pitch_Heading,
+                                              Fish3_Speed = Fish1_Speed) %>%
+                                       mutate(Fish1 = Fish2,
+                                              Fish1_X = Fish2_X,
+                                              Fish1_Y = Fish2_Y,
+                                              Fish1_Z = Fish2_Z,
+                                              Fish1_Yaw_Heading = Fish2_Yaw_Heading,
+                                              Fish1_Pitch_Heading = Fish2_Pitch_Heading,
+                                              Fish1_Speed = Fish2_Speed) %>%
+                                       mutate(Fish2 = Fish3,
+                                              Fish2_X = Fish3_X,
+                                              Fish2_Y = Fish3_Y,
+                                              Fish2_Z = Fish3_Z,
+                                              Fish2_Yaw_Heading = Fish3_Yaw_Heading,
+                                              Fish2_Pitch_Heading = Fish3_Pitch_Heading,
+                                              Fish2_Speed = Fish3_Speed) %>%
+                                       select(-c(Fish3,Fish3_X,Fish3_Y,Fish3_Z,Fish3_Yaw_Heading,Fish3_Pitch_Heading,Fish3_Speed))
+
+comp_data_two <- bind_rows(comp_data, comp_data_switch_fish)
+
+comp_data_all <- comp_data_two %>% mutate(Flow = ifelse(Flow == "0", "Still Water", "Flowing Water (2 BL/s)")) %>%
+                                   mutate(Ablation = ifelse(Ablation == "N", "No Ablation", "Ablated")) %>%
+                                   mutate(Darkness = ifelse(Darkness == "N", "Light", "Dark")) %>%
+                                   mutate(Flow = factor(Flow), Ablation = factor(Ablation), Darkness = factor(Darkness)) %>%
+                                   mutate(Flow = fct_relevel(Flow, c("Still Water","Flowing Water (2 BL/s)"))) %>%
+                                   mutate(Ablation = fct_relevel(Ablation, c("No Ablation","Ablated"))) %>%
+                                   mutate(Darkness = fct_relevel(Darkness, c("Light","Dark"))) %>%
+                                   mutate(Flow_Ablation_Darkness = factor(paste(Flow,Ablation,Darkness,sep=", "))) #%>%
+                                   # mutate(Fish1_X = ifelse(Fish1_Speed > 10, NA, Fish1_X),
+                                   #        Fish1_Y = ifelse(Fish1_Speed > 10, NA, Fish1_Y),
+                                   #        Fish1_Speed = ifelse(Fish1_Speed > 10, NA, Fish1_Speed),
+                                   #        Fish1_Yaw_Heading = ifelse(Fish1_Speed > 10, NA, Fish1_Yaw_Heading))
+
+```
+
+
+```{r}
+
+unique((comp_data_all %>% filter(Darkness == "Dark"))$Data_ID)
+
+unique(comp_data_all$Data_ID)
+
+```
+
+```{r}
+
+"2020_7_28_3"
+"2021_3_25_1"
+
+# "2021_10_6_36" 4/5
+# "2021_8_3_7" 2/5
+# "2021_8_3_17" 4/5
+# "2021_10_8_15" 3/5
+
+example_data <- comp_data_all %>% filter(Data_ID == "2021_8_3_17") #%>% filter(Fish1 == "individual1")
+
+smooth_data <- example_data %>% group_by(Fish1,Frame_Num) %>%
+                               summarise(Fish1_X = mean(Fish1_X),
+                                         Fish1_Y = mean(Fish1_Y),
+                                         Fish1_Speed = mean(Fish1_Speed),
+                                         Fish1_Yaw_Heading = mean(Fish1_Yaw_Heading)) %>%
+                               group_by(Fish1) %>%
+                               mutate(sin_Heading_Smooth = supsmu_right_length_y(Frame_Num,sin(deg2rad(Fish1_Yaw_Heading))),
+                                      cos_Heading_Smooth = supsmu_right_length_y(Frame_Num,cos(deg2rad(Fish1_Yaw_Heading))),
+                                      Fish1_X_Smooth = supsmu_right_length_y(Frame_Num,Fish1_X),
+                                      Fish1_Y_Smooth = supsmu_right_length_y(Frame_Num,Fish1_Y),
+                                      Fish1_Yaw_Heading_Smooth = rad2deg(atan2(sin_Heading_Smooth,cos_Heading_Smooth)),
+                                      Fish1_Speed_Smooth = supsmu_right_length_y(Frame_Num,Fish1_Speed),
+                                      Speed_Increasing_Smooth = ifelse(Fish1_Speed < lead(Fish1_Speed),1,0),
+                                      Fish1_Yaw_Heading_First = Fish1_Yaw_Heading_Smooth[4],
+                                      Fish1_Yaw_Heading_Change = ((Fish1_Yaw_Heading_Smooth-lag(Fish1_Yaw_Heading_Smooth)) + 180) %% 360 - 180,
+                                      Fish1_Yaw_Heading_Total = Fish1_Yaw_Heading_Smooth[4] + cumsum(replace_na(Fish1_Yaw_Heading_Change, 0)),
+                                      Fish1_Yaw_Heading_Min = min(Fish1_Yaw_Heading_Total),
+                                      Fish1_Yaw_Heading_Max = min(Fish1_Yaw_Heading_Total),
+                                      Fish1_Yaw_Heading_Total_Corrected = ifelse(Fish1_Yaw_Heading_Max > 360, Fish1_Yaw_Heading_Total - 360,
+                                                                                 ifelse(Fish1_Yaw_Heading_Min < -360, Fish1_Yaw_Heading_Total + 360,
+                                                                                        Fish1_Yaw_Heading_Total))) %>%
+                               ungroup()
+
+smooth_data_nnd <- example_data %>% select(c(Fish1,Fish2,Frame_Num,Distance,Fish1_X,Fish1_Y,Fish2_X,Fish2_Y)) %>%
+                                    group_by(Fish1,Frame_Num) %>%
+                                    mutate(nndDistance = min(Distance, na.rm = TRUE),
+                                           nndDistance = ifelse(is.infinite(nndDistance), NA, nndDistance),
+                                           all_nas = all(is.na(nndDistance))) %>%
+                                    filter(Distance == nndDistance | all_nas) %>%
+                                    mutate(row_n = row_number()) %>%
+                                    filter(row_n == 1) %>%
+                                    ungroup() %>%
+                                    group_by(Fish1) %>%
+                                    arrange(Frame_Num) %>%
+                                    mutate(Fish1_Distance_Smooth = supsmu_right_length_y(Frame_Num,nndDistance)) %>%
+                                    ungroup()
+
+nnd_summary <- smooth_data_nnd %>% group_by(Frame_Num) %>%
+                                   summarise(meanNND = mean(nndDistance, na.rm = TRUE)) %>%
+                                   ungroup() %>%
+                                   mutate(meanNND_Smooth = supsmu_right_length_y(Frame_Num,meanNND))
+
+nnd_points <- smooth_data_nnd %>% filter(Frame_Num %in% c(50, 150, 275)) %>% 
+                                     mutate(Grouping = paste(Frame_Num, Fish1, Fish2)) %>% 
+                                     select(c(Frame_Num, Fish1, Fish2, Grouping)) %>%
+                                     pivot_longer(c(Fish1, Fish2),
+                                                  names_to = "Useless",
+                                                  values_to = "Fish1") %>%
+                                     select(-c(Useless))
+
+nnd_joined <- nnd_points %>% left_join(., smooth_data %>% select(Fish1, Frame_Num, Fish1_X, Fish1_Y))               
+
+smooth_data_looker <- smooth_data %>% filter(Frame_Num %in% c(50, 150, 275)) 
+
+polar_summary <- example_data %>% select(Fish1,Frame_Num,Fish1_Yaw_Heading) %>%
+                                  group_by(Fish1,Frame_Num) %>%
+                                  summarise(Fish1_Yaw_Heading = mean(Fish1_Yaw_Heading)) %>%
+                                  ungroup() %>%
+                                  mutate(sinHeading = sin(deg2rad(Fish1_Yaw_Heading)),
+                                         cosHeading = cos(deg2rad(Fish1_Yaw_Heading))) %>%
+                                  group_by(Frame_Num) %>%
+                                  summarise(n = n(),
+                                            sumSin = sum(sinHeading, na.rm = TRUE),
+                                            sumCos =sum(cosHeading, na.rm = TRUE)) %>%
+                                  ungroup() %>%
+                                  mutate(polar = 1/n * sqrt(sumSin**2 + sumCos**2),
+                                         polar_Smooth = supsmu_right_length_y(Frame_Num,polar))
+                  
+
+raw_movement_plot <- ggplot()+
+  geom_path(data = smooth_data, aes(x = Fish1_X_Smooth, y = Fish1_Y_Smooth, color = Fish1), size = 1)+
+  geom_point(data = nnd_joined, aes(x = Fish1_X, y = Fish1_Y, color = Fish1), alpha = 1, size = 3)+
+  geom_line(data = nnd_joined, aes(x = Fish1_X, y = Fish1_Y, fill = Grouping), alpha = 1)+
+  theme_classic()+
+  theme(legend.position = "none")
+
+raw_movement_plot
+
+raw_speed_plot <- ggplot(smooth_data, aes(x = Frame_Num, y = Fish1_Speed_Smooth, color = Fish1))+
+  geom_line(size = 1, alpha = 0.5)+
+  theme_classic()+ 
+  theme(legend.position = "none")
+
+raw_heading_plot <- ggplot(smooth_data, aes(x = Frame_Num, y = Fish1_Yaw_Heading_Total_Corrected, color = Fish1))+
+  geom_line(size = 1, alpha = 0.5)+
+  theme_classic()+ 
+  theme(legend.position = "none")
+
+raw_nnd_plot <- ggplot(smooth_data_nnd, aes(x = Frame_Num, y = Fish1_Distance_Smooth, color = Fish1))+
+  geom_line(size = 1, alpha = 0.5)+
+  geom_line(data = nnd_summary, aes(x = Frame_Num, y = meanNND_Smooth), color = "black", size = 1.5)+
+  theme_classic()+ 
+  theme(legend.position = "none")
+
+raw_polar_plot <- ggplot(polar_summary, aes(x = Frame_Num, y = polar_Smooth))+
+  geom_line(color = "black", size = 1.5)+
+  theme_classic()+ 
+  theme(legend.position = "none")
+
+raw_movement_plot
+raw_speed_plot
+raw_heading_plot
+raw_nnd_plot
+raw_polar_plot
+
+raw_plots <- ggarrange(raw_movement_plot, raw_speed_plot, raw_heading_plot, raw_nnd_plot, raw_polar_plot,
+          ncol = 1,
+          labels = c("A","B","C","D","E"))
+
+ggsave("Raw_Test.png", raw_plots, width = 7, height = 21)
+```
+
+
+## Now we try it with 2D data, see if that loosk better
+
+Load the Data
+
+```{r}
+comp_data <- read.csv("Data/Fish_Raw_Comp_Values_2D.csv") %>% separate(Fish, c("Fish1", "Fish2"),sep="x")
+```
+
+
+```{r}
+
+comp_data_switch_fish <- comp_data %>% mutate(Fish3 = Fish1,
+                                              Fish3_X = Fish1_X,
+                                              Fish3_Y = Fish1_Y,
+                                              Fish3_Heading = Fish1_Heading,
+                                              Fish3_Speed = Fish1_Speed) %>%
+                                       mutate(Fish1 = Fish2,
+                                              Fish1_X = Fish2_X,
+                                              Fish1_Y = Fish2_Y,
+                                              Fish1_Heading = Fish2_Heading,
+                                              Fish1_Speed = Fish2_Speed) %>%
+                                       mutate(Fish2 = Fish3,
+                                              Fish2_X = Fish3_X,
+                                              Fish2_Y = Fish3_Y,
+                                              Fish2_Heading = Fish3_Heading,
+                                              Fish2_Speed = Fish3_Speed) %>%
+                                       select(-c(Fish3,Fish3_X,Fish3_Y,Fish3_Heading,Fish3_Speed))
+
+comp_data_two <- bind_rows(comp_data, comp_data_switch_fish)
+
+comp_data_all <- comp_data %>% mutate(Flow = ifelse(Flow == "0", "Still Water", "Flowing Water (2 BL/s)")) %>%
+                                   mutate(Ablation = ifelse(Ablation == "N", "No Ablation", "Ablated")) %>%
+                                   mutate(Darkness = ifelse(Darkness == "N", "Light", "Dark")) %>%
+                                   mutate(Flow = factor(Flow), Ablation = factor(Ablation), Darkness = factor(Darkness)) %>%
+                                   mutate(Flow = fct_relevel(Flow, c("Still Water","Flowing Water (2 BL/s)"))) %>%
+                                   mutate(Ablation = fct_relevel(Ablation, c("No Ablation","Ablated"))) %>%
+                                   mutate(Darkness = fct_relevel(Darkness, c("Light","Dark"))) %>%
+                                   mutate(Flow_Ablation_Darkness = factor(paste(Flow,Ablation,Darkness,sep=", "))) %>%
+                                   mutate(Data_ID = paste(Year,Month,Day,Trial, sep = "_"))
+
+```
+
+
+```{r}
+
+unique((comp_data_all %>% filter(Darkness == "Dark" & Flow == "Flowing Water (2 BL/s)"))$Data_ID) # "2021_7_7_18"
+
+#unique(comp_data_all$Data_ID)
+
+```
+
+```{r}
+
+example_data <- comp_data_all %>% filter(Data_ID == "2021_10_8_21")
+
+smooth_data <- example_data %>% group_by(Fish1,Frame_Num) %>%
+                               summarise(Fish1_X = mean(Fish1_X),
+                                         Fish1_Y = mean(Fish1_Y),
+                                         Fish1_Speed = mean(Fish1_Speed),
+                                         Fish1_Heading = mean(Fish1_Heading)) %>%
+                               group_by(Fish1) %>%
+                               mutate(Fish1_X_Smooth = supsmu_right_length_y(Frame_Num,Fish1_X),
+                                      Fish1_Y_Smooth = supsmu_right_length_y(Frame_Num,Fish1_Y),
+                                      Fish1_Speed_Smooth = supsmu_right_length_y(Frame_Num,Fish1_Speed),
+                                      Fish1_Heading_Smooth = supsmu_right_length_y(Frame_Num,Fish1_Heading),
+                                      Speed_Increasing_Smooth = ifelse(Fish1_Speed < lead(Fish1_Speed),1,0)) %>%
+                               ungroup()
+
+smooth_data_nnd <- example_data %>% select(c(Fish1,Frame_Num,Distance,Fish1_X)) %>%
+                                    group_by(Fish1,Frame_Num) %>%
+                                    mutate(nndDistance = min(Distance, na.rm = TRUE)) %>%
+                                    mutate(nndDistance = ifelse(is.infinite(nndDistance), NA, nndDistance)) %>%
+                                    summarise(nndDistance = mean(nndDistance,na.rm = TRUE)) %>%
+                                    ungroup() %>%
+                                    group_by(Fish1) %>%
+                                    mutate(Fish1_Distance_Smooth = supsmu_right_length_y(Frame_Num,nndDistance)) %>%
+                                    ungroup()
+
+nnd_summary <- smooth_data_nnd %>% group_by(Frame_Num) %>%
+                                   summarise(meanNND = mean(nndDistance, na.rm = TRUE)) %>%
+                                   ungroup() %>%
+                                   mutate(meanNND_Smooth = supsmu_right_length_y(Frame_Num,meanNND))
+
+polar_summary <- example_data %>% select(Fish1,Frame_Num,Fish1_Heading) %>%
+                                  group_by(Fish1,Frame_Num) %>%
+                                  summarise(Fish1_Heading = mean(Fish1_Heading)) %>%
+                                  ungroup() %>%
+                                  mutate(sinHeading = sin(deg2rad(Fish1_Heading)),
+                                         cosHeading = cos(deg2rad(Fish1_Heading))) %>%
+                                  group_by(Frame_Num) %>%
+                                  summarise(n = n(),
+                                            sumSin = sum(sinHeading, na.rm = TRUE),
+                                            sumCos =sum(cosHeading, na.rm = TRUE)) %>%
+                                  ungroup() %>%
+                                  mutate(polar = 1/n * sqrt(sumSin**2 + sumCos**2),
+                                         polar_Smooth = supsmu_right_length_y(Frame_Num,polar))
+                  
+
+raw_movement_plot <- ggplot(smooth_data, aes(x = Fish1_X, y = Fish1_Y, color = Fish1, alpha = Frame_Num))+
+  geom_path(size = 1)+
+  theme_classic()+
+  coord_fixed()
+
+raw_speed_plot <- ggplot(smooth_data, aes(x = Frame_Num, y = Fish1_Speed_Smooth, color = Fish1))+
+  geom_line(size = 1, alpha = 0.5)+
+  theme_classic()
+
+raw_heading_plot <- ggplot(smooth_data, aes(x = Frame_Num, y = Fish1_Heading_Smooth, color = Fish1))+
+  geom_line(size = 1, alpha = 0.5)+
+  theme_classic()
+
+raw_nnd_plot <- ggplot(smooth_data_nnd, aes(x = Frame_Num, y = Fish1_Distance_Smooth, color = Fish1))+
+  geom_line(size = 1, alpha = 0.5)+
+  geom_line(data = nnd_summary, aes(x = Frame_Num, y = meanNND_Smooth), color = "black", size = 1.5)+
+  theme_classic()
+
+raw_polar_plot <- ggplot(polar_summary, aes(x = Frame_Num, y = polar_Smooth))+
+  geom_line(color = "black", size = 1.5)+
+  theme_classic()
+
+raw_movement_plot
+raw_speed_plot
+raw_heading_plot
+raw_nnd_plot
+raw_polar_plot
+```
