@@ -67,4 +67,15 @@ for file_name in three_d_files:
 
         file_id = file_name[0:22]
 
-        fig.write_html("Saved 3D Plots Manual/{name}.html".format(name = file_id), auto_play=False)
+        fig.write_html("Saved 3D Plots Manual/{name}_animated.html".format(name = file_id), auto_play=False)
+
+
+        head_df = df[df['BodyPart'] == "head"] 
+
+        fig = px.line_3d(head_df,x="x", y="y", z="z", color="Fish", hover_data = ["BodyPart"])
+
+        fig.layout.scene.aspectratio = {'x':1, 'y':1, 'z':1}
+
+        #fig.show()
+
+        fig.write_html("Saved 3D Plots Manual/{name}_trace.html".format(name = file_id), auto_play=False)

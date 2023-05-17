@@ -10,6 +10,7 @@ library(tidyverse)
 library(ggplot2)
 library(ggpubr)
 library(plotly)
+library(zoo)
 ```
 
 This is to make sure that it's the smae size after I do supsmu
@@ -88,7 +89,7 @@ comp_data_all <- comp_data_two %>% mutate(Flow = ifelse(Flow == "0", "Still Wate
                                           Fish1_Z = Fish1_Z / fish_len,
                                           Fish2_X = Fish2_X / fish_len,
                                           Fish2_Y = Fish2_Y / fish_len,
-                                          Fish2_Z = Fish2_Z / fish_len) #%>%
+                                          Fish2_Z = Fish2_Z / fish_len) #%>% 
                                    # mutate(Fish1_X = ifelse(Fish1_Speed > 10, NA, Fish1_X),
                                    #        Fish1_Y = ifelse(Fish1_Speed > 10, NA, Fish1_Y),
                                    #        Fish1_Speed = ifelse(Fish1_Speed > 10, NA, Fish1_Speed),
@@ -101,7 +102,7 @@ comp_data_all <- comp_data_two %>% mutate(Flow = ifelse(Flow == "0", "Still Wate
 
 unique((comp_data_all %>% filter(Darkness == "Dark"))$Data_ID)
 
-#unique(comp_data_all$Data_ID)
+unique(comp_data_all$Data_ID)
 
 ```
 
@@ -119,7 +120,7 @@ unique((comp_data_all %>% filter(Darkness == "Dark"))$Data_ID)
 
 #2021_7_7_27 ?
 
-example_data <- comp_data_all %>% filter(Data_ID == "2021_7_7_14") #%>% filter(Fish1 == "individual1")
+example_data <- comp_data_all %>% filter(Data_ID == "2021_10_8_27")
 
 smooth_data <- example_data %>% group_by(Fish1,Frame_Num) %>%
                                summarise(Fish1_X = mean(Fish1_X),
@@ -134,7 +135,8 @@ smooth_data <- example_data %>% group_by(Fish1,Frame_Num) %>%
                                       Fish1_Speed_Smooth = supsmu_right_length_y(Frame_Num,Fish1_Speed),
                                       Speed_Increasing_Smooth = ifelse(Fish1_Speed < lead(Fish1_Speed),1,0),
                                       Fish1_Yaw_Heading_Max_Unwrap = rad2deg(supsmu_right_length_y(Frame_Num,unwrap(deg2rad(Fish1_Yaw_Heading))))) %>%
-                               ungroup()
+                               ungroup() %>% 
+                               filter(Fish1_Z_Smooth >= -0.1 & Fish1_Z_Smooth <= 5)
 
 smooth_data_nnd <- example_data %>% select(c(Fish1,Fish2,Frame_Num,Distance,Fish1_X,Fish1_Y,Fish2_X,Fish2_Y)) %>%
                                     group_by(Fish1,Frame_Num) %>%
@@ -173,7 +175,7 @@ nnd_joined <- example_data %>% select(c(Fish1,Fish2,Frame_Num,Distance,Fish1_X,F
                                                   values_to = "Fish1") %>%
                                     select(-c(Useless)) %>% 
                                     left_join(., smooth_data %>% 
-                                    select(Fish1, Frame_Num, Fish1_X_Smooth, Fish1_Y_Smooth, Fish1_Z_Smooth))            
+                                    select(Fish1, Frame_Num, Fish1_X_Smooth, Fish1_Y_Smooth, Fish1_Z_Smooth))
 
 polar_summary <- example_data %>% select(Fish1,Frame_Num,Fish1_Yaw_Heading) %>%
                                   group_by(Fish1,Frame_Num) %>%
@@ -251,3 +253,41 @@ fig
 
 ```
 
+ Okay now we're going to try and replace all missing parts with a spline
+ 
+"2021_7_7_19"  "2021_7_7_27"  "2021_10_8_27" "2021_7_7_16"  "2021_7_7_17"  "2021_7_7_14"  "2021_10_8_21" "2021_10_8_26" "2021_7_7_6"   "2021_10_8_15"
+
+```{r}
+
+example_data_spline <- comp_data_all %>% filter(Data_ID == "2021_10_8_21")
+
+spline_data <- example_data_spline %>% group_by(Fish1,Frame_Num) %>%
+                               summarise(Fish1_X = mean(Fish1_X),
+                                         Fish1_Y = mean(Fish1_Y),
+                                         Fish1_Z = mean(Fish1_Z),
+                                         Fish1_Speed = mean(Fish1_Speed),
+                                         Fish1_Yaw_Heading = mean(Fish1_Yaw_Heading)) %>%
+                               group_by(Fish1) %>%
+                               mutate(Fish1_X_IB = ifelse(Fish1_Z >= -0.1 & Fish1_Z <= 5,Fish1_X,NA),
+                                      Fish1_Y_IB = ifelse(Fish1_Z >= -0.1 & Fish1_Z <= 5,Fish1_Y,NA),
+                                      Fish1_Z_IB = ifelse(Fish1_Z >= -0.1 & Fish1_Z <= 5,Fish1_Z,NA),
+                                      Fish1_Speed_IB = ifelse(Fish1_Z >= -0.1 & Fish1_Z <= 5,Fish1_Speed,NA),
+                                      Fish1_Heading_IB = ifelse(Fish1_Z >= -0.1 & Fish1_Z <= 5,Fish1_Yaw_Heading,NA)) %>%
+                               mutate(Fish1_X_Spline = na.spline(Fish1_X_IB) + 0*na.approx(Fish1_X_IB, na.rm = FALSE),
+                                      Fish1_Y_Spline = na.spline(Fish1_Y_IB) + 0*na.approx(Fish1_Y_IB, na.rm = FALSE),
+                                      Fish1_Z_Spline = na.spline(Fish1_Z_IB) + 0*na.approx(Fish1_Z_IB, na.rm = FALSE),
+                                      Fish1_Speed_Spline = na.spline(Fish1_Speed_IB) + 0*na.approx(Fish1_Speed_IB, na.rm = FALSE),
+                                      Fish1_Heading_Spline = na.spline(Fish1_Heading_IB) + 0*na.approx(Fish1_Heading_IB, na.rm = FALSE))%>%
+                               ungroup()
+                  
+
+fig <- plot_ly() %>%
+       add_trace(x = spline_data$Fish1_X_Spline, y = spline_data$Fish1_Y_Spline, z = spline_data$Fish1_Z_Spline,
+               split = spline_data$Fish1, type = 'scatter3d', mode = 'lines', opacity = 1, line = list(width = 6),
+               color = spline_data$Fish1,
+               colors = c("#F8766D","#CD9600","#7CAE00","#00BE67","#00BFC4","#00A9FF","#C77CFF","#FF61CC")) %>%
+       layout(showlegend = FALSE)
+
+fig
+
+```
