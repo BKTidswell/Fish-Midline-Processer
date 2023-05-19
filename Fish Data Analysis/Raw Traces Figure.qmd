@@ -14,6 +14,7 @@ library(zoo)
 ```
 
 This is to make sure that it's the smae size after I do supsmu
+
 ```{r}
 rad2deg <- function(rad) {(rad * 180) / (pi)}
 deg2rad <- function(deg) {(deg * pi) / (180)}
@@ -40,13 +41,11 @@ supsmu_right_length_y <- function(x_data,y_data){
 fish_len <- 0.083197
 ```
 
-
 Load the Data
 
 ```{r}
 comp_data <- read.csv("Data/Fish_Raw_Comp_Values_3D.csv") %>% separate(Fish, c("Fish1", "Fish2"),sep="x") %>% mutate(Data_ID = paste(Year,Month,Day,Trial, sep = "_"))
 ```
-
 
 ```{r}
 #comp_data <- comp_data %>% filter(Data_ID == "2021_8_3_17")
@@ -97,7 +96,6 @@ comp_data_all <- comp_data_two %>% mutate(Flow = ifelse(Flow == "0", "Still Wate
 
 ```
 
-
 ```{r}
 
 unique((comp_data_all %>% filter(Darkness == "Dark"))$Data_ID)
@@ -119,6 +117,8 @@ unique(comp_data_all$Data_ID)
 
 
 #2021_7_7_27 ?
+
+nnd_frame <- 300
 
 example_data <- comp_data_all %>% filter(Data_ID == "2021_10_8_27")
 
@@ -157,25 +157,34 @@ nnd_summary <- smooth_data_nnd %>% group_by(Frame_Num) %>%
                                    ungroup() %>%
                                    mutate(meanNND_Smooth = supsmu_right_length_y(Frame_Num,meanNND))
 
+
+select_frames_labeled <- example_data %>% select(c(Fish1,Frame_Num,Fish1_X,Fish1_Y)) %>%
+                                          filter(Frame_Num %in% c(100, 200, 300)) %>% 
+                                          left_join(., smooth_data %>% select(Fish1, Frame_Num, Fish1_X_Smooth, Fish1_Y_Smooth, Fish1_Z_Smooth)) %>%
+                                          group_by(Fish1, Frame_Num) %>%
+                                          summarise(Fish1_X_Smooth = mean(Fish1_X_Smooth),
+                                                    Fish1_Y_Smooth = mean(Fish1_Y_Smooth),
+                                                    Fish1_Z_Smooth = mean(Fish1_Z_Smooth))
+
 nnd_joined <- example_data %>% select(c(Fish1,Fish2,Frame_Num,Distance,Fish1_X,Fish1_Y,Fish2_X,Fish2_Y)) %>%
                                     group_by(Fish1,Frame_Num) %>%
                                     mutate(nndDistance = min(Distance, na.rm = TRUE),
                                            nndDistance = ifelse(is.infinite(nndDistance), NA, nndDistance),
                                            all_nas = all(is.na(nndDistance))) %>%
-                                    filter(Distance < 2 | all_nas) %>%
+                                    filter(Distance < 1.9 | all_nas) %>%
                                     mutate(row_n = row_number(),
                                            remove = ifelse(row_n > 1 & is.na(Distance),"Y","N")) %>%
                                     filter(remove == "N") %>%
                                     ungroup() %>%
-                                    filter(Frame_Num %in% c(10)) %>% 
+                                    filter(Frame_Num %in% c(nnd_frame)) %>% 
                                     mutate(Grouping = paste(Frame_Num, Fish1, Fish2)) %>% 
                                     select(c(Frame_Num, Fish1, Fish2, Grouping)) %>%
                                     pivot_longer(c(Fish1, Fish2),
                                                   names_to = "Useless",
                                                   values_to = "Fish1") %>%
                                     select(-c(Useless)) %>% 
-                                    left_join(., smooth_data %>% 
-                                    select(Fish1, Frame_Num, Fish1_X_Smooth, Fish1_Y_Smooth, Fish1_Z_Smooth))
+                                    #rbind(., individual5_tib) %>%
+                                    left_join(., smooth_data %>% select(Fish1, Frame_Num, Fish1_X_Smooth, Fish1_Y_Smooth, Fish1_Z_Smooth))
 
 polar_summary <- example_data %>% select(Fish1,Frame_Num,Fish1_Yaw_Heading) %>%
                                   group_by(Fish1,Frame_Num) %>%
@@ -239,9 +248,9 @@ fig <- plot_ly() %>%
                color = smooth_data$Fish1,
                colors = c("#F8766D","#CD9600","#7CAE00","#00BE67","#00BFC4","#00A9FF","#C77CFF","#FF61CC")) %>%
 
-       add_trace(x = nnd_joined$Fish1_X_Smooth, y = nnd_joined$Fish1_Y_Smooth, z = nnd_joined$Fish1_Z_Smooth,
-                 split = nnd_joined$Fish1, type = 'scatter3d', mode = "markers",
-                 color = nnd_joined$Fish1,
+       add_trace(x = select_frames_labeled$Fish1_X_Smooth, y = select_frames_labeled$Fish1_Y_Smooth, z = select_frames_labeled$Fish1_Z_Smooth,
+                 split = select_frames_labeled$Fish1, type = 'scatter3d', mode = "markers",
+                 color = select_frames_labeled$Fish1,
                  colors = c("#F8766D","#CD9600","#7CAE00","#00BE67","#00BFC4","#00A9FF","#C77CFF","#FF61CC")) %>%
         
        add_trace(x = nnd_joined$Fish1_X_Smooth, y = nnd_joined$Fish1_Y_Smooth, z = nnd_joined$Fish1_Z_Smooth, 
@@ -251,15 +260,17 @@ fig <- plot_ly() %>%
 
 fig
 
+#make colors the same-ish for groups
+#do 2 3d figures and NND figure
 ```
 
- Okay now we're going to try and replace all missing parts with a spline
- 
-"2021_7_7_19"  "2021_7_7_27"  "2021_10_8_27" "2021_7_7_16"  "2021_7_7_17"  "2021_7_7_14"  "2021_10_8_21" "2021_10_8_26" "2021_7_7_6"   "2021_10_8_15"
+Okay now we're going to try and replace all missing parts with a spline
+
+"2021_7\_7_19" "2021_7\_7_27" "2021_10_8\_27" "2021_7\_7_16" "2021_7\_7_17" "2021_7\_7_14" "2021_10_8\_21" "2021_10_8\_26" "2021_7\_7_6" "2021_10_8\_15"
 
 ```{r}
 
-example_data_spline <- comp_data_all %>% filter(Data_ID == "2021_10_8_21")
+example_data_spline <- comp_data_all %>% filter(Data_ID == "2021_10_8_27")
 
 spline_data <- example_data_spline %>% group_by(Fish1,Frame_Num) %>%
                                summarise(Fish1_X = mean(Fish1_X),
