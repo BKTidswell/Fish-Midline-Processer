@@ -427,7 +427,6 @@ single_vs_eight_results
 tab_df(single_vs_eight_results, file="sjt_des.doc")
 ```
 
-
 ```{r}
 paste0("We found that there were significant differences between the turning behavior of the artificial “school” and the real group of eight fish under each sensory condition. Specifically, the probability of making a right turn, based on the ratio of fish on the left and right of the focal fish, was different when they were schooling in light with their lateral line intact ",
        
@@ -461,7 +460,6 @@ paste0("We found that there were significant differences between the turning beh
        
        "(Figure XX). Therefore, the effects we saw were not because of the constraints of our tank, but because of actual changes in fish schooling behavior.")
 ```
-
 
 ```{r}
 paste0("We found that fish were significantly more likely to turn towards where there were more fish, and that the likelihood of turning towards the majority of fish was similar even when fish had an ablated lateral line or were swimming in darkness. Overall, we found that fish in each experimental condition were more likely to turn towards other fish, in both still ",
@@ -529,5 +527,3 @@ paste0("We found that fish were significantly more likely to turn towards where 
   
 )
 ```
-
-

@@ -840,7 +840,7 @@ class school_comps:
                 self.school_areas[i] = hull.volume/fish_len**2
 
     def calc_school_groups(self):
-        min_BL_for_groups = 2
+        min_BL_for_groups = 1.5
 
         school_xs = np.asarray([fish.head_x for fish in self.fishes])
         school_ys = np.asarray([fish.head_y for fish in self.fishes])
@@ -848,7 +848,7 @@ class school_comps:
 
         self.school_groups = [np.nan for i in range(len(school_xs[0]))]
 
-        for i in range(87,len(school_xs[0])):
+        for i in range(0,len(school_xs[0])):
 
             x_row = school_xs[:,i]
             y_row = school_ys[:,i]

@@ -100,9 +100,270 @@ comp_data_all <- comp_data_two %>% mutate(Flow = ifelse(Flow == "0", "Still Wate
 
 unique((comp_data_all %>% filter(Darkness == "Dark"))$Data_ID)
 
-unique(comp_data_all$Data_ID)
+```
+
+### Final Version Dark
+No flow
+
+```{r}
+
+nnd_frame <- 130
+
+example_data <- comp_data_all %>% filter(Data_ID == "2021_10_8_15")
+
+smooth_data <- example_data %>% group_by(Fish1,Frame_Num) %>%
+                               summarise(Fish1_X = mean(Fish1_X),
+                                         Fish1_Y = mean(Fish1_Y),
+                                         Fish1_Z = mean(Fish1_Z)) %>%
+                               group_by(Fish1) %>%
+                               mutate(Fish1_X_Smooth = supsmu_right_length_y(Frame_Num,Fish1_X),
+                                      Fish1_X_Smooth = na.spline(Fish1_X_Smooth) + 0*na.approx(Fish1_X_Smooth, na.rm = FALSE),
+                                      Fish1_Y_Smooth = supsmu_right_length_y(Frame_Num,Fish1_Y),
+                                      Fish1_Y_Smooth = na.spline(Fish1_Y_Smooth) + 0*na.approx(Fish1_Y_Smooth, na.rm = FALSE),
+                                      Fish1_Z_Smooth = supsmu_right_length_y(Frame_Num,Fish1_Z),
+                                      Fish1_Z_Smooth = na.spline(Fish1_Z_Smooth) + 0*na.approx(Fish1_Z_Smooth, na.rm = FALSE)) %>%
+                               ungroup() #%>% 
+                               #filter(Fish1_Z_Smooth >= -0.5 & Fish1_Z_Smooth <= 5)
+
+smooth_data_nnd <- example_data %>% select(c(Fish1,Fish2,Frame_Num,Distance,Fish1_X,Fish1_Y,Fish1_Z,Fish2_X,Fish2_Y,Fish1_Z)) %>%
+                                    group_by(Fish1,Frame_Num) %>%
+                                    mutate(nndDistance = min(Distance, na.rm = TRUE),
+                                           nndDistance = ifelse(is.infinite(nndDistance), NA, nndDistance),
+                                           all_nas = all(is.na(nndDistance))) %>%
+                                    filter(Distance == nndDistance | all_nas) %>%
+                                    mutate(row_n = row_number()) %>%
+                                    filter(row_n == 1) %>%
+                                    ungroup() %>%
+                                    group_by(Fish1) %>%
+                                    arrange(Frame_Num) %>%
+                                    mutate(Fish1_Distance_Smooth = supsmu_right_length_y(Frame_Num,nndDistance),
+                                           Fish1_Distance_Smooth = na.spline(Fish1_Distance_Smooth) + 0*na.approx(Fish1_Distance_Smooth, na.rm = FALSE)) %>%
+                                    ungroup() #%>% 
+                                    #filter(Fish1_Z >= -2 & Fish1_Z <= 5)
+
+nnd_summary <- smooth_data_nnd %>% group_by(Frame_Num) %>%
+                                   summarise(meanNND = mean(nndDistance, na.rm = TRUE)) %>%
+                                   ungroup() %>%
+                                   mutate(meanNND_Smooth = supsmu_right_length_y(Frame_Num,meanNND))
+
+
+select_frames_labeled <- example_data %>% select(c(Fish1,Frame_Num,Fish1_X,Fish1_Y)) %>%
+                                          filter(Frame_Num %in% c(0, 240, nnd_frame)) %>% 
+                                          left_join(., smooth_data %>% select(Fish1, Frame_Num, Fish1_X_Smooth, Fish1_Y_Smooth, Fish1_Z_Smooth)) %>%
+                                          group_by(Fish1, Frame_Num) %>%
+                                          summarise(Fish1_X_Smooth = mean(Fish1_X_Smooth),
+                                                    Fish1_Y_Smooth = mean(Fish1_Y_Smooth),
+                                                    Fish1_Z_Smooth = mean(Fish1_Z_Smooth))
+
+nnd_joined <- example_data %>% select(c(Fish1,Fish2,Frame_Num,Distance,Fish1_X,Fish1_Y,Fish2_X,Fish2_Y)) %>%
+                                    group_by(Fish1,Frame_Num) %>%
+                                    mutate(nndDistance = min(Distance, na.rm = TRUE),
+                                           nndDistance = ifelse(is.infinite(nndDistance), NA, nndDistance),
+                                           all_nas = all(is.na(nndDistance))) %>%
+                                    filter(Distance <= 2 | all_nas) %>%
+                                    mutate(row_n = row_number(),
+                                           remove = ifelse(row_n > 1 & is.na(Distance),"Y","N")) %>%
+                                    filter(remove == "N") %>%
+                                    ungroup() %>%
+                                    filter(Frame_Num %in% c(nnd_frame)) %>% 
+                                    mutate(Grouping = paste(Frame_Num, Fish1, Fish2)) %>% 
+                                    select(c(Frame_Num, Fish1, Fish2, Grouping)) %>%
+                                    pivot_longer(c(Fish1, Fish2),
+                                                  names_to = "Useless",
+                                                  values_to = "Fish1") %>%
+                                    select(-c(Useless)) %>% 
+                                    left_join(., smooth_data %>% select(Fish1, Frame_Num, Fish1_X_Smooth, Fish1_Y_Smooth, Fish1_Z_Smooth))
+                  
+raw_nnd_plot <- ggplot(smooth_data_nnd, aes(x = Frame_Num/60, y = Fish1_Distance_Smooth, color = Fish1))+
+  geom_line(size = 1, alpha = 0.5)+
+  geom_line(data = nnd_summary, aes(x = Frame_Num/60, y = meanNND_Smooth), color = "black", size = 1.5)+
+  scale_color_manual(values = c("#ea4747","#df4415","#ff7489","#4790ea","#47ea4b", "#15c9df", "#8574ff", "#09b326"))+
+  theme_classic()+ 
+  theme(legend.position = "none")+
+  xlab("Time (s)")+
+  ylab("NND (BL)")+
+  ylim(0,3)
+
+raw_nnd_plot
+
+axis_remove <- list(showaxeslabels  = FALSE,
+                    showgrid = FALSE,
+                    showline = FALSE,
+                    showticklabels = FALSE,
+                    showspikes = FALSE,
+                    showticklabels  = FALSE,
+                    visible = FALSE,
+                    zeroline = FALSE)
+
+fig <- plot_ly() %>%
+        #groups and colors
+        # 1, 2, 3: ea4747, df1574, fdbe6f
+        # 5, 8: 32CD32, 006400
+        # 4, 6, 7: 4790ea, 8115df, 45dfef
+        # Old: c("#F8766D","#CD9600","#7CAE00","#00BE67","#00BFC4","#00A9FF","#C77CFF","#FF61CC")
+        # New: c("#ea4747","#df1574","#fdbe6f","#4790ea","#32CD32", "#8115df", "#45dfef", "#006400")
+  
+       add_trace(x = smooth_data$Fish1_X_Smooth, y = smooth_data$Fish1_Y_Smooth, z = smooth_data$Fish1_Z_Smooth,
+               split = smooth_data$Fish1, type = 'scatter3d', mode = 'lines', opacity = 1, line = list(width = 6),
+               color = smooth_data$Fish1,
+               colors = c("#ea4747","#df1574","#fdbe6f","#4790ea","#32CD32", "#8115df", "#45dfef", "#006400")) %>%
+
+       add_trace(x = select_frames_labeled$Fish1_X_Smooth, y = select_frames_labeled$Fish1_Y_Smooth, z = select_frames_labeled$Fish1_Z_Smooth,
+                 split = select_frames_labeled$Fish1, type = 'scatter3d', mode = "markers",
+                 color = select_frames_labeled$Fish1,
+                 colors = c("#ea4747","#df1574","#fdbe6f","#4790ea","#32CD32", "#8115df", "#45dfef", "#006400")) %>%
+        
+       add_trace(x = nnd_joined$Fish1_X_Smooth, y = nnd_joined$Fish1_Y_Smooth, z = nnd_joined$Fish1_Z_Smooth, 
+                 split = nnd_joined$Grouping, type = 'scatter3d', mode = "lines", color = I("black"), line = list(shape = "spline", width = 10)) %>% 
+  
+       layout(showlegend = FALSE, scene = list(aspectratio=list(x=2,y=1,z=1),
+              xaxis = axis_remove, 
+              yaxis = axis_remove,
+              zaxis = axis_remove))
+
+fig
+
+#make colors the same-ish for groups
+#do 2 3d figures and NND figure
+```
+
+## Non Darkness Figure
+
+```{r}
+
+unique((comp_data_all %>% filter(Darkness == "Light" & Flow == "Still Water"))$Data_ID)
 
 ```
+
+### Final Version
+
+```{r}
+
+#2021_8_3_7 !
+#2021_10_6_38 Not as good
+
+nnd_frame <- 120
+
+example_data <- comp_data_all %>% filter(Data_ID == "2021_8_3_7")
+
+smooth_data <- example_data %>% group_by(Fish1,Frame_Num) %>%
+                               summarise(Fish1_X = mean(Fish1_X),
+                                         Fish1_Y = mean(Fish1_Y),
+                                         Fish1_Z = mean(Fish1_Z)) %>%
+                               group_by(Fish1) %>%
+                               mutate(Fish1_X_Smooth = supsmu_right_length_y(Frame_Num,Fish1_X),
+                                      Fish1_X_Smooth = na.spline(Fish1_X_Smooth) + 0*na.approx(Fish1_X_Smooth, na.rm = FALSE),
+                                      Fish1_Y_Smooth = supsmu_right_length_y(Frame_Num,Fish1_Y),
+                                      Fish1_Y_Smooth = na.spline(Fish1_Y_Smooth) + 0*na.approx(Fish1_Y_Smooth, na.rm = FALSE),
+                                      Fish1_Z_Smooth = supsmu_right_length_y(Frame_Num,Fish1_Z),
+                                      Fish1_Z_Smooth = na.spline(Fish1_Z_Smooth) + 0*na.approx(Fish1_Z_Smooth, na.rm = FALSE)) %>%
+                               ungroup() #%>% 
+                               #filter(Fish1_Z_Smooth >= -0.5 & Fish1_Z_Smooth <= 5)
+
+smooth_data_nnd <- example_data %>% select(c(Fish1,Fish2,Frame_Num,Distance,Fish1_X,Fish1_Y,Fish1_Z,Fish2_X,Fish2_Y,Fish1_Z)) %>%
+                                    group_by(Fish1,Frame_Num) %>%
+                                    mutate(nndDistance = min(Distance, na.rm = TRUE),
+                                           nndDistance = ifelse(is.infinite(nndDistance), NA, nndDistance),
+                                           all_nas = all(is.na(nndDistance))) %>%
+                                    filter(Distance == nndDistance | all_nas) %>%
+                                    mutate(row_n = row_number()) %>%
+                                    filter(row_n == 1) %>%
+                                    ungroup() %>%
+                                    group_by(Fish1) %>%
+                                    arrange(Frame_Num) %>%
+                                    mutate(Fish1_Distance_Smooth = supsmu_right_length_y(Frame_Num,nndDistance),
+                                           Fish1_Distance_Smooth = na.spline(Fish1_Distance_Smooth) + 0*na.approx(Fish1_Distance_Smooth, na.rm = FALSE)) %>%
+                                    ungroup() #%>% 
+                                    #filter(Fish1_Z >= -2 & Fish1_Z <= 5)
+
+nnd_summary <- smooth_data_nnd %>% group_by(Frame_Num) %>%
+                                   summarise(meanNND = mean(nndDistance, na.rm = TRUE)) %>%
+                                   ungroup() %>%
+                                   mutate(meanNND_Smooth = supsmu_right_length_y(Frame_Num,meanNND))
+
+
+select_frames_labeled <- example_data %>% select(c(Fish1,Frame_Num,Fish1_X,Fish1_Y)) %>%
+                                          filter(Frame_Num %in% c(0, 240, nnd_frame)) %>% 
+                                          left_join(., smooth_data %>% select(Fish1, Frame_Num, Fish1_X_Smooth, Fish1_Y_Smooth, Fish1_Z_Smooth)) %>%
+                                          group_by(Fish1, Frame_Num) %>%
+                                          summarise(Fish1_X_Smooth = mean(Fish1_X_Smooth),
+                                                    Fish1_Y_Smooth = mean(Fish1_Y_Smooth),
+                                                    Fish1_Z_Smooth = mean(Fish1_Z_Smooth))
+
+nnd_joined <- example_data %>% select(c(Fish1,Fish2,Frame_Num,Distance,Fish1_X,Fish1_Y,Fish2_X,Fish2_Y)) %>%
+                                    group_by(Fish1,Frame_Num) %>%
+                                    mutate(nndDistance = min(Distance, na.rm = TRUE),
+                                           nndDistance = ifelse(is.infinite(nndDistance), NA, nndDistance),
+                                           all_nas = all(is.na(nndDistance))) %>%
+                                    filter(Distance <= 2 | all_nas) %>%
+                                    mutate(row_n = row_number(),
+                                           remove = ifelse(row_n > 1 & is.na(Distance),"Y","N")) %>%
+                                    filter(remove == "N") %>%
+                                    ungroup() %>%
+                                    filter(Frame_Num %in% c(nnd_frame)) %>% 
+                                    mutate(Grouping = paste(Frame_Num, Fish1, Fish2)) %>% 
+                                    select(c(Frame_Num, Fish1, Fish2, Grouping)) %>%
+                                    pivot_longer(c(Fish1, Fish2),
+                                                  names_to = "Useless",
+                                                  values_to = "Fish1") %>%
+                                    select(-c(Useless)) %>% 
+                                    left_join(., smooth_data %>% select(Fish1, Frame_Num, Fish1_X_Smooth, Fish1_Y_Smooth, Fish1_Z_Smooth))
+                  
+raw_nnd_plot <- ggplot(smooth_data_nnd, aes(x = Frame_Num/60, y = Fish1_Distance_Smooth, color = Fish1))+
+  geom_line(size = 1, alpha = 0.5)+
+  geom_line(data = nnd_summary, aes(x = Frame_Num/60, y = meanNND_Smooth), color = "black", size = 1.5)+
+  scale_color_manual(values = c("#F8766D","#CD9600","#7CAE00","#00BE67","#00BFC4","#00A9FF","#C77CFF","#FF61CC"))+
+  theme_classic()+ 
+  theme(legend.position = "none")+
+  xlab("Time (s)")+
+  ylab("NND (BL)")+
+  ylim(0,3)
+
+raw_nnd_plot
+
+axis_remove <- list(showaxeslabels  = FALSE,
+                    showgrid = FALSE,
+                    showline = FALSE,
+                    showticklabels = FALSE,
+                    showspikes = FALSE,
+                    showticklabels  = FALSE,
+                    visible = FALSE,
+                    zeroline = FALSE)
+
+fig <- plot_ly() %>%
+        #groups and colors
+        # 1, 2, 3: ea4747, df1574, fdbe6f
+        # 5, 8: 32CD32, 006400
+        # 4, 6, 7: 4790ea, 8115df, 45dfef
+        # Old: c("#F8766D","#CD9600","#7CAE00","#00BE67","#00BFC4","#00A9FF","#C77CFF","#FF61CC")
+        # New: c("#ea4747","#df1574","#fdbe6f","#4790ea","#32CD32", "#8115df", "#45dfef", "#006400")
+  
+       add_trace(x = smooth_data$Fish1_X_Smooth, y = smooth_data$Fish1_Y_Smooth, z = smooth_data$Fish1_Z_Smooth,
+               split = smooth_data$Fish1, type = 'scatter3d', mode = 'lines', opacity = 1, line = list(width = 6),
+               color = smooth_data$Fish1,
+               colors = c("#F8766D","#CD9600","#7CAE00","#00BE67","#00BFC4","#00A9FF","#C77CFF","#FF61CC")) %>%
+
+       add_trace(x = select_frames_labeled$Fish1_X_Smooth, y = select_frames_labeled$Fish1_Y_Smooth, z = select_frames_labeled$Fish1_Z_Smooth,
+                 split = select_frames_labeled$Fish1, type = 'scatter3d', mode = "markers",
+                 color = select_frames_labeled$Fish1,
+                 colors =c("#F8766D","#CD9600","#7CAE00","#00BE67","#00BFC4","#00A9FF","#C77CFF","#FF61CC")) %>%
+        
+       add_trace(x = nnd_joined$Fish1_X_Smooth, y = nnd_joined$Fish1_Y_Smooth, z = nnd_joined$Fish1_Z_Smooth, 
+                 split = nnd_joined$Grouping, type = 'scatter3d', mode = "lines", color = I("black"), line = list(shape = "spline", width = 10)) %>% 
+  
+       layout(showlegend = FALSE, scene = list(aspectratio=list(x=2,y=1,z=1),
+              xaxis = axis_remove, 
+              yaxis = axis_remove,
+              zaxis = axis_remove))
+
+fig
+
+#make colors the same-ish for groups
+#do 2 3d figures and NND figure
+```
+
+
+### Old Stuff
 
 ```{r}
 

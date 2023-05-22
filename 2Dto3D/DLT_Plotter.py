@@ -17,7 +17,7 @@ file_folder = "Final 3D Manual/"
 three_d_files = os.listdir(file_folder)
 
 for file_name in three_d_files:
-    if file_name.endswith(".csv"):
+    if file_name.endswith(".csv"): #and "03_25_10" in file_name:
 
         print(file_name)
 

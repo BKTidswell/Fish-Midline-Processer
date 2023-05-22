@@ -687,7 +687,6 @@ Anova(groups_glm_flow, test.statistic="F")
 
 ```
 
-
 ### Now we combine them
 
 ```{r}
@@ -720,7 +719,6 @@ para_plot <- ggplot(para_vals, aes(X, Y, z = BLs))+
 
 ggsave("Paper Figures/parallax_model.png", para_plot, width = 14, height = 7)
 ```
-
 
 Autocorrelation Figure
 
@@ -813,6 +811,3 @@ lag_plots <- ggarrange(
 ggsave("Paper Figures/Different_Lag_Figures.png", lag_plots, width = 7, height = 7)
 
 ```
-
-
-
