@@ -39,12 +39,14 @@ supsmu_right_length_y <- function(x_data,y_data){
 }
 
 fish_len <- 0.083197
+text_size = 20
+
 ```
 
 Load the Data
 
 ```{r}
-comp_data <- read.csv("Data/Fish_Raw_Comp_Values_3D.csv") %>% separate(Fish, c("Fish1", "Fish2"),sep="x") %>% mutate(Data_ID = paste(Year,Month,Day,Trial, sep = "_"))
+comp_data <- read.csv("Data/3D_Trace_Fish_Comp_Values_3D.csv") %>% separate(Fish, c("Fish1", "Fish2"),sep="x") %>% mutate(Data_ID = paste(Year,Month,Day,Trial, sep = "_"))
 ```
 
 ```{r}
@@ -103,6 +105,7 @@ unique((comp_data_all %>% filter(Darkness == "Dark"))$Data_ID)
 ```
 
 ### Final Version Dark
+
 No flow
 
 ```{r}
@@ -141,6 +144,8 @@ smooth_data_nnd <- example_data %>% select(c(Fish1,Fish2,Frame_Num,Distance,Fish
                                     ungroup() #%>% 
                                     #filter(Fish1_Z >= -2 & Fish1_Z <= 5)
 
+smooth_data_nnd_test_dark <- smooth_data_nnd %>% filter(Frame_Num %in% c(nnd_frame))
+
 nnd_summary <- smooth_data_nnd %>% group_by(Frame_Num) %>%
                                    summarise(meanNND = mean(nndDistance, na.rm = TRUE)) %>%
                                    ungroup() %>%
@@ -148,7 +153,7 @@ nnd_summary <- smooth_data_nnd %>% group_by(Frame_Num) %>%
 
 
 select_frames_labeled <- example_data %>% select(c(Fish1,Frame_Num,Fish1_X,Fish1_Y)) %>%
-                                          filter(Frame_Num %in% c(0, 240, nnd_frame)) %>% 
+                                          filter(Frame_Num %in% c(240, nnd_frame)) %>% 
                                           left_join(., smooth_data %>% select(Fish1, Frame_Num, Fish1_X_Smooth, Fish1_Y_Smooth, Fish1_Z_Smooth)) %>%
                                           group_by(Fish1, Frame_Num) %>%
                                           summarise(Fish1_X_Smooth = mean(Fish1_X_Smooth),
@@ -182,17 +187,25 @@ raw_nnd_plot <- ggplot(smooth_data_nnd, aes(x = Frame_Num/60, y = Fish1_Distance
   theme(legend.position = "none")+
   xlab("Time (s)")+
   ylab("NND (BL)")+
-  ylim(0,3)
+  ylim(0,3)+
+  theme(axis.text.x = element_text(size = text_size),
+        axis.text.y = element_text(size = text_size),
+        axis.title.x = element_text(size = text_size),
+        axis.title.y = element_text(size = text_size))
 
 raw_nnd_plot
 
-axis_remove <- list(showaxeslabels  = FALSE,
-                    showgrid = FALSE,
+ggsave("Paper Figures/Dark_NND_Raw.png", raw_nnd_plot, width = 6, height = 4)
+
+
+axis_remove <- list(title = list(text = ""),
+                    showaxeslabels  = FALSE,
+                    showgrid = TRUE,
                     showline = FALSE,
                     showticklabels = FALSE,
                     showspikes = FALSE,
                     showticklabels  = FALSE,
-                    visible = FALSE,
+                    visible = TRUE,
                     zeroline = FALSE)
 
 fig <- plot_ly() %>%
@@ -281,9 +294,11 @@ nnd_summary <- smooth_data_nnd %>% group_by(Frame_Num) %>%
                                    ungroup() %>%
                                    mutate(meanNND_Smooth = supsmu_right_length_y(Frame_Num,meanNND))
 
+smooth_data_nnd_test_light <- smooth_data_nnd %>% filter(Frame_Num %in% c(nnd_frame))
+
 
 select_frames_labeled <- example_data %>% select(c(Fish1,Frame_Num,Fish1_X,Fish1_Y)) %>%
-                                          filter(Frame_Num %in% c(0, 240, nnd_frame)) %>% 
+                                          filter(Frame_Num %in% c(240, nnd_frame)) %>% 
                                           left_join(., smooth_data %>% select(Fish1, Frame_Num, Fish1_X_Smooth, Fish1_Y_Smooth, Fish1_Z_Smooth)) %>%
                                           group_by(Fish1, Frame_Num) %>%
                                           summarise(Fish1_X_Smooth = mean(Fish1_X_Smooth),
@@ -317,17 +332,25 @@ raw_nnd_plot <- ggplot(smooth_data_nnd, aes(x = Frame_Num/60, y = Fish1_Distance
   theme(legend.position = "none")+
   xlab("Time (s)")+
   ylab("NND (BL)")+
-  ylim(0,3)
+  ylim(0,3)+
+  theme(axis.text.x = element_text(size = text_size),
+        axis.text.y = element_text(size = text_size),
+        axis.title.x = element_text(size = text_size),
+        axis.title.y = element_text(size = text_size))
 
 raw_nnd_plot
 
-axis_remove <- list(showaxeslabels  = FALSE,
-                    showgrid = FALSE,
+ggsave("Paper Figures/Light_NND_Raw.png", raw_nnd_plot, width = 6, height = 4)
+
+
+axis_remove <- list(title = list(text = ""),
+                    showaxeslabels  = FALSE,
+                    showgrid = TRUE,
                     showline = FALSE,
                     showticklabels = FALSE,
                     showspikes = FALSE,
                     showticklabels  = FALSE,
-                    visible = FALSE,
+                    visible = TRUE,
                     zeroline = FALSE)
 
 fig <- plot_ly() %>%
@@ -361,6 +384,15 @@ fig
 #make colors the same-ish for groups
 #do 2 3d figures and NND figure
 ```
+
+### Quick T Test
+
+```{r}
+
+t.test(smooth_data_nnd_test_dark$Distance, smooth_data_nnd_test_light$Distance)
+
+```
+
 
 
 ### Old Stuff
