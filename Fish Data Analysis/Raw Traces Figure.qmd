@@ -393,8 +393,6 @@ t.test(smooth_data_nnd_test_dark$Distance, smooth_data_nnd_test_light$Distance)
 
 ```
 
-
-
 ### Old Stuff
 
 ```{r}
