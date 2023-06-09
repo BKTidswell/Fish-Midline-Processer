@@ -16,7 +16,6 @@ library(lme4)
 library(circular)
 ```
 
-
 ```{r}
 rad2deg <- function(rad) {(rad * 180) / (pi)}
 deg2rad <- function(deg) {(deg * pi) / (180)}
@@ -50,7 +49,6 @@ smaller_dot_binwidth = 0.01
 
 text_size = 16
 ```
-
 
 ```{r}
 fish_comp_data <- read.csv("Data/Fish_Comp_Values_3D.csv")  %>% separate(Fish, c("Fish1", "Fish2"),sep="x") %>% mutate(Data_ID = paste(Year,Month,Day,Trial, sep = "_"))
@@ -249,12 +247,9 @@ Anova(aligned_2BL_glmer_flow)
 
 ```
 
-Okay so I think fish in darkness are paying attention to less fish
-Only responding to turns when one or two other fish do, and more apart in time. 
+Okay so I think fish in darkness are paying attention to less fish Only responding to turns when one or two other fish do, and more apart in time.
 
-Look at delays in fish turning 
-NN Heading might obscure some things as they pair up again soon after
-
+Look at delays in fish turning NN Heading might obscure some things as they pair up again soon after
 
 ```{r}
 
@@ -307,7 +302,7 @@ ggplot(close_fish_comp %>% filter(Flow == "Still Water"),
   scale_color_manual(values=c(light_no_ab_color, light_ab_color, dark_no_ab_color)) +
   #ggtitle("Effect of Available Senses on Nearest Neighbor Distance (NND) in Still Water") +
   xlab("") +
-  ylab("Distance (BL)") +
+  ylab("Heading Difference (Angle)") +
   theme_light()+ 
   theme(legend.position = "none") +
   #stat_compare_means(comparisons = my_comparisons, label.y = c(1.75), label = "p.signif", hide.ns = TRUE) +
@@ -321,5 +316,7 @@ Close_Heading__glmer_still <- lmer(Yaw.Heading_Diff ~ Ablation*Darkness + (1|Dat
 
 Anova(Close_Heading__glmer_still)
 
-```
 
+fish_comp_data_combo %>% group_by(Flow, Ablation, Darkness) %>% summarise(n = n())
+
+```

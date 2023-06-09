@@ -1,0 +1,258 @@
+---
+title: "Heading Cross Corr"
+format: html
+editor: visual
+---
+
+```{r}
+library(tidyverse)
+library(ggplot2)
+library(bbmle) #For ICtab
+library(car)
+library(ggpubr)
+library(ggdist)
+library(emmeans)
+library(lme4)
+```
+
+```{r}
+rad2deg <- function(rad) {(rad * 180) / (pi)}
+deg2rad <- function(deg) {(deg * pi) / (180)}
+round_any <- function(x, accuracy, f=round){f(x/ accuracy) * accuracy}
+ang_mean <- function(x){rad2deg(atan2(mean(sin(deg2rad(x))),mean(cos(deg2rad(x)))))}
+
+fold_angle_0_360_to_0_180 <- function(x){abs(abs(x-180)-180)}
+
+fold_angle_neg_180_180_to_neg_90_90 <- function(x){ifelse(x > 90,90-abs(90-x),ifelse(x < -90, -90+abs(-90-x), x))}
+
+min_n <- function(x,n){sort(x)[1:n]}
+max_n <- function(x,n){sort(x,decreasing = TRUE)[1:n]}
+
+light_no_ab_color = "#d4d7dd"
+light_ab_color = "#f5ba9e"
+dark_no_ab_color = "#5e94d4"
+sim_color = "#777777"
+
+flow_split_still = "#F59DE2"
+flow_split_flow = "#5DD492"
+
+dark_split_light = "#5e94d4"
+dark_split_dark = "#011627"
+
+tailbeat_len = 19
+
+allowed_flow_type = c("Still Water","Flowing Water (2 BL/s)")
+
+dot_binwidth = 0.03
+
+text_size = 16
+```
+
+
+```{r}
+
+x <- seq(0,2*pi,pi/10)
+y1 <- sin(x)
+y2 <- sin(x+pi)
+
+plot(x,y1)
+plot(x,y2)
+
+ccf(y1, y2)
+
+plot(ccf(1:10, 1:10)$lag,ccf(1:10, 1:10)$acf)
+
+# plot(xcorr(1:10, 1:10, scale = "none")$lags,xcorr(1:10, 1:10, scale = "none")$R)
+# plot(xcorr(1:10, 1:10, scale = "biased")$lags,xcorr(1:10, 1:10, scale = "biased")$R)
+# plot(xcorr(1:10, 1:10, scale = "unbiased")$lags,xcorr(1:10, 1:10, scale = "unbiased")$R)
+# plot(xcorr(1:10, 1:10, scale = "coeff")$lags,xcorr(1:10, 1:10, scale = "coeff")$R)
+
+#let's try unbiased
+
+```
+
+```{r}
+
+fish_comp_data <- read.csv("Data/Fish_Comp_Values_3D.csv") %>% separate(Fish, c("Fish1", "Fish2"),sep="x") %>% 
+                                                               mutate(Data_ID = paste(Year,Month,Day,Trial, sep = "_")) %>%
+                                                               select(Year, Month, Day, Data_ID, Trial, Tailbeat_Num,
+                                                                      Ablation, Darkness, Flow, Fish1, Fish2,
+                                                                      Distance, Fish1_Yaw_Heading, Fish2_Yaw_Heading)
+
+#fish_comp_data <- na.omit(fish_comp_data)
+
+fish_comp_data_switch_fish <- fish_comp_data %>% mutate(Fish3 = Fish1,
+                                                        Fish3_Yaw_Heading = Fish1_Yaw_Heading) %>%
+                                       mutate(Fish1 = Fish2,
+                                              Fish1_Yaw_Heading = Fish2_Yaw_Heading) %>%
+                                       mutate(Fish2 = Fish3,
+                                              Fish2_Yaw_Heading = Fish3_Yaw_Heading) %>%
+                                       select(-c(Fish3,Fish3_Yaw_Heading))
+
+fish_comp_data_combo <- bind_rows(fish_comp_data, fish_comp_data_switch_fish)
+
+fish_comp_data_combo <- fish_comp_data_combo %>% mutate(Flow = ifelse(Flow == "0", "Still Water", "Flowing Water (2 BL/s)")) %>%
+                           mutate(Ablation = ifelse(Ablation == "N", "No Ablation", "Ablated")) %>%
+                           mutate(Darkness = ifelse(Darkness == "N", "Light", "Dark")) %>%
+                           mutate(Flow = factor(Flow), Ablation = factor(Ablation), Darkness = factor(Darkness)) %>%
+                           mutate(Flow = fct_relevel(Flow, c("Still Water","Flowing Water (2 BL/s)"))) %>%
+                           mutate(Ablation = fct_relevel(Ablation, c("No Ablation","Ablated"))) %>%
+                           mutate(Darkness = fct_relevel(Darkness, c("Light","Dark"))) %>%
+                           mutate(Flow_Ablation_Darkness = factor(paste(Flow,Ablation,Darkness,sep="/n"))) %>%
+                           arrange(Year,Month,Day,Trial,Fish1,Fish2,Tailbeat_Num)
+
+```
+
+
+I'm not 100% sure that the indexing and stuff is working exactly how I want it to so I'm going to 
+just do it all via functions instead of trying to do mutate that cleanly
+
+I think I only want lags starting at 0, no negative lags when we're matching up with distances
+
+```{r}
+
+get_corrs_lags <- function(f1_data, f2_data){
+  
+  output_len <- length(f1_data)
+  
+  output_vec <- rep(NA,output_len)
+  
+  saved_ccf <- ccf(f1_data, f2_data, na.action = na.pass, plot = F)
+  corrs <- saved_ccf$acf
+  lags <- saved_ccf$lag
+  
+  pos_lags <- lags >= 0
+  
+  pos_lag_corrs <- corrs[pos_lags]
+  pos_lag_lags <- lags[pos_lags]
+  
+  output_corrs <- c(pos_lag_corrs, output_vec)[1:output_len]
+  output_lags <- c(pos_lag_lags, output_vec)[1:output_len]
+  
+  return(list(output_corrs,output_lags))
+}
+
+```
+
+
+Okay so we get the correlation for each time lag
+And then have that to compare to the distances at that time
+But how do you do a distance at a particular lag value? Do you just lag the coordinates and then calc the distances again?
+That also doesn't seem right
+
+```{r}
+
+
+heading_corrs <- fish_comp_data_combo %>% group_by(Year,Month,Day,Trial,Fish1,Fish2) %>%
+                                          mutate(len_run = sum(!is.na(Distance))) %>%
+                                          ungroup() %>%
+                                          filter(len_run > 2) %>%
+                                          group_by(Year,Month,Day,Trial,Fish1,Fish2) %>%
+                                          mutate(corrs = get_corrs_lags(Fish1_Yaw_Heading,Fish2_Yaw_Heading)[[1]],
+                                                 lags = get_corrs_lags(Fish1_Yaw_Heading,Fish2_Yaw_Heading)[[2]])
+
+heading_corrs_sum <- heading_corrs %>% filter(lags >= 0) %>%
+                                       group_by(Year,Month,Day,Trial,Fish1,Fish2, Flow, Ablation, Darkness, Flow_Ablation_Darkness) %>%
+                                       summarise(max_corr = max(corrs, na.rm = TRUE),
+                                                 max_corr_lag = lags[na.omit(corrs == max_corr)],
+                                                 lag_1_corr = corrs[lags == 1],
+                                                 lag_1_distance = Distance[lags == 1],
+                                                 max_corr_distance = Distance[na.omit(corrs == max_corr)]) %>%
+                                       group_by(Flow, Ablation, Darkness) %>%
+                                       mutate(Mean_Max_Corr = mean(max_corr, na.rm = T), SD_Max_Corr = sd(max_corr, na.rm = T),
+                                              Mean_Max_Corr_Lag = mean(max_corr_lag, na.rm = T), SD_Max_Corr_Lag = sd(max_corr_lag, na.rm = T),
+                                              Mean_Lag_1_Corr = mean(lag_1_corr, na.rm = T), SD_Lag_1_Corr = sd(lag_1_corr, na.rm = T),
+                                              Mean_Lag_1_Distance = mean(lag_1_distance, na.rm = T), SD_Lag_1_Distance = sd(lag_1_distance, na.rm = T),
+                                              Mean_Max_Corr_Distance = mean(max_corr_distance, na.rm = T), SD_Max_Corr_Distance = sd(max_corr_distance, na.rm = T)) %>%
+                                       ungroup()
+```
+
+
+
+```{r}
+
+ggplot(heading_corrs_sum %>% filter(Flow == "Still Water"),
+       aes(x = interaction(Ablation,Darkness,sep=", "), y = max_corr,
+           color = interaction(Ablation,Darkness,sep=", "),
+           fill = interaction(Ablation,Darkness,sep=", ")))+
+  stat_dots(side = "both", binwidth = unit(dot_binwidth/2, "npc")) +
+  geom_point(aes(y = Mean_Max_Corr), size = 5, color = "Black") +
+  geom_errorbar(aes(ymin=Mean_Max_Corr-SD_Max_Corr, ymax=Mean_Max_Corr+SD_Max_Corr), width=.2, color = "Black")+
+  guides(fill = guide_legend(title = "Condition")) +
+  scale_fill_manual(values=c(light_no_ab_color, light_ab_color, dark_no_ab_color)) +
+  scale_color_manual(values=c(light_no_ab_color, light_ab_color, dark_no_ab_color)) +
+  #ggtitle("Effect of Available Senses on Nearest Neighbor Distance (NND) in Still Water") +
+  xlab("") +
+  ylab("Max Correlation") +
+  theme_light()+ 
+  theme(legend.position = "none") +
+  theme(axis.text.x = element_text(size = text_size),
+        axis.text.y = element_text(size = text_size),
+        axis.title.y = element_text(size = text_size))+
+  scale_x_discrete(labels=function(x){sub(",\\s", "\n", x)})
+
+
+
+ggplot(heading_corrs_sum %>% filter(Flow == "Still Water"),
+       aes(x = interaction(Ablation,Darkness,sep=", "), y = max_corr_lag,
+           color = interaction(Ablation,Darkness,sep=", "),
+           fill = interaction(Ablation,Darkness,sep=", ")))+
+  stat_dots(side = "both", binwidth = unit(dot_binwidth/4, "npc")) +
+  geom_point(aes(y = Mean_Max_Corr_Lag), size = 5, color = "Black") +
+  geom_errorbar(aes(ymin=Mean_Max_Corr_Lag-SD_Max_Corr_Lag, ymax=Mean_Max_Corr_Lag+SD_Max_Corr_Lag), width=.2, color = "Black")+
+  guides(fill = guide_legend(title = "Condition")) +
+  scale_fill_manual(values=c(light_no_ab_color, light_ab_color, dark_no_ab_color)) +
+  scale_color_manual(values=c(light_no_ab_color, light_ab_color, dark_no_ab_color)) +
+  #ggtitle("Effect of Available Senses on Nearest Neighbor Distance (NND) in Still Water") +
+  xlab("") +
+  ylab("Lag at Max Correlation") +
+  theme_light()+ 
+  theme(legend.position = "none") +
+  theme(axis.text.x = element_text(size = text_size),
+        axis.text.y = element_text(size = text_size),
+        axis.title.y = element_text(size = text_size))+
+  scale_x_discrete(labels=function(x){sub(",\\s", "\n", x)})
+
+
+
+ggplot(heading_corrs_sum %>% filter(Flow == "Still Water"),
+       aes(x = interaction(Ablation,Darkness,sep=", "), y = lag_1_corr,
+           color = interaction(Ablation,Darkness,sep=", "),
+           fill = interaction(Ablation,Darkness,sep=", ")))+
+  stat_dots(side = "both", binwidth = unit(dot_binwidth/4, "npc")) +
+  geom_point(aes(y = Mean_Lag_1_Corr), size = 5, color = "Black") +
+  geom_errorbar(aes(ymin=Mean_Lag_1_Corr-SD_Lag_1_Corr, ymax=Mean_Lag_1_Corr+SD_Lag_1_Corr), width=.2, color = "Black")+
+  guides(fill = guide_legend(title = "Condition")) +
+  scale_fill_manual(values=c(light_no_ab_color, light_ab_color, dark_no_ab_color)) +
+  scale_color_manual(values=c(light_no_ab_color, light_ab_color, dark_no_ab_color)) +
+  #ggtitle("Effect of Available Senses on Nearest Neighbor Distance (NND) in Still Water") +
+  xlab("") +
+  ylab("Correlation at 1 Lag") +
+  theme_light()+ 
+  theme(legend.position = "none") +
+  theme(axis.text.x = element_text(size = text_size),
+        axis.text.y = element_text(size = text_size),
+        axis.title.y = element_text(size = text_size))+
+  scale_x_discrete(labels=function(x){sub(",\\s", "\n", x)})
+
+
+ggplot(heading_corrs_sum %>% filter(Flow == "Still Water"),
+       aes(x = max_corr, y = max_corr_distance,
+           color = interaction(Ablation,Darkness,sep=", "),
+           fill = interaction(Ablation,Darkness,sep=", ")))+
+  geom_point() +
+  geom_smooth(se = F, method="glm") +
+  guides(fill = guide_legend(title = "Condition")) +
+  scale_color_manual(values=c(light_no_ab_color, light_ab_color, dark_no_ab_color)) +
+  xlab("Max Correlation") +
+  ylab("Distance at Max Correlation") +
+  xlim(0,1)+
+  theme_light()+ 
+  theme(legend.position = "none") +
+  theme(axis.text.x = element_text(size = text_size),
+        axis.text.y = element_text(size = text_size),
+        axis.title.x = element_text(size = text_size),
+        axis.title.y = element_text(size = text_size))
+
+```
+

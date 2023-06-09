@@ -17,7 +17,7 @@ fish_names = ["individual1","individual2",
 x_edges = [250,2250]
 y_edges = [200,900]
 
-csv_output = "{Year},{Month},{Day},{Trial},{Ablation},{Darkness},{Singles},{Flow},{Turn_Dir},{Fish_Left},{Fish_Right}\n"
+csv_output = "{Year},{Month},{Day},{Trial},{Ablation},{Darkness},{Singles},{Flow},{Frame},{Fish},{Turn_Dir},{Fish_Left},{Fish_Right}\n"
 
 def calc_mag(p1,p2):
     return math.sqrt((p1[0]-p2[0])**2 + (p1[1]-p2[1])**2)
@@ -179,13 +179,15 @@ def process_trial(folder,datafile):
                                       Darkness = darkness,
                                       Singles = "N",
                                       Flow = flow,
+                                      Frame = frame,
+                                      Fish = fish,
                                       Turn_Dir = turn_dirs[i],
                                       Fish_Left = num_LR[1],
                                       Fish_Right = num_LR[0]))
 
 f = open("single_fish_turning.csv", "w")
 
-f.write("Year,Month,Day,Trial,Ablation,Darkness,Singles,Flow,Turn_Dir,Fish_Left,Fish_Right\n")
+f.write("Year,Month,Day,Trial,Ablation,Darkness,Singles,Flow,Frame,Fish,Turn_Dir,Fish_Left,Fish_Right\n")
 
 folder = "Single_Fish_Data/"
 

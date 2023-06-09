@@ -9,6 +9,8 @@ import sys
 #Header list for reading the raw location CSVs
 header = list(range(4))
 
+fish_len = 0.083197
+
 num_fish = 8
 body_parts = ["head","midline2","tailbase","tailtip"]
 
@@ -70,7 +72,13 @@ for file_name in three_d_files:
         fig.write_html("Saved 3D Plots Manual/{name}_animated.html".format(name = file_id), auto_play=False)
 
 
+        fish_len
+
         head_df = df[df['BodyPart'] == "head"] 
+
+        head_df["x"] = head_df["x"]/fish_len
+        head_df["y"] = head_df["y"]/fish_len
+        head_df["z"] = head_df["z"]/fish_len
 
         fig = px.line_3d(head_df,x="x", y="y", z="z", color="Fish", hover_data = ["BodyPart"])
 

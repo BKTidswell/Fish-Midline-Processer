@@ -289,6 +289,7 @@ ggsave("Paper Figures/turning_single_test_plot.png", turning_single_test_plot, w
 
 ```{r}
 school_data <- read.csv("Data/Fish_School_Values_3D.csv")
+
 school_data <- na.omit(school_data)
 
 school_data <- school_data %>% mutate(Flow = ifelse(Flow == "0", "Still Water", "Flowing Water (2 BL/s)")) %>%
@@ -319,6 +320,8 @@ school_data <- school_data %>% mutate(Flow = ifelse(Flow == "0", "Still Water", 
                                   Height_Mean_Val = mean(School_Height), Height_SD_Val = sd(School_Height)) %>%
                            ungroup()
 ```
+
+
 
 ### NND Plot
 
@@ -364,7 +367,7 @@ nnd_flow <- ggplot(school_data %>% filter(Flow == "Flowing Water (2 BL/s)"),
   ylab("School NND (BL)") +
   theme_light()+ 
   theme(legend.position = "none") +
-  ylim(0,2)+
+  #ylim(0,2)+
   stat_compare_means(comparisons = my_comparisons, label = "p.signif", hide.ns = TRUE) +
   theme(axis.text.x = element_text(size = text_size),
         axis.text.y = element_text(size = text_size),

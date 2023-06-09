@@ -50,7 +50,8 @@ fish_len = 0.083197
 fish_sd = 0.62998
 
 # Fish Len Max?
-fish_max_len = fish_len + 3*fish_sd
+#Okay but now we need it in BL instead
+fish_max_len = (fish_len + 3*fish_sd) / fish_len
 
 #Header list for reading the raw location CSVs
 header = list(range(4))
@@ -171,21 +172,21 @@ class fish_data:
     def __init__(self, name, data, scorer, flow):
         #This sets up all of the datapoints that I will need from this fish
         self.name = name
-        self.head_x = data[scorer][name]["head"]["x"].to_numpy() 
-        self.head_y = data[scorer][name]["head"]["y"].to_numpy() 
-        self.head_z = data[scorer][name]["head"]["z"].to_numpy() 
+        self.head_x = data[scorer][name]["head"]["x"].to_numpy() / fish_len
+        self.head_y = data[scorer][name]["head"]["y"].to_numpy() / fish_len
+        self.head_z = data[scorer][name]["head"]["z"].to_numpy() / fish_len
 
-        self.midline_x = data[scorer][name]["midline2"]["x"].to_numpy() 
-        self.midline_y = data[scorer][name]["midline2"]["y"].to_numpy() 
-        self.midline_z = data[scorer][name]["midline2"]["z"].to_numpy() 
+        self.midline_x = data[scorer][name]["midline2"]["x"].to_numpy() / fish_len
+        self.midline_y = data[scorer][name]["midline2"]["y"].to_numpy() / fish_len
+        self.midline_z = data[scorer][name]["midline2"]["z"].to_numpy() / fish_len
 
-        self.tailbase_x = data[scorer][name]["tailbase"]["x"].to_numpy() 
-        self.tailbase_y = data[scorer][name]["tailbase"]["y"].to_numpy() 
-        self.tailbase_z = data[scorer][name]["tailbase"]["z"].to_numpy()
+        self.tailbase_x = data[scorer][name]["tailbase"]["x"].to_numpy() / fish_len
+        self.tailbase_y = data[scorer][name]["tailbase"]["y"].to_numpy() / fish_len
+        self.tailbase_z = data[scorer][name]["tailbase"]["z"].to_numpy() / fish_len
 
-        self.tailtip_x = data[scorer][name]["tailtip"]["x"].to_numpy() 
-        self.tailtip_y = data[scorer][name]["tailtip"]["y"].to_numpy()
-        self.tailtip_z = data[scorer][name]["tailtip"]["z"].to_numpy()
+        self.tailtip_x = data[scorer][name]["tailtip"]["x"].to_numpy() / fish_len
+        self.tailtip_y = data[scorer][name]["tailtip"]["y"].to_numpy() / fish_len
+        self.tailtip_z = data[scorer][name]["tailtip"]["z"].to_numpy() / fish_len
 
         self.vec_x = []
         self.vec_y = []
@@ -214,7 +215,8 @@ class fish_data:
         # So I am going to just do that, and void it out here with nans
         # Since all further functions draw from these positional values, I just null them here
         self.get_fish_BL()
-        self.remove_long_fish()
+        # self.remove_long_fish()
+        # self.remove_OOB_fish()
 
         #This calcualtes the summary stats
         self.calc_yaw_heading()
@@ -224,7 +226,6 @@ class fish_data:
         self.calc_tb_freq()
         
         
-
     def get_fish_BL(self):
         self.body_lengths = (get_dist_np_3D(self.head_x,self.head_y,self.head_z,self.midline_x,self.midline_y,self.midline_z) + 
                              get_dist_np_3D(self.midline_x,self.midline_y,self.midline_z,self.tailbase_x,self.tailbase_y,self.tailbase_z) +
@@ -233,21 +234,56 @@ class fish_data:
     #Replaces the positional data with an NA if the fish is too long at that point in time
     #Trying to remove some of the weirdness from calibration
     def remove_long_fish(self):
-        self.head_x[self.body_lengths > fish_max_len] = np.nan
-        self.head_y[self.body_lengths > fish_max_len] = np.nan
-        self.head_z[self.body_lengths > fish_max_len] = np.nan
 
-        self.midline_x[self.body_lengths > fish_max_len] = np.nan
-        self.midline_y[self.body_lengths > fish_max_len] = np.nan
-        self.midline_z[self.body_lengths > fish_max_len] = np.nan
+        is_too_long = self.body_lengths > fish_max_len
 
-        self.tailbase_x[self.body_lengths > fish_max_len] = np.nan
-        self.tailbase_y[self.body_lengths > fish_max_len] = np.nan
-        self.tailbase_z[self.body_lengths > fish_max_len] = np.nan
+        self.head_x[is_too_long] = np.nan
+        self.head_y[is_too_long] = np.nan
+        self.head_z[is_too_long] = np.nan
 
-        self.tailtip_x[self.body_lengths > fish_max_len] = np.nan
-        self.tailtip_y[self.body_lengths > fish_max_len] = np.nan
-        self.tailtip_z[self.body_lengths > fish_max_len] = np.nan
+        self.midline_x[is_too_long] = np.nan
+        self.midline_y[is_too_long] = np.nan
+        self.midline_z[is_too_long] = np.nan
+
+        self.tailbase_x[is_too_long] = np.nan
+        self.tailbase_y[is_too_long] = np.nan
+        self.tailbase_z[is_too_long] = np.nan
+
+        self.tailtip_x[is_too_long] = np.nan
+        self.tailtip_y[is_too_long] = np.nan
+        self.tailtip_z[is_too_long] = np.nan
+
+    #Remove fish that are out of bounds of the space.
+    # Fish are about 2 inches long, filming area is about 25 x 10 x 10, so 12 x 5 x 5 BL,
+    # If they are out of that +- 2 BL remove them
+
+    def remove_OOB_fish(self):
+        min_x = -2
+        max_x = 14
+
+        min_y = -2
+        max_y = 7
+
+        min_z = -2
+        max_z = 7
+
+        is_OOB = (self.head_x < min_x) + (self.head_x > max_x) + (self.head_y < min_y) + (self.head_y > max_y) + (self.head_z < min_z) + (self.head_z > max_z)
+
+        self.head_x[is_OOB] = np.nan
+        self.head_y[is_OOB] = np.nan
+        self.head_z[is_OOB] = np.nan
+
+        self.midline_x[is_OOB] = np.nan
+        self.midline_y[is_OOB] = np.nan
+        self.midline_z[is_OOB] = np.nan
+
+        self.tailbase_x[is_OOB] = np.nan
+        self.tailbase_y[is_OOB] = np.nan
+        self.tailbase_z[is_OOB] = np.nan
+
+        self.tailtip_x[is_OOB] = np.nan
+        self.tailtip_y[is_OOB] = np.nan
+        self.tailtip_z[is_OOB] = np.nan
 
     #This function calcualtes the yaw heading of the fish at each timepoint
     #We are using body heading now, so midline to head, not head to next head
@@ -295,10 +331,10 @@ class fish_data:
         #Since (0,0) is in the upper left a positive vec_x value value means it is moving downstream
         #so I should subtract the flow value 
         #The flow value is mutliplied by the fish length since the vec_x values are in pixels, but it is in BLS so divide by fps
-        vec_x_flow = speed_vec_x - (self.flow*fish_len)/fps
+        vec_x_flow = speed_vec_x - (self.flow)/fps
 
         #It is divided in order to get it in body lengths and then times fps to get BL/s
-        self.speed = np.sqrt(vec_x_flow**2+speed_vec_y**2+speed_vec_z**2)[:-1]/fish_len * fps
+        self.speed = np.sqrt(vec_x_flow**2+speed_vec_y**2+speed_vec_z**2)[:-1] * fps
 
     def calc_tailtip_perp(self):
 
@@ -416,10 +452,10 @@ class fish_comp:
 
     def calc_dist(self):        
         #Divided to get it into bodylengths
-        self.x_diff = (self.f1.head_x - self.f2.head_x)/fish_len
+        self.x_diff = (self.f1.head_x - self.f2.head_x)
         #the y_diff is negated so it faces correctly upstream
-        self.y_diff = -1*(self.f1.head_y - self.f2.head_y)/fish_len
-        self.z_diff = (self.f1.head_z - self.f2.head_z)/fish_len
+        self.y_diff = -1*(self.f1.head_y - self.f2.head_y)
+        self.z_diff = (self.f1.head_z - self.f2.head_z)
 
         self.dist = get_dist_np_3D(0,0,0,self.x_diff,self.y_diff,self.z_diff)
 
@@ -727,9 +763,9 @@ class school_comps:
         self.school_center_y = np.nanmean(school_ys, axis=0)
         self.school_center_z = np.nanmean(school_zs, axis=0)
 
-        self.school_x_sd = np.nanstd(school_xs, axis=0) / fish_len
-        self.school_y_sd = np.nanstd(school_ys, axis=0) / fish_len
-        self.school_z_sd = np.nanstd(school_zs, axis=0) / fish_len
+        self.school_x_sd = np.nanstd(school_xs, axis=0)
+        self.school_y_sd = np.nanstd(school_ys, axis=0)
+        self.school_z_sd = np.nanstd(school_zs, axis=0)
 
     def remove_and_smooth_points(self):
         threshold = 0.01
@@ -755,10 +791,10 @@ class school_comps:
         #Since (0,0) is in the upper left a positive vec_x value value means it is moving downstream
         #so I should subtract the flow value 
         #The flow value is mutliplied by the fish length since the vec_x values are in pixels, but it is in BLS so divide by fps
-        vec_x_flow = vec_x - (self.flow*fish_len)/fps
+        vec_x_flow = vec_x - (self.flow)/fps
 
         #It is divided in order to get it in body lengths and then times fps to get BL/s
-        self.group_speed = np.sqrt(vec_x_flow**2+vec_y**2+vec_z**2)[:-1]/fish_len * fps
+        self.group_speed = np.sqrt(vec_x_flow**2+vec_y**2+vec_z**2)[:-1] * fps
 
     def calc_school_tb_freq(self):
         tb_collect = []
@@ -797,7 +833,7 @@ class school_comps:
 
         #Then we get the mins of each row (or column, they are the same), and then get the mean for the mean
         # NND for that timepoint
-        self.nearest_neighbor_distance = np.nanmean(np.nanmin(nnd_array,axis = 1),axis = 1) / fish_len
+        self.nearest_neighbor_distance = np.nanmean(np.nanmin(nnd_array,axis = 1),axis = 1)
 
     def calc_tailbeat_cor(self):
         pass
@@ -837,7 +873,7 @@ class school_comps:
 
                 hull = ConvexHull(points)
 
-                self.school_areas[i] = hull.volume/fish_len**2
+                self.school_areas[i] = hull.volume**2
 
     def calc_school_groups(self):
         min_BL_for_groups = 1.5
@@ -879,8 +915,6 @@ class school_comps:
             points = points
 
             dm = distance_matrix(points,points)
-
-            dm = dm/fish_len
 
             dm_min = dm <= min_BL_for_groups
 
@@ -952,7 +986,7 @@ class school_comps:
             #print(dm_min)
 
             #Divide by fish length
-            dm_min = dm_min/fish_len
+            dm_min = dm_min
 
             #Find where it is less than the set BL for grouping
             dm_min_bl = dm_min <= min_BL_for_groups
@@ -1062,8 +1096,8 @@ class school_comps:
             #print(dm_min)
 
             #Divide by fish length
-            dm_min_xy = dm_min_xy/fish_len
-            dm_min_z = dm_min_z/fish_len
+            dm_min_xy = dm_min_xy
+            dm_min_z = dm_min_z
 
             #Find where it is less than the set BL for grouping
             dm_min_bl_xy = dm_min_xy <= min_BL_for_groups_xy
@@ -1253,6 +1287,8 @@ class trial:
             chunked_f2_X = mean_tailbeat_chunk(current_comp.f2.head_x,tailbeat_len)
             chunked_f2_Y = mean_tailbeat_chunk(current_comp.f2.head_y,tailbeat_len)
             chunked_f2_Z = mean_tailbeat_chunk(current_comp.f2.head_z,tailbeat_len)
+            chunked_f1_yaw_heading = mean_tailbeat_chunk(current_comp.f1.yaw_heading,tailbeat_len)
+            chunked_f2_yaw_heading = mean_tailbeat_chunk(current_comp.f2.yaw_heading,tailbeat_len)
             chunked_speed_diffs = mean_tailbeat_chunk(current_comp.speed_diff,tailbeat_len)
             chunked_tailbeat_offsets = mean_tailbeat_chunk(current_comp.tailbeat_offset_reps,tailbeat_len)
 
@@ -1275,8 +1311,8 @@ class trial:
                  'Z_Distance': chunked_z_diffs[:short_data_length], 
                  'Distance': chunked_dists[:short_data_length],
                  'Angle': chunked_angles[:short_data_length],
-                 'Yaw Heading_Diff': chunked_yaw_heading_diffs[:short_data_length],
-                 'Pitch Heading_Diff': chunked_pitch_heading_diffs[:short_data_length],
+                 'Yaw_Heading_Diff': chunked_yaw_heading_diffs[:short_data_length],
+                 'Pitch_Heading_Diff': chunked_pitch_heading_diffs[:short_data_length],
                  'Fish1_Speed': chunked_f1_speed[:short_data_length],
                  'Fish2_Speed': chunked_f2_speed[:short_data_length],
                  'Fish1_X': chunked_f1_X[:short_data_length],
@@ -1285,6 +1321,8 @@ class trial:
                  'Fish2_X': chunked_f2_X[:short_data_length],
                  'Fish2_Y': chunked_f2_Y[:short_data_length],
                  'Fish2_Z': chunked_f2_Z[:short_data_length],
+                 'Fish1_Yaw_Heading': chunked_f1_yaw_heading[:short_data_length],
+                 'Fish2_Yaw_Heading': chunked_f2_yaw_heading[:short_data_length],
                  'Speed_Diff': chunked_speed_diffs[:short_data_length],
                  'Sync': chunked_tailbeat_offsets[:short_data_length]}
 
