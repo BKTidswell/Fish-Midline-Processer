@@ -5,6 +5,7 @@ editor: visual
 ---
 
 ```{r}
+library(gsignal)
 library(tidyverse)
 library(ggplot2)
 library(bbmle) #For ICtab
@@ -13,6 +14,10 @@ library(ggpubr)
 library(ggdist)
 library(emmeans)
 library(lme4)
+library(zoo)
+
+library(conflicted)
+conflict_prefer("filter", "dplyr")
 ```
 
 ```{r}
@@ -70,6 +75,104 @@ plot(ccf(1:10, 1:10)$lag,ccf(1:10, 1:10)$acf)
 #let's try unbiased
 
 ```
+Okay... let's try and get ccf to be flat wehn I'm coparing the same two things
+
+
+Also here's the C code that calculates acf
+Called from: 
+
+acf <- .Call(C_acf, x, lag.max, type == "correlation")
+
+I think this translates it from R to C basically
+so this is the call that goes to the function:
+
+acf0(REAL(x), nx, ns, lagmax, cor, REAL(ans));
+
+SEXP acf(SEXP x, SEXP lmax, SEXP sCor)
+{
+    int nx = nrows(x), ns = ncols(x), lagmax = asInteger(lmax),
+	cor = asLogical(sCor);
+    x = PROTECT(coerceVector(x, REALSXP));
+    SEXP ans = PROTECT(allocVector(REALSXP, (lagmax + 1)*ns*ns));
+    acf0(REAL(x), nx, ns, lagmax, cor, REAL(ans));
+    SEXP d = PROTECT(allocVector(INTSXP, 3));
+    INTEGER(d)[0] = lagmax + 1;
+    INTEGER(d)[1] = INTEGER(d)[2] = ns;
+    setAttrib(ans, R_DimSymbol, d);
+    UNPROTECT(3);
+    return ans;
+}
+
+x is the vector, n is the rows, ns is the columns, nl is the lag, cor is a boolean, acf is the output vector (called ans in SEXP acf)
+
+static void
+acf0(double *x, int n, int ns, int nl, Rboolean correlation, double *acf)
+{
+    int d1 = nl+1, d2 = ns*d1;
+
+    for(int u = 0; u < ns; u++)
+	for(int v = 0; v < ns; v++)
+	    for(int lag = 0; lag <= nl; lag++) {
+		double sum = 0.0; int nu = 0;
+		for(int i = 0; i < n-lag; i++)
+		    if(!ISNAN(x[i + lag + n*u]) && !ISNAN(x[i + n*v])) {
+			nu++;
+			sum += x[i + lag + n*u] * x[i + n*v];
+		    }
+		acf[lag + d1*u + d2*v] = (nu > 0) ? sum/(nu + lag) : NA_REAL;
+	    }
+    if(correlation) {
+	if(n == 1) {
+	    for(int u = 0; u < ns; u++)
+		acf[0 + d1*u + d2*u] = 1.0;
+	} else {
+	    double *se = (double *) R_alloc(ns, sizeof(double));
+	    for(int u = 0; u < ns; u++)
+		se[u] = sqrt(acf[0 + d1*u + d2*u]);
+	    for(int u = 0; u < ns; u++)
+		for(int v = 0; v < ns; v++)
+		    for(int lag = 0; lag <= nl; lag++) { // ensure correlations remain in  [-1,1] :
+			double a = acf[lag + d1*u + d2*v] / (se[u]*se[v]);
+			acf[lag + d1*u + d2*v] = (a > 1.) ? 1. : ((a < -1.) ? -1. : a);
+		    }
+	}
+    }
+}
+
+
+
+I'm not 100% sure that the indexing and stuff is working exactly how I want it to so I'm going to 
+just do it all via functions instead of trying to do mutate that cleanly
+
+I think I only want lags starting at 0, no negative lags when we're matching up with distances
+
+```{r}
+
+get_corrs_lags <- function(f1_data, f2_data){
+  
+  output_len <- length(f1_data)
+  
+  output_vec <- rep(NA,output_len)
+  
+  saved_ccf <- ccf(f1_data, f2_data, na.action = na.pass, plot = F, lag.max = output_len)
+  corrs <- saved_ccf$acf
+  lags <- saved_ccf$lag
+  
+  pos_lags <- lags >= 0
+  
+  pos_lag_corrs <- corrs[pos_lags]
+  pos_lag_lags <- lags[pos_lags]
+  
+  output_corrs <- c(pos_lag_corrs, output_vec)[1:output_len]
+  output_lags <- c(pos_lag_lags, output_vec)[1:output_len]
+  
+  return(list(output_corrs,output_lags))
+}
+
+
+```
+
+
 
 ```{r}
 
@@ -101,36 +204,12 @@ fish_comp_data_combo <- fish_comp_data_combo %>% mutate(Flow = ifelse(Flow == "0
                            mutate(Flow_Ablation_Darkness = factor(paste(Flow,Ablation,Darkness,sep="/n"))) %>%
                            arrange(Year,Month,Day,Trial,Fish1,Fish2,Tailbeat_Num)
 
-```
 
-
-I'm not 100% sure that the indexing and stuff is working exactly how I want it to so I'm going to 
-just do it all via functions instead of trying to do mutate that cleanly
-
-I think I only want lags starting at 0, no negative lags when we're matching up with distances
-
-```{r}
-
-get_corrs_lags <- function(f1_data, f2_data){
-  
-  output_len <- length(f1_data)
-  
-  output_vec <- rep(NA,output_len)
-  
-  saved_ccf <- ccf(f1_data, f2_data, na.action = na.pass, plot = F)
-  corrs <- saved_ccf$acf
-  lags <- saved_ccf$lag
-  
-  pos_lags <- lags >= 0
-  
-  pos_lag_corrs <- corrs[pos_lags]
-  pos_lag_lags <- lags[pos_lags]
-  
-  output_corrs <- c(pos_lag_corrs, output_vec)[1:output_len]
-  output_lags <- c(pos_lag_lags, output_vec)[1:output_len]
-  
-  return(list(output_corrs,output_lags))
-}
+fish_comp_data_combo <- fish_comp_data_combo %>% group_by(Year,Month,Day,Trial,Fish1,Fish2) %>%
+                         mutate(Fish1_Yaw_Heading_Wrapped = Fish1_Yaw_Heading,
+                                Fish2_Yaw_Heading_Wrapped = Fish2_Yaw_Heading,
+                                Fish1_Yaw_Heading = unwrap(Fish1_Yaw_Heading),
+                                Fish2_Yaw_Heading = unwrap(Fish2_Yaw_Heading))
 
 ```
 
@@ -152,7 +231,7 @@ heading_corrs <- fish_comp_data_combo %>% group_by(Year,Month,Day,Trial,Fish1,Fi
                                                  lags = get_corrs_lags(Fish1_Yaw_Heading,Fish2_Yaw_Heading)[[2]])
 
 heading_corrs_sum <- heading_corrs %>% filter(lags >= 0) %>%
-                                       group_by(Year,Month,Day,Trial,Fish1,Fish2, Flow, Ablation, Darkness, Flow_Ablation_Darkness) %>%
+                                       group_by(Year,Month,Day,Trial,Data_ID,Fish1,Fish2, Flow, Ablation, Darkness, Flow_Ablation_Darkness) %>%
                                        summarise(max_corr = max(corrs, na.rm = TRUE),
                                                  max_corr_lag = lags[na.omit(corrs == max_corr)],
                                                  lag_1_corr = corrs[lags == 1],
@@ -254,5 +333,302 @@ ggplot(heading_corrs_sum %>% filter(Flow == "Still Water"),
         axis.title.x = element_text(size = text_size),
         axis.title.y = element_text(size = text_size))
 
+
+max_corr_vs_dist_glmer <- lmer(max_corr_distance ~ max_corr*(Ablation + Darkness) + (1|Data_ID), data = heading_corrs_sum %>% filter(Flow == "Still Water"))
+Anova(max_corr_vs_dist_glmer)
+
+
 ```
 
+
+# All the raw data
+
+```{r}
+
+raw_fish_comp_data <- read.csv("Data/Fish_Raw_Comp_Values_3D.csv") %>% separate(Fish, c("Fish1", "Fish2"),sep="x") %>% 
+                                                               mutate(Data_ID = paste(Year,Month,Day,Trial, sep = "_")) %>%
+                                                               select(Year, Month, Day, Data_ID, Trial, Frame_Num,
+                                                                      Ablation, Darkness, Flow, Fish1, Fish2,
+                                                                      Distance, Fish1_Yaw_Heading, Fish2_Yaw_Heading)
+
+#fish_comp_data <- na.omit(fish_comp_data)
+
+raw_fish_comp_data_switch_fish <- raw_fish_comp_data %>% mutate(Fish3 = Fish1,
+                                                        Fish3_Yaw_Heading = Fish1_Yaw_Heading) %>%
+                                       mutate(Fish1 = Fish2,
+                                              Fish1_Yaw_Heading = Fish2_Yaw_Heading) %>%
+                                       mutate(Fish2 = Fish3,
+                                              Fish2_Yaw_Heading = Fish3_Yaw_Heading) %>%
+                                       select(-c(Fish3,Fish3_Yaw_Heading))
+
+raw_fish_comp_data_combo <- bind_rows(raw_fish_comp_data, raw_fish_comp_data_switch_fish)
+
+raw_fish_comp_data_combo <- raw_fish_comp_data_combo %>% mutate(Flow = ifelse(Flow == "0", "Still Water", "Flowing Water (2 BL/s)")) %>%
+                           mutate(Ablation = ifelse(Ablation == "N", "No Ablation", "Ablated")) %>%
+                           mutate(Darkness = ifelse(Darkness == "N", "Light", "Dark")) %>%
+                           mutate(Flow = factor(Flow), Ablation = factor(Ablation), Darkness = factor(Darkness)) %>%
+                           mutate(Flow = fct_relevel(Flow, c("Still Water","Flowing Water (2 BL/s)"))) %>%
+                           mutate(Ablation = fct_relevel(Ablation, c("No Ablation","Ablated"))) %>%
+                           mutate(Darkness = fct_relevel(Darkness, c("Light","Dark"))) %>%
+                           mutate(Flow_Ablation_Darkness = factor(paste(Flow,Ablation,Darkness,sep="/n"))) %>%
+                           arrange(Year,Month,Day,Trial,Fish1,Fish2,Frame_Num)
+
+
+raw_fish_comp_data_combo <- raw_fish_comp_data_combo %>% group_by(Year,Month,Day,Trial,Fish1,Fish2) %>%
+                         mutate(Fish1_Yaw_Heading_Wrapped = Fish1_Yaw_Heading,
+                                Fish2_Yaw_Heading_Wrapped = Fish2_Yaw_Heading,
+                                Fish1_Yaw_Heading = unwrap(Fish1_Yaw_Heading),
+                                Fish2_Yaw_Heading = unwrap(Fish2_Yaw_Heading))
+
+```
+
+
+Testing things out, I think I just needed a much bigger lag
+
+```{r}
+
+data_subset <- raw_fish_comp_data_combo %>% filter(Data_ID == "2021_10_6_36", Fish1 == "individual5", Fish2 == "individual2")
+
+ggplot(data_subset, aes())+
+  geom_point(aes(Frame_Num, Fish1_Yaw_Heading), color = "red")+
+  geom_point(aes(Frame_Num, Fish2_Yaw_Heading), color = "blue")+
+  theme_light()
+
+ccf(data_subset$Fish1_Yaw_Heading, data_subset$Fish2_Yaw_Heading, na.action = na.pass, lag.max = length(data_subset$Fish1_Yaw_Heading))
+
+```
+
+So now we use a sliding window here instead of jsut the regular corr
+
+Now make it move by 10 frames instead of 1 for the window
+
+```{r}
+
+#I want this function to return the highest correaltion and the lag for that correlation for each 
+# window.
+
+windowed_correlation_finder <- function(x,y){
+  lag_max <- tailbeat_len
+  window_size <- tailbeat_len*3
+  
+  window_step <- as.integer(tailbeat_len/2)
+  
+  window_starts <- rep(NA,(length(x)-window_size-lag_max)*lag_max)
+  lags <- rep(NA,(length(x)-window_size-lag_max)*lag_max)
+  corr <- rep(NA,(length(x)-window_size-lag_max)*lag_max)
+  
+  for (i in seq(1,length(x)-window_size-lag_max,window_step)) {
+    
+    for (j in 1:lag_max) {
+      
+      out_ind <- window_step*(i-1)+j
+      
+      fish1_window <- x[i:(i+window_size)]
+      fish2_window <- y[(i+j):(i+j+window_size)]
+      
+      if(sum(!is.na(fish1_window+fish2_window)) > window_step){
+        corr_val <- cor(fish1_window, fish2_window, method = "pearson", use = "complete.obs")
+        
+        window_starts[out_ind] <- i
+        lags[out_ind] <- j
+        corr[out_ind] <- corr_val
+      }
+      else{
+        window_starts[out_ind] <- i
+        lags[out_ind] <- j
+        corr[out_ind] <- NA
+      }
+      
+    }
+    
+  }
+  
+  all_data_frame <- tibble(window_start = window_starts,
+                           lag = lags,
+                           corr = corr)
+  
+  out_df <- all_data_frame %>% group_by(window_start) %>% 
+                               mutate(isMax = (corr == max(corr, na.rm = TRUE))) %>% 
+                               filter(isMax) %>% 
+                               summarise(max_corr = first(corr), max_corr_lag = first(lag)) %>% 
+                               ungroup()
+  
+  out_corrs <- out_df$max_corr
+  out_lags <- out_df$max_corr_lag
+
+  length(out_corrs) <- length(x)
+  length(out_lags) <- length(x)
+
+  output <- tibble(ccf = out_corrs, lags = out_lags)
+  
+  return(output)
+}
+
+```
+
+
+Testing optimization
+```{r}
+
+x <- seq(0,2*pi,pi/10)
+y1 <- sin(x)
+y2 <- sin(x+pi/2 + rnorm(20,0,pi/4))
+
+plot(x,y1)
+plot(x,y2)
+
+tester_window_size <- 5
+
+y1_embed <- embed(y1,tester_window_size)
+y2_embed <- embed(y2,tester_window_size)
+
+list_embed <- data.frame(y1 = y1,y2 = y2)
+
+cor_vals <- rollapply(list_embed, width = tester_window_size,
+                      FUN = function(w) cor(list_embed[,1], list_embed[,2], method = "pearson", use = "complete.obs"),
+                      align = "right")
+
+cor_vals
+
+z2 <- zoo(rnorm(6))
+z2
+rollapply(1:6, 3, mean)
+
+```
+
+
+Okay so now a specific correaltion version
+
+```{r}
+get_corrs_lags_ben <- function(f1_data, f2_data){
+  
+  output_len <- length(f1_data)
+  
+  output_vec <- rep(NA,output_len)
+  
+  saved_ccf <- windowed_correlation_finder(f1_data,f2_data)
+
+  corrs <- saved_ccf$ccf
+  lags <- saved_ccf$lags
+  
+  pos_lags <- lags >= 0
+  
+  pos_lag_corrs <- corrs[pos_lags]
+  pos_lag_lags <- lags[pos_lags]
+  
+  output_corrs <- c(pos_lag_corrs, output_vec)[1:output_len]
+  output_lags <- c(pos_lag_lags, output_vec)[1:output_len]
+  
+  return(list(output_corrs,output_lags))
+}
+```
+
+
+Okay so we get the correlation for each time lag
+And then have that to compare to the distances at that time
+But how do you do a distance at a particular lag value? Do you just lag the coordinates and then calc the distances again?
+That also doesn't seem right
+
+```{r}
+
+
+raw_heading_corrs <- raw_fish_comp_data_combo %>% #filter(Data_ID == "2021_8_3_11" & Fish1 == "individual8"  & Fish2 == "individual7") %>%
+                                          group_by(Year,Month,Day,Trial,Fish1,Fish2) %>%
+                                          mutate(len_run = sum(!is.na(Distance))) %>%
+                                          ungroup() %>%
+                                          filter(len_run > 2) %>%
+                                          group_by(Year,Month,Day,Trial,Fish1,Fish2) %>%
+                                          mutate(corrs = get_corrs_lags_ben(Fish1_Yaw_Heading,Fish2_Yaw_Heading)[[1]],
+                                                 lags = get_corrs_lags_ben(Fish1_Yaw_Heading,Fish2_Yaw_Heading)[[2]])
+
+raw_heading_corrs_sum <- raw_heading_corrs %>% filter(lags >= 0) %>%
+                                       group_by(Year,Month,Day,Trial,Data_ID,Fish1,Fish2, Flow, Ablation, Darkness, Flow_Ablation_Darkness) %>%
+                                       summarise(max_corr = first(max(corrs, na.rm = TRUE)),
+                                                 max_corr_lag = first(lags[na.omit(corrs == max_corr)]),
+                                                 max_corr_distance = first(Distance[na.omit(corrs == max_corr)])) %>%
+                                       group_by(Flow, Ablation, Darkness) %>%
+                                       mutate(Mean_Max_Corr = mean(max_corr, na.rm = T), SD_Max_Corr = sd(max_corr, na.rm = T),
+                                              Mean_Max_Corr_Lag = mean(max_corr_lag, na.rm = T), SD_Max_Corr_Lag = sd(max_corr_lag, na.rm = T),
+                                              Mean_Max_Corr_Distance = mean(max_corr_distance, na.rm = T), SD_Max_Corr_Distance = sd(max_corr_distance, na.rm = T)) %>%
+                                       ungroup()
+```
+
+Okay so don't do a max of the time series, just plot all of the points, no mean and no max, just all distances and correlations 
+
+
+#graphing raw data
+
+```{r}
+
+ggplot(raw_heading_corrs_sum %>% filter(Flow == "Still Water"),
+       aes(x = interaction(Ablation,Darkness,sep=", "), y = max_corr,
+           color = interaction(Ablation,Darkness,sep=", "),
+           fill = interaction(Ablation,Darkness,sep=", ")))+
+  stat_dots(side = "both", binwidth = unit(dot_binwidth/2, "npc")) +
+  geom_point(aes(y = Mean_Max_Corr), size = 5, color = "Black") +
+  geom_errorbar(aes(ymin=Mean_Max_Corr-SD_Max_Corr, ymax=Mean_Max_Corr+SD_Max_Corr), width=.2, color = "Black")+
+  guides(fill = guide_legend(title = "Condition")) +
+  scale_fill_manual(values=c(light_no_ab_color, light_ab_color, dark_no_ab_color)) +
+  scale_color_manual(values=c(light_no_ab_color, light_ab_color, dark_no_ab_color)) +
+  ggtitle("Effect of Available Senses on Nearest Neighbor Distance (NND) in Still Water") +
+  xlab("") +
+  ylab("Max Correlation") +
+  theme_light()+ 
+  theme(legend.position = "none") +
+  theme(axis.text.x = element_text(size = text_size),
+        axis.text.y = element_text(size = text_size),
+        axis.title.y = element_text(size = text_size))+
+  scale_x_discrete(labels=function(x){sub(",\\s", "\n", x)})
+
+
+
+ggplot(raw_heading_corrs_sum %>% filter(Flow == "Still Water"),
+       aes(x = interaction(Ablation,Darkness,sep=", "), y = max_corr_lag,
+           color = interaction(Ablation,Darkness,sep=", "),
+           fill = interaction(Ablation,Darkness,sep=", ")))+
+  stat_dots(side = "both", binwidth = unit(dot_binwidth/4, "npc")) +
+  geom_point(aes(y = Mean_Max_Corr_Lag), size = 5, color = "Black") +
+  geom_errorbar(aes(ymin=Mean_Max_Corr_Lag-SD_Max_Corr_Lag, ymax=Mean_Max_Corr_Lag+SD_Max_Corr_Lag), width=.2, color = "Black")+
+  guides(fill = guide_legend(title = "Condition")) +
+  scale_fill_manual(values=c(light_no_ab_color, light_ab_color, dark_no_ab_color)) +
+  scale_color_manual(values=c(light_no_ab_color, light_ab_color, dark_no_ab_color)) +
+  #ggtitle("Effect of Available Senses on Nearest Neighbor Distance (NND) in Still Water") +
+  xlab("") +
+  ylab("Lag at Max Correlation") +
+  theme_light()+ 
+  theme(legend.position = "none") +
+  theme(axis.text.x = element_text(size = text_size),
+        axis.text.y = element_text(size = text_size),
+        axis.title.y = element_text(size = text_size))+
+  scale_x_discrete(labels=function(x){sub(",\\s", "\n", x)})
+
+
+
+ggplot(raw_heading_corrs_sum %>% filter(Flow == "Still Water"),
+       aes(x = max_corr, y = max_corr_distance,
+           color = interaction(Ablation,Darkness,sep=", "),
+           fill = interaction(Ablation,Darkness,sep=", ")))+
+  geom_point() +
+  geom_smooth(se = F, method="glm") +
+  guides(fill = guide_legend(title = "Condition")) +
+  scale_color_manual(values=c(light_no_ab_color, light_ab_color, dark_no_ab_color)) +
+  xlab("Max Correlation") +
+  ylab("Distance at Max Correlation") +
+  xlim(0,1)+
+  theme_light()+ 
+  theme(legend.position = "none") +
+  theme(axis.text.x = element_text(size = text_size),
+        axis.text.y = element_text(size = text_size),
+        axis.title.x = element_text(size = text_size),
+        axis.title.y = element_text(size = text_size))
+
+
+max_corr_glmer <- lmer(max_corr ~ Ablation + Darkness + (1|Data_ID), data = raw_heading_corrs_sum %>% filter(Flow == "Still Water"))
+Anova(max_corr_glmer)
+
+
+max_corr_vs_dist_glmer <- lmer(max_corr_distance ~ max_corr*(Ablation + Darkness) + (1|Data_ID), data = raw_heading_corrs_sum %>% filter(Flow == "Still Water"))
+Anova(max_corr_vs_dist_glmer)
+
+
+```

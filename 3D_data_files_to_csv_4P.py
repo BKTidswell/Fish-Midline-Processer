@@ -215,8 +215,8 @@ class fish_data:
         # So I am going to just do that, and void it out here with nans
         # Since all further functions draw from these positional values, I just null them here
         self.get_fish_BL()
-        # self.remove_long_fish()
-        # self.remove_OOB_fish()
+        self.remove_long_fish()
+        self.remove_OOB_fish()
 
         #This calcualtes the summary stats
         self.calc_yaw_heading()
