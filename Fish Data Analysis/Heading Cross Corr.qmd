@@ -453,12 +453,14 @@ windowed_correlation_finder <- function(x,y){
                                summarise(max_corr = first(corr), max_corr_lag = first(lag)) %>% 
                                ungroup()
   
-  out_corrs <- out_df$max_corr
-  out_lags <- out_df$max_corr_lag
-
-  length(out_corrs) <- length(x)
-  length(out_lags) <- length(x)
-
+  out_corrs <- rep(NA,length(x))
+  out_lags <- rep(NA,length(x))
+  
+  for (i in 1:length(out_df$window_start)) {
+    out_corrs[out_df$window_start[i]] <- out_df$max_corr[i]
+    out_lags[out_df$window_start[i]] <- out_df$max_corr_lag[i]
+  }
+  
   output <- tibble(ccf = out_corrs, lags = out_lags)
   
   return(output)
@@ -497,7 +499,7 @@ rollapply(1:6, 3, mean)
 ```
 
 
-Okay so now a specific correaltion version
+Okay so now a specific correlation version
 
 ```{r}
 get_corrs_lags_ben <- function(f1_data, f2_data){
@@ -538,8 +540,8 @@ raw_heading_corrs <- raw_fish_comp_data_combo %>% #filter(Data_ID == "2021_8_3_1
                                           ungroup() %>%
                                           filter(len_run > 2) %>%
                                           group_by(Year,Month,Day,Trial,Fish1,Fish2) %>%
-                                          mutate(corrs = get_corrs_lags_ben(Fish1_Yaw_Heading,Fish2_Yaw_Heading)[[1]],
-                                                 lags = get_corrs_lags_ben(Fish1_Yaw_Heading,Fish2_Yaw_Heading)[[2]])
+                                          mutate(corrs = windowed_correlation_finder(Fish1_Yaw_Heading,Fish2_Yaw_Heading)$ccf,
+                                                 lags = windowed_correlation_finder(Fish1_Yaw_Heading,Fish2_Yaw_Heading)$lags)
 
 raw_heading_corrs_sum <- raw_heading_corrs %>% filter(lags >= 0) %>%
                                        group_by(Year,Month,Day,Trial,Data_ID,Fish1,Fish2, Flow, Ablation, Darkness, Flow_Ablation_Darkness) %>%
@@ -551,6 +553,12 @@ raw_heading_corrs_sum <- raw_heading_corrs %>% filter(lags >= 0) %>%
                                               Mean_Max_Corr_Lag = mean(max_corr_lag, na.rm = T), SD_Max_Corr_Lag = sd(max_corr_lag, na.rm = T),
                                               Mean_Max_Corr_Distance = mean(max_corr_distance, na.rm = T), SD_Max_Corr_Distance = sd(max_corr_distance, na.rm = T)) %>%
                                        ungroup()
+
+raw_heading_corrs_graphing <- raw_heading_corrs %>% filter(!is.na(Distance) & !is.na(corrs))%>%
+                                       group_by(Flow, Ablation, Darkness) %>%
+                                       mutate(Mean_Corr = mean(corrs, na.rm = T), SD_Corr = sd(corrs, na.rm = T),
+                                              Mean_Lag = mean(lags, na.rm = T), SD_Lag = sd(lags, na.rm = T))
+
 ```
 
 Okay so don't do a max of the time series, just plot all of the points, no mean and no max, just all distances and correlations 
@@ -560,13 +568,14 @@ Okay so don't do a max of the time series, just plot all of the points, no mean 
 
 ```{r}
 
-ggplot(raw_heading_corrs_sum %>% filter(Flow == "Still Water"),
-       aes(x = interaction(Ablation,Darkness,sep=", "), y = max_corr,
+ggplot(raw_heading_corrs_graphing %>% filter(Flow == "Still Water"),
+       aes(x = interaction(Ablation,Darkness,sep=", "), y = corrs,
            color = interaction(Ablation,Darkness,sep=", "),
            fill = interaction(Ablation,Darkness,sep=", ")))+
-  stat_dots(side = "both", binwidth = unit(dot_binwidth/2, "npc")) +
-  geom_point(aes(y = Mean_Max_Corr), size = 5, color = "Black") +
-  geom_errorbar(aes(ymin=Mean_Max_Corr-SD_Max_Corr, ymax=Mean_Max_Corr+SD_Max_Corr), width=.2, color = "Black")+
+  geom_jitter(height = 0, alpha = 0.2)+
+  #stat_dots(side = "both", binwidth = unit(dot_binwidth/2, "npc")) +
+  geom_point(aes(y = Mean_Corr), size = 5, color = "Black") +
+  geom_errorbar(aes(ymin=Mean_Corr-SD_Corr, ymax=Mean_Corr+SD_Corr), width=.2, color = "Black")+
   guides(fill = guide_legend(title = "Condition")) +
   scale_fill_manual(values=c(light_no_ab_color, light_ab_color, dark_no_ab_color)) +
   scale_color_manual(values=c(light_no_ab_color, light_ab_color, dark_no_ab_color)) +
@@ -582,13 +591,14 @@ ggplot(raw_heading_corrs_sum %>% filter(Flow == "Still Water"),
 
 
 
-ggplot(raw_heading_corrs_sum %>% filter(Flow == "Still Water"),
-       aes(x = interaction(Ablation,Darkness,sep=", "), y = max_corr_lag,
+ggplot(raw_heading_corrs_graphing %>% filter(Flow == "Still Water"),
+       aes(x = interaction(Ablation,Darkness,sep=", "), y = lags,
            color = interaction(Ablation,Darkness,sep=", "),
            fill = interaction(Ablation,Darkness,sep=", ")))+
-  stat_dots(side = "both", binwidth = unit(dot_binwidth/4, "npc")) +
-  geom_point(aes(y = Mean_Max_Corr_Lag), size = 5, color = "Black") +
-  geom_errorbar(aes(ymin=Mean_Max_Corr_Lag-SD_Max_Corr_Lag, ymax=Mean_Max_Corr_Lag+SD_Max_Corr_Lag), width=.2, color = "Black")+
+  geom_jitter(height = 0, alpha = 0.2)+
+  #stat_dots(side = "both", binwidth = unit(dot_binwidth/4, "npc")) +
+  geom_point(aes(y = Mean_Lag), size = 5, color = "Black") +
+  geom_errorbar(aes(ymin=Mean_Lag-SD_Lag, ymax=Mean_Lag+SD_Lag), width=.2, color = "Black")+
   guides(fill = guide_legend(title = "Condition")) +
   scale_fill_manual(values=c(light_no_ab_color, light_ab_color, dark_no_ab_color)) +
   scale_color_manual(values=c(light_no_ab_color, light_ab_color, dark_no_ab_color)) +
@@ -604,17 +614,17 @@ ggplot(raw_heading_corrs_sum %>% filter(Flow == "Still Water"),
 
 
 
-ggplot(raw_heading_corrs_sum %>% filter(Flow == "Still Water"),
-       aes(x = max_corr, y = max_corr_distance,
+ggplot(raw_heading_corrs_graphing %>% filter(Flow == "Still Water"),
+       aes(x = Distance, y = corrs,
            color = interaction(Ablation,Darkness,sep=", "),
            fill = interaction(Ablation,Darkness,sep=", ")))+
-  geom_point() +
+  geom_point(alpha = 0.2) +
   geom_smooth(se = F, method="glm") +
   guides(fill = guide_legend(title = "Condition")) +
   scale_color_manual(values=c(light_no_ab_color, light_ab_color, dark_no_ab_color)) +
-  xlab("Max Correlation") +
-  ylab("Distance at Max Correlation") +
-  xlim(0,1)+
+  xlab("Distance") +
+  ylab("Correlation") +
+  #xlim(0,1)+
   theme_light()+ 
   theme(legend.position = "none") +
   theme(axis.text.x = element_text(size = text_size),
@@ -623,12 +633,34 @@ ggplot(raw_heading_corrs_sum %>% filter(Flow == "Still Water"),
         axis.title.y = element_text(size = text_size))
 
 
-max_corr_glmer <- lmer(max_corr ~ Ablation + Darkness + (1|Data_ID), data = raw_heading_corrs_sum %>% filter(Flow == "Still Water"))
-Anova(max_corr_glmer)
+
+ggplot(raw_heading_corrs_graphing %>% filter(Flow == "Still Water"),
+       aes(x = Distance, y = lags,
+           color = interaction(Ablation,Darkness,sep=", "),
+           fill = interaction(Ablation,Darkness,sep=", ")))+
+  geom_point(alpha = 0.2) +
+  geom_smooth(se = F, method="glm") +
+  guides(fill = guide_legend(title = "Condition")) +
+  scale_color_manual(values=c(light_no_ab_color, light_ab_color, dark_no_ab_color)) +
+  xlab("Distance") +
+  ylab("Best Lag") +
+  #xlim(0,1)+
+  theme_light()+ 
+  theme(legend.position = "none") +
+  theme(axis.text.x = element_text(size = text_size),
+        axis.text.y = element_text(size = text_size),
+        axis.title.x = element_text(size = text_size),
+        axis.title.y = element_text(size = text_size))
 
 
-max_corr_vs_dist_glmer <- lmer(max_corr_distance ~ max_corr*(Ablation + Darkness) + (1|Data_ID), data = raw_heading_corrs_sum %>% filter(Flow == "Still Water"))
-Anova(max_corr_vs_dist_glmer)
+corr_glmer <- lmer(corrs ~ 0+Ablation + Darkness + (1|Data_ID), data = raw_heading_corrs_graphing %>% filter(Flow == "Still Water"))
+summary(corr_glmer)
+Anova(corr_glmer)
+
+
+corr_vs_dist_glmer <- lmer(corrs ~ 0+Distance*(Ablation + Darkness) + (1|Data_ID), data = raw_heading_corrs_graphing %>% filter(Flow == "Still Water"))
+summary(corr_vs_dist_glmer)
+Anova(corr_vs_dist_glmer)
 
 
 ```
