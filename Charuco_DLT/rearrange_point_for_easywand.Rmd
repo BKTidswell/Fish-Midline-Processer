@@ -15,13 +15,13 @@ the CHaRuCO boards.
 
 Fill in the name of the output CSV file from `detect_charuco.ipynb`.
 ```{r}
-detections <- read_csv("/Users/Ben/Desktop/Fish-Midline-Processer/Charuco_DLT/charuco_boards/2023_04_06/boards.csv") |> 
+detections <- read_csv("/Users/Ben/Desktop/Fish-Midline-Processer/Charuco_DLT/charuco_boards/2023_06_29/boards.csv") |> 
   select(-`...1`)
 ```
 
 Fill in the directory that has the video files and the names of each video.
 ```{r}
-videodir <- '//Users/Ben/Desktop/Fish-Midline-Processer/Charuco_DLT/charuco_boards/2023_04_06'
+videodir <- '//Users/Ben/Desktop/Fish-Midline-Processer/Charuco_DLT/charuco_boards/2023_06_29'
 camfiles <- c('checkerboard_V1.mp4','checkerboard_V2.mp4')
 camfiles <- map(camfiles, ~ file.path(videodir, .x))
 ```
@@ -147,7 +147,7 @@ head(ptsforeasywand)
 
 And save out the CSV.
 ```{r}
-write_csv(ptsforeasywand, "//Users/Ben/Desktop/Fish-Midline-Processer/Charuco_DLT/charuco_boards/2023_04_06/2023_04_06_calibrationcharuco_xypts.csv")
+write_csv(ptsforeasywand, "//Users/Ben/Desktop/Fish-Midline-Processer/Charuco_DLT/charuco_boards/2023_06_29/2023_06_29_calibrationcharuco_xypts.csv")
 ```
 
 Final step: Load the CSV into EasyWand, punch in the correct fake "wand length",

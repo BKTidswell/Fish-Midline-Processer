@@ -134,19 +134,19 @@ glmm_school_stats_table <- tibble(Stat = c(rep("NND",4),rep("Height",4),rep("Pol
        Condition = rep(c("Ablation","Darkness"), 12),
        DF = rep(c(rep(length(nnd_glmer_still@resp$y)-3,2),
                   rep(length(nnd_glmer_flow@resp$y)-3,2)),times = 6),
-       Chisq = c(nnd_s_aov_me$Chisq[1:2],nnd_f_aov_me$Chisq[1:2],
+       Chisq = round(c(nnd_s_aov_me$Chisq[1:2],nnd_f_aov_me$Chisq[1:2],
                  height_s_aov_me$Chisq[1:2],height_f_aov_me$Chisq[1:2],
                  polar_s_aov_me$Chisq[1:2],polar_f_aov_me$Chisq[1:2],
                  speed_s_aov_me$Chisq[1:2],speed_f_aov_me$Chisq[1:2],
                  area_s_aov_me$Chisq[1:2],area_f_aov_me$Chisq[1:2],
-                 groups_s_aov_me$Chisq[1:2],groups_f_aov_me$Chisq[1:2]),
+                 groups_s_aov_me$Chisq[1:2],groups_f_aov_me$Chisq[1:2]),2),
        
-       P_Val = c(nnd_s_aov_me$`Pr(>Chisq)`[1:2],nnd_f_aov_me$`Pr(>Chisq)`[1:2],
+       P_Val = round(c(nnd_s_aov_me$`Pr(>Chisq)`[1:2],nnd_f_aov_me$`Pr(>Chisq)`[1:2],
                  height_s_aov_me$`Pr(>Chisq)`[1:2],height_f_aov_me$`Pr(>Chisq)`[1:2],
                  polar_s_aov_me$`Pr(>Chisq)`[1:2],polar_f_aov_me$`Pr(>Chisq)`[1:2],
                  speed_s_aov_me$`Pr(>Chisq)`[1:2],speed_f_aov_me$`Pr(>Chisq)`[1:2],
                  area_s_aov_me$`Pr(>Chisq)`[1:2],area_f_aov_me$`Pr(>Chisq)`[1:2],
-                 groups_s_aov_me$`Pr(>Chisq)`[1:2],groups_f_aov_me$`Pr(>Chisq)`[1:2]),
+                 groups_s_aov_me$`Pr(>Chisq)`[1:2],groups_f_aov_me$`Pr(>Chisq)`[1:2]),2),
        
        Is_Sig = P_Val < 0.05)
 
@@ -392,8 +392,8 @@ turning_results <- tibble(Flow_or_Still = c("Still","Still","Still","Still","Sti
        Factor = c("FNR","Ablation","Darkness","FNR:Ablation","FNR:Darkness",
                   "FNR","Ablation","Darkness","FNR:Ablation","FNR:Darkness"),
        DF = c(rep(length(turning_glm_still$y)-3,5),rep(length(turning_glm_flow$y)-3,5)),
-       LR_Chisq = c(tgs_aov$`LR Chisq`,tgf_aov$`LR Chisq`),
-       P_Val = c(tgs_aov$`Pr(>Chisq)`,tgf_aov$`Pr(>Chisq)`),
+       LR_Chisq = round(c(tgs_aov$`LR Chisq`,tgf_aov$`LR Chisq`),2),
+       P_Val = round(c(tgs_aov$`Pr(>Chisq)`,tgf_aov$`Pr(>Chisq)`),2),
        Is_Sig = P_Val < 0.05)
 
 
@@ -417,8 +417,8 @@ dtg_aov <- Anova(dark_turning_glm)
 single_vs_eight_results <- tibble(Condition = c("Light","Light","Ablated","Ablated","Darkness","Darkness"),
        Factor = c("Type","FNR:Type","Type","FNR:Type","Type","FNR:Type"),
        DF = c(rep(length(light_turning_glm$y)-3,2),rep(length(ablated_turning_glm$y)-3,2),rep(length(dark_turning_glm$y)-3,2)),
-       LR_Chisq = c(ltg_aov$`LR Chisq`[2:3],altg_aov$`LR Chisq`[2:3],dtg_aov$`LR Chisq`[2:3]),
-       P_Val = c(ltg_aov$`Pr(>Chisq)`[2:3],altg_aov$`Pr(>Chisq)`[2:3],dtg_aov$`Pr(>Chisq)`[2:3]),
+       LR_Chisq = round(c(ltg_aov$`LR Chisq`[2:3],altg_aov$`LR Chisq`[2:3],dtg_aov$`LR Chisq`[2:3]),3),
+       P_Val = round(c(ltg_aov$`Pr(>Chisq)`[2:3],altg_aov$`Pr(>Chisq)`[2:3],dtg_aov$`Pr(>Chisq)`[2:3]),3),
        Is_Sig = P_Val < 0.05)
 
 turning_results

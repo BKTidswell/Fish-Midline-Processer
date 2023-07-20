@@ -746,7 +746,9 @@ for(i in seq(1:5)){
   print(i)
   
   new_autocorrs <- school_data_no_removals %>% group_by(Date_Trial) %>%
-                    filter(!Date_Trial %in% c("2021_3_25_30","2020_7_28_29")) %>%
+                    filter(!Date_Trial %in% c("2021_3_25_30","2020_7_28_29","2021_10_6_34",
+                                              "2021_7_7_16","2021_3_25_7","2021_3_25_22",
+                                              "2021_8_3_8")) %>%
                     summarise(nnd_corr = abs(cor.test(NND, lag(NND, n = i))$estimate),
                               nnd_p = cor.test(NND, lag(NND, n = i))$p.value,
                               polar_corr = abs(cor.test(School_Polar, lag(School_Polar, n = i))$estimate),

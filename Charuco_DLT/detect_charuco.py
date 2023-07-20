@@ -28,7 +28,7 @@ board = aniposelib.boards.CharucoBoard(squaresX=6, squaresY=6,
 # For paths on Windows machines, be careful not to remove the r at the beginning of the quote; 
 #  without it, all backslashes will be registered as special characters.
 
-videopath = r'//Users/Ben/Desktop/Fish-Midline-Processer/Charuco_DLT/charuco_boards/2023_04_06'
+videopath = r'//Users/Ben/Desktop/Fish-Midline-Processer/Charuco_DLT/charuco_boards/2023_06_29'
 videonames = ['checkerboard_V1.mp4','checkerboard_V2.mp4']
 
 #This will detect points in the first video, just for testing purposes.
@@ -45,7 +45,7 @@ cap = cv2.VideoCapture(video1)
 
 #You can change it to look at a different frame
 
-i = 1000
+i = 100
 fr = rows[i]['framenum']
 
 cap.set(1, fr)

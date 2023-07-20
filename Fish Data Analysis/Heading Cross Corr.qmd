@@ -15,6 +15,7 @@ library(ggdist)
 library(emmeans)
 library(lme4)
 library(zoo)
+library(viridis)
 
 library(conflicted)
 conflict_prefer("filter", "dplyr")
@@ -173,6 +174,7 @@ get_corrs_lags <- function(f1_data, f2_data){
 ```
 
 
+# Bigger data
 
 ```{r}
 
@@ -469,67 +471,12 @@ windowed_correlation_finder <- function(x,y){
 ```
 
 
-Testing optimization
-```{r}
-
-x <- seq(0,2*pi,pi/10)
-y1 <- sin(x)
-y2 <- sin(x+pi/2 + rnorm(20,0,pi/4))
-
-plot(x,y1)
-plot(x,y2)
-
-tester_window_size <- 5
-
-y1_embed <- embed(y1,tester_window_size)
-y2_embed <- embed(y2,tester_window_size)
-
-list_embed <- data.frame(y1 = y1,y2 = y2)
-
-cor_vals <- rollapply(list_embed, width = tester_window_size,
-                      FUN = function(w) cor(list_embed[,1], list_embed[,2], method = "pearson", use = "complete.obs"),
-                      align = "right")
-
-cor_vals
-
-z2 <- zoo(rnorm(6))
-z2
-rollapply(1:6, 3, mean)
-
-```
-
-
-Okay so now a specific correlation version
-
-```{r}
-get_corrs_lags_ben <- function(f1_data, f2_data){
-  
-  output_len <- length(f1_data)
-  
-  output_vec <- rep(NA,output_len)
-  
-  saved_ccf <- windowed_correlation_finder(f1_data,f2_data)
-
-  corrs <- saved_ccf$ccf
-  lags <- saved_ccf$lags
-  
-  pos_lags <- lags >= 0
-  
-  pos_lag_corrs <- corrs[pos_lags]
-  pos_lag_lags <- lags[pos_lags]
-  
-  output_corrs <- c(pos_lag_corrs, output_vec)[1:output_len]
-  output_lags <- c(pos_lag_lags, output_vec)[1:output_len]
-  
-  return(list(output_corrs,output_lags))
-}
-```
-
-
 Okay so we get the correlation for each time lag
 And then have that to compare to the distances at that time
 But how do you do a distance at a particular lag value? Do you just lag the coordinates and then calc the distances again?
 That also doesn't seem right
+
+# Raw Data processing
 
 ```{r}
 
@@ -579,7 +526,7 @@ ggplot(raw_heading_corrs_graphing %>% filter(Flow == "Still Water"),
   guides(fill = guide_legend(title = "Condition")) +
   scale_fill_manual(values=c(light_no_ab_color, light_ab_color, dark_no_ab_color)) +
   scale_color_manual(values=c(light_no_ab_color, light_ab_color, dark_no_ab_color)) +
-  ggtitle("Effect of Available Senses on Nearest Neighbor Distance (NND) in Still Water") +
+  #ggtitle("Effect of Available Senses on Nearest Neighbor Distance (NND) in Still Water") +
   xlab("") +
   ylab("Max Correlation") +
   theme_light()+ 
@@ -589,6 +536,32 @@ ggplot(raw_heading_corrs_graphing %>% filter(Flow == "Still Water"),
         axis.title.y = element_text(size = text_size))+
   scale_x_discrete(labels=function(x){sub(",\\s", "\n", x)})
 
+
+ggplot(raw_heading_corrs_sum %>% filter(Flow == "Still Water"),
+       aes(x = interaction(Ablation,Darkness,sep=", "), y = max_corr,
+           color = interaction(Ablation,Darkness,sep=", "),
+           fill = interaction(Ablation,Darkness,sep=", ")))+
+  #geom_jitter(height = 0, alpha = 0.2)+
+  stat_dots(side = "both", binwidth = unit(dot_binwidth/2, "npc")) +
+  geom_point(aes(y = Mean_Max_Corr), size = 5, color = "Black") +
+  geom_errorbar(aes(ymin=Mean_Max_Corr-SD_Max_Corr, ymax=Mean_Max_Corr+SD_Max_Corr), width=.2, color = "Black")+
+  guides(fill = guide_legend(title = "Condition")) +
+  scale_fill_manual(values=c(light_no_ab_color, light_ab_color, dark_no_ab_color)) +
+  scale_color_manual(values=c(light_no_ab_color, light_ab_color, dark_no_ab_color)) +
+  #ggtitle("Effect of Available Senses on Nearest Neighbor Distance (NND) in Still Water") +
+  xlab("") +
+  ylab("Max Correlation") +
+  theme_light()+ 
+  theme(legend.position = "none") +
+  theme(axis.text.x = element_text(size = text_size),
+        axis.text.y = element_text(size = text_size),
+        axis.title.y = element_text(size = text_size))+
+  scale_x_discrete(labels=function(x){sub(",\\s", "\n", x)})
+
+
+max_corr_glmer <- lmer(max_corr ~ Ablation + Darkness + (1|Data_ID), data = raw_heading_corrs_sum %>% filter(Flow == "Still Water"))
+summary(max_corr_glmer)
+Anova(max_corr_glmer)
 
 
 ggplot(raw_heading_corrs_graphing %>% filter(Flow == "Still Water"),
@@ -662,5 +635,24 @@ corr_vs_dist_glmer <- lmer(corrs ~ 0+Distance*(Ablation + Darkness) + (1|Data_ID
 summary(corr_vs_dist_glmer)
 Anova(corr_vs_dist_glmer)
 
+
+countour_lag_data <- raw_heading_corrs_graphing %>% mutate(round_corrs = round_any(corrs, 0.25),
+                                                           round_dists = round_any(Distance, 2))
+
+ggplot(countour_lag_data %>% filter(Flow == "Still Water" & Darkness == "Dark"),
+       aes(x = Distance, y = corrs, color = lags))+
+  geom_point()+
+  scale_color_viridis()+
+  theme_classic()
+
+ggplot(countour_lag_data %>% filter(Flow == "Still Water" & Darkness == "Dark"),
+       aes(x = Distance, y = lags))+
+  geom_point()+
+  theme_classic()
+
+ggplot(countour_lag_data %>% filter(Flow == "Still Water" & Darkness == "Dark"),
+       aes(x = corrs, y = lags))+
+  geom_point()+
+  theme_classic()
 
 ```
