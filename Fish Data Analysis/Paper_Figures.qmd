@@ -36,6 +36,7 @@ max_n <- function(x,n){sort(x,decreasing = TRUE)[1:n]}
 light_no_ab_color = "#d4d7dd"
 light_ab_color = "#f5ba9e"
 dark_no_ab_color = "#5e94d4"
+dark_ab_color = "#1E4371"
 sim_color = "#777777"
 
 flow_split_still = "#F59DE2"
@@ -56,6 +57,26 @@ text_size = 16
 ## Fish Turning Graphs
 
 ```{r}
+
+abalated_dark_turning_data <- read.csv("Data/ablated_dark_data_turning.csv") %>%
+                           mutate(Flow = ifelse(Flow == "0", "Still Water", "Flowing Water (2 BL/s)")) %>%
+                           mutate(Ablation = ifelse(Ablation  == "N", "No Ablation", "Ablated")) %>%
+                           mutate(Darkness = ifelse(Darkness == "N", "Light", "Dark")) %>%
+                           mutate(Flow = factor(Flow), Ablation = factor(Ablation), Darkness = factor(Darkness)) %>%
+                           mutate(Flow = fct_relevel(Flow, c("Still Water","Flowing Water (2 BL/s)"))) %>%
+                           mutate(Ablation = fct_relevel(Ablation, c("No Ablation","Ablated"))) %>%
+                           mutate(Darkness = fct_relevel(Darkness, c("Light","Dark"))) %>%
+                           mutate(Flow_Ablation_Darkness = factor(paste(Flow,Ablation,Darkness,sep=", "))) %>%
+                           mutate(Fish_Num_Ratio = Fish_Right/8) %>%
+                           mutate(Fish_Ratio = paste(Fish_Left,Fish_Right,sep=":")) %>%
+                           filter(Fish_Ratio %in% c("7:0","6:1","5:2","4:3","3:4","2:5","1:6","0:7")) %>%
+                           mutate(Fish_Ratio = fct_relevel(Fish_Ratio,
+                                                           c("7:0","6:1","5:2","4:3",
+                                                             "3:4","2:5","1:6","0:7"))) %>%
+                           mutate(turn_bool = ifelse(Turn_Dir == 0,1,0)) %>% 
+                           select(-c("Singles","Frame","Fish")) %>%
+                           mutate(Type = "Eight Fish")
+
 annushka_turning_data <- read.csv("Data/Annushka_Turning_Data_Wall.csv") %>%
                            #filter(Next.to.Wall == 0) %>%
                            mutate(Flow = ifelse(Flow == "F0", "Still Water", "Flowing Water (2 BL/s)")) %>%
@@ -98,7 +119,28 @@ single_fish_turning_data <- read.csv("Data/single_fish_turning.csv") %>%
                            select(-c("Singles")) %>%
                            mutate(Type = "Combined Single")
 
-all_turning_data <- rbind(annushka_turning_data,single_fish_turning_data)
+
+eight_fish_turning_data <- rbind(annushka_turning_data,abalated_dark_turning_data)
+
+all_turning_data <- rbind(eight_fish_turning_data,single_fish_turning_data)
+
+eight_fish_data_sum  <- eight_fish_turning_data %>% na.omit %>%
+                                     group_by(Fish_Ratio,Fish_Num_Ratio,Flow,Ablation,Darkness,Flow_Ablation_Darkness,Type) %>%
+                                     summarize(mean_right_turn = mean(turn_bool),
+                                               sd_right_turn = sd(turn_bool),
+                                               se_right_turn = sd_right_turn/sqrt(n()),
+                                               n = n()) %>%
+                                     ungroup()
+
+single_fish_data_sum  <- single_fish_turning_data %>% na.omit %>%
+                                     group_by(Fish_Ratio,Fish_Num_Ratio,Flow,Ablation,Darkness,Flow_Ablation_Darkness,Type) %>%
+                                     summarize(mean_right_turn = mean(turn_bool),
+                                               sd_right_turn = sd(turn_bool),
+                                               se_right_turn = sd_right_turn/sqrt(n()),
+                                               n = n()) %>%
+                                     ungroup() %>%
+                                     filter(Flow == "Still Water" & Darkness == "Light" & Ablation == "No Ablation")
+
 
 turning_data_sum <- all_turning_data %>% na.omit %>%
                                      group_by(Fish_Ratio,Fish_Num_Ratio,Flow,Ablation,Darkness,Flow_Ablation_Darkness,Type) %>%
@@ -122,7 +164,7 @@ eight_fish_still <- ggplot(turning_data_sum %>% filter(Type == "Eight Fish") %>%
   xlab("# Fish on Left : # Fish on Right") +
   ylab("Probability of a Right Turn") +
   ylim(0,1) +
-  scale_colour_manual(values = c(light_no_ab_color,light_ab_color,dark_no_ab_color)) +
+  scale_colour_manual(values = c(light_no_ab_color,light_ab_color,dark_no_ab_color,dark_ab_color)) +
   #ggtitle("Observed Probability of a Right Turn Based on Ratio of Fish to the Left and Right") +
   scale_x_continuous(breaks = c(0,0.125,0.25,0.375,
                                 0.5,0.625,0.75,0.875),
@@ -143,7 +185,7 @@ eight_fish_flow <- ggplot(turning_data_sum %>% filter(Type == "Eight Fish") %>% 
   xlab("# Fish on Left : # Fish on Right") +
   ylab("Probability of a Right Turn") +
   ylim(0,1) +
-  scale_colour_manual(values = c(light_no_ab_color,light_ab_color,dark_no_ab_color)) +
+  scale_colour_manual(values = c(light_no_ab_color,light_ab_color,dark_no_ab_color,dark_ab_color)) +
   #ggtitle("Observed Probability of a Right Turn Based on Ratio of Fish to the Left and Right") +
   scale_x_continuous(breaks = c(0,0.125,0.25,0.375,
                                 0.5,0.625,0.75,0.875),
@@ -162,31 +204,45 @@ eight_fish_flow
 ### All the Plots of Eight Fish vs Single in Still Water
 
 ```{r}
+placeholder_tibble <- tibble("Fish_Ratio" = c("0:7"),
+                             "Fish_Num_Ratio" = c(0.875),
+                             "Flow" = c("Still Water"),
+                             "Ablation" = c("No Ablation"),
+                             "Darkness" = c("Light"),
+                             "Type" = c("Combined Single"),
+                             "n" = c(0))
+
+light_no_ab_eight_single_graph_data <- eight_fish_data_sum %>% 
+                                      filter(Flow == "Still Water" & Darkness == "Light" & Ablation == "No Ablation") %>%
+                                      full_join(.,single_fish_data_sum) %>%
+                                      full_join(.,placeholder_tibble)
+
+light_ab_eight_single_graph_data <- eight_fish_data_sum %>% 
+                                      filter(Flow == "Still Water" & Darkness == "Light" & Ablation == "Ablated") %>%
+                                      full_join(.,single_fish_data_sum) %>%
+                                      full_join(.,placeholder_tibble)
+
+dark_no_ab_eight_single_graph_data <- eight_fish_data_sum %>% 
+                                      filter(Flow == "Still Water" & Darkness == "Dark" & Ablation == "No Ablation") %>%
+                                      full_join(.,single_fish_data_sum) %>%
+                                      full_join(.,placeholder_tibble)
+
+dark_ab_eight_single_graph_data <- eight_fish_data_sum %>% 
+                                      filter(Flow == "Still Water" & Darkness == "Dark" & Ablation == "Ablated") %>%
+                                      full_join(.,single_fish_data_sum) %>%
+                                      full_join(.,placeholder_tibble)
 
 
-placeholder_tibble <- tibble("Fish_Ratio" = c("0:7","0:7","3:4"),
-                             "Fish_Num_Ratio" = c(0.875,0.875,0.5),
-                             "Flow" = c("Still Water","Still Water","Still Water"),
-                             "Ablation" = c("No Ablation","Ablated","Ablated"),
-                             "Darkness" = c("Light","Light","Light"),
-                             "Type" = c("Combined Single","Combined Single","Combined Single"),
-                             "n" = c(0,0,0))
-
-turning_data_sum <- turning_data_sum %>% ungroup()
-
-turning_data_sum <- full_join(turning_data_sum,placeholder_tibble)
-
-
-dark_eight_and_single_graph <- ggplot(turning_data_sum %>% filter(Flow == "Still Water" & Darkness == "Dark"),
+light_eight_and_single_graph <- ggplot(light_no_ab_eight_single_graph_data,
        aes(x = Fish_Num_Ratio, y = mean_right_turn, color = Type))+
   geom_point()+
-  geom_col(aes(x = Fish_Num_Ratio, y = n/80, fill = Type), color = NA, alpha = 0.3, position = "dodge2")+
+  geom_col(aes(x = Fish_Num_Ratio, y = n/80, fill = Type, color = none), color = NA, alpha = 0.3, position = "dodge2")+
   geom_smooth(se = F, method = glm, formula = y ~ x, method.args = list(family = "binomial"))+
   theme_classic() +
   xlab("# Fish on Left : # Fish on Right") +
-  ylab("Probability of a Right Turn") +
-  scale_colour_manual(values = c(sim_color,dark_no_ab_color), labels=function(x){sub("\\s", "\n", x)}) +
-  scale_fill_manual(values = c(sim_color,dark_no_ab_color), labels=function(x){sub("\\s", "\n", x)}) +
+  ylim(0,1) +
+  scale_colour_manual(values = c(sim_color,light_no_ab_color), labels=function(x){sub("\\s", "\n", x)}) +
+  scale_fill_manual(values = c(sim_color,light_no_ab_color), labels=function(x){sub("\\s", "\n", x)}) +
   #ggtitle("Observed Probability of a Right Turn Based on Ratio of Fish to the Left and Right") +
   scale_x_continuous(breaks = c(0,0.125,0.25,0.375,
                                 0.5,0.625,0.75,0.875),
@@ -200,10 +256,10 @@ dark_eight_and_single_graph <- ggplot(turning_data_sum %>% filter(Flow == "Still
   scale_y_continuous("Probability of a Right Turn",
                      sec.axis = sec_axis(~.*80, name = "Number of Datapoints"),
                      limits = c(0, 1))
-  
 
 
-ablation_eight_and_single_graph <- ggplot(turning_data_sum %>% filter(Flow == "Still Water" & Ablation == "Ablated"),
+
+ablation_eight_and_single_graph <- ggplot(light_ab_eight_single_graph_data,
        aes(x = Fish_Num_Ratio, y = mean_right_turn, color = Type))+
   geom_point()+
   geom_col(aes(x = Fish_Num_Ratio, y = n/80, fill = Type), color = NA, alpha = 0.3, position = "dodge2")+
@@ -228,17 +284,42 @@ ablation_eight_and_single_graph <- ggplot(turning_data_sum %>% filter(Flow == "S
                      sec.axis = sec_axis(~.*80, name = "Number of Datapoints"),
                      limits = c(0, 1))
 
-
-light_eight_and_single_graph <- ggplot(turning_data_sum %>% filter(Flow == "Still Water" & Ablation == "No Ablation" & Darkness == "Light"),
+  
+dark_eight_and_single_graph <- ggplot(dark_no_ab_eight_single_graph_data,
        aes(x = Fish_Num_Ratio, y = mean_right_turn, color = Type))+
   geom_point()+
-  geom_col(aes(x = Fish_Num_Ratio, y = n/80, fill = Type, color = none), color = NA, alpha = 0.3, position = "dodge2")+
+  geom_col(aes(x = Fish_Num_Ratio, y = n/80, fill = Type), color = NA, alpha = 0.3, position = "dodge2")+
   geom_smooth(se = F, method = glm, formula = y ~ x, method.args = list(family = "binomial"))+
   theme_classic() +
   xlab("# Fish on Left : # Fish on Right") +
-  ylim(0,1) +
-  scale_colour_manual(values = c(sim_color,light_no_ab_color), labels=function(x){sub("\\s", "\n", x)}) +
-  scale_fill_manual(values = c(sim_color,light_no_ab_color), labels=function(x){sub("\\s", "\n", x)}) +
+  ylab("Probability of a Right Turn") +
+  scale_colour_manual(values = c(sim_color,dark_no_ab_color), labels=function(x){sub("\\s", "\n", x)}) +
+  scale_fill_manual(values = c(sim_color,dark_no_ab_color), labels=function(x){sub("\\s", "\n", x)}) +
+  #ggtitle("Observed Probability of a Right Turn Based on Ratio of Fish to the Left and Right") +
+  scale_x_continuous(breaks = c(0,0.125,0.25,0.375,
+                                0.5,0.625,0.75,0.875),
+                     labels = c("7:0","6:1","5:2","4:3",
+                                "3:4","2:5","1:6","0:7"))+ 
+  labs(color = "School Type")+
+  theme(axis.text.x = element_text(size = text_size/2),
+        axis.text.y = element_text(size = text_size/2),
+        axis.title.y = element_text(size = text_size/2))+
+  guides(fill = FALSE)+
+  scale_y_continuous("Probability of a Right Turn",
+                     sec.axis = sec_axis(~.*80, name = "Number of Datapoints"),
+                     limits = c(0, 1))
+  
+
+dark_ablation_eight_and_single_graph <- ggplot(dark_ab_eight_single_graph_data,
+       aes(x = Fish_Num_Ratio, y = mean_right_turn, color = Type))+
+  geom_point()+
+  geom_col(aes(x = Fish_Num_Ratio, y = n/80, fill = Type), color = NA, alpha = 0.3, position = "dodge2")+
+  geom_smooth(se = F, method = glm, formula = y ~ x, method.args = list(family = "binomial"))+
+  theme_classic() +
+  xlab("# Fish on Left : # Fish on Right") +
+  ylab("Probability of a Right Turn") +
+  scale_colour_manual(values = c(sim_color,dark_ab_color), labels=function(x){sub("\\s", "\n", x)}) +
+  scale_fill_manual(values = c(sim_color,dark_ab_color), labels=function(x){sub("\\s", "\n", x)}) +
   #ggtitle("Observed Probability of a Right Turn Based on Ratio of Fish to the Left and Right") +
   scale_x_continuous(breaks = c(0,0.125,0.25,0.375,
                                 0.5,0.625,0.75,0.875),
@@ -253,9 +334,11 @@ light_eight_and_single_graph <- ggplot(turning_data_sum %>% filter(Flow == "Stil
                      sec.axis = sec_axis(~.*80, name = "Number of Datapoints"),
                      limits = c(0, 1))
 
+
 light_eight_and_single_graph
 ablation_eight_and_single_graph
 dark_eight_and_single_graph
+dark_ablation_eight_and_single_graph
 ```
 
 ### Now we combine it all
@@ -276,8 +359,9 @@ ggsave("Paper Figures/turning_both_plot.png", turning_both_plot, width = 12, hei
 
 
 turning_single_test_plot <- ggarrange(
-          light_eight_and_single_graph, ablation_eight_and_single_graph, dark_eight_and_single_graph,
-          labels = c("A", "B", "C"),
+          light_eight_and_single_graph, ablation_eight_and_single_graph, 
+          dark_eight_and_single_graph, dark_ablation_eight_and_single_graph,
+          labels = c("A", "B", "C", "D"),
           ncol = 2, nrow = 2)
 
 ggsave("Paper Figures/turning_single_test_plot.png", turning_single_test_plot, width = 10, height = 7)
@@ -326,7 +410,11 @@ school_data <- school_data %>% mutate(Flow = ifelse(Flow == "0", "Still Water", 
 ### NND Plot
 
 ```{r}
-my_comparisons <- list( c("No Ablation, Light", "No Ablation, Dark"))
+
+my_comparisons <- list(c("No Ablation, Light", "No Ablation, Dark"),
+                       c("No Ablation, Light", "Ablated, Dark"), 
+                       c("Ablated, Light", "No Ablation, Dark"),
+                       c("Ablated, Light", "Ablated, Dark"))
 
 nnd_still <- ggplot(school_data %>% filter(Flow == "Still Water"),
        aes(x = interaction(Ablation,Darkness,sep=", "), y = NND,
@@ -336,21 +424,21 @@ nnd_still <- ggplot(school_data %>% filter(Flow == "Still Water"),
   geom_point(aes(y = NND_Mean_Val), size = 5, color = "Black") +
   geom_errorbar(aes(ymin=NND_Mean_Val-NND_SD_Val, ymax=NND_Mean_Val+NND_SD_Val), width=.2, color = "Black")+
   guides(fill = guide_legend(title = "Condition")) +
-  scale_fill_manual(values=c(light_no_ab_color, light_ab_color, dark_no_ab_color)) +
-  scale_color_manual(values=c(light_no_ab_color, light_ab_color, dark_no_ab_color)) +
+  scale_fill_manual(values=c(light_no_ab_color, light_ab_color, dark_no_ab_color, dark_ab_color)) +
+  scale_color_manual(values=c(light_no_ab_color, light_ab_color, dark_no_ab_color, dark_ab_color)) +
   #ggtitle("Effect of Available Senses on Nearest Neighbor Distance (NND) in Still Water") +
   xlab("") +
   ylab("School NND (BL)") +
   theme_light()+ 
   theme(legend.position = "none") +
-  ylim(0,2)+
-  stat_compare_means(comparisons = my_comparisons, label.y = c(1.75), label = "p.signif", hide.ns = TRUE) +
+  ylim(0,2.5)+
+  stat_compare_means(comparisons = my_comparisons, label = "p.signif", hide.ns = TRUE) +
   theme(axis.text.x = element_text(size = text_size),
         axis.text.y = element_text(size = text_size),
         axis.title.y = element_text(size = text_size))+
   scale_x_discrete(labels=function(x){sub(",\\s", "\n", x)})
 
-my_comparisons <- list()
+my_comparisons <- list(c("No Ablation, Light", "Ablated, Dark"), c("Ablated, Light", "Ablated, Dark"))
 
 nnd_flow <- ggplot(school_data %>% filter(Flow == "Flowing Water (2 BL/s)"),
        aes(x = interaction(Ablation,Darkness,sep=", "), y = NND,
@@ -360,14 +448,14 @@ nnd_flow <- ggplot(school_data %>% filter(Flow == "Flowing Water (2 BL/s)"),
   geom_point(aes(y = NND_Mean_Val), size = 5, color = "Black") +
   geom_errorbar(aes(ymin=NND_Mean_Val-NND_SD_Val, ymax=NND_Mean_Val+NND_SD_Val), width=.2, color = "Black")+
   guides(fill = guide_legend(title = "Condition")) +
-  scale_fill_manual(values=c(light_no_ab_color, light_ab_color, dark_no_ab_color)) +
-  scale_color_manual(values=c(light_no_ab_color, light_ab_color, dark_no_ab_color)) +
+  scale_fill_manual(values=c(light_no_ab_color, light_ab_color, dark_no_ab_color, dark_ab_color)) +
+  scale_color_manual(values=c(light_no_ab_color, light_ab_color, dark_no_ab_color, dark_ab_color)) +
   #ggtitle("Effect of Available Senses on Nearest Neighbor Distance (NND) in Flow (2 BL/s)") +
   xlab("") +
   ylab("School NND (BL)") +
   theme_light()+ 
   theme(legend.position = "none") +
-  #ylim(0,2)+
+  ylim(0,2.5)+
   stat_compare_means(comparisons = my_comparisons, label = "p.signif", hide.ns = TRUE) +
   theme(axis.text.x = element_text(size = text_size),
         axis.text.y = element_text(size = text_size),
@@ -385,66 +473,6 @@ emmeans(nnd_glm, specs = pairwise ~ Ablation:Darkness | Flow)
 
 ```
 
-### Height Plot
-
-```{r}
-my_comparisons <- list()
-
-height_still <- ggplot(school_data %>% filter(Flow == "Still Water"),
-       aes(x = interaction(Ablation,Darkness,sep=", "), y = School_Height,
-           color = interaction(Ablation,Darkness,sep=", "),
-           fill = interaction(Ablation,Darkness,sep=", ")))+
-  stat_dots(side = "both", binwidth = unit(dot_binwidth, "npc")) +
-  geom_point(aes(y = Height_Mean_Val), size = 5, color = "Black") +
-  geom_errorbar(aes(ymin=Height_Mean_Val-Height_SD_Val, ymax=Height_Mean_Val+Height_SD_Val), width=.2, color = "Black")+
-  guides(fill = guide_legend(title = "Condition")) +
-  scale_fill_manual(values=c(light_no_ab_color, light_ab_color, dark_no_ab_color)) +
-  scale_color_manual(values=c(light_no_ab_color, light_ab_color, dark_no_ab_color)) +
-  #ggtitle("Effect of Available Senses on Nearest Neighbor Distance (NND) in Still Water") +
-  xlab("") +
-  ylab("NND (BL)") +
-  theme_light()+ 
-  theme(legend.position = "none") +
-  #ylim(0,3)+
-  stat_compare_means(comparisons = my_comparisons, label = "p.signif", hide.ns = TRUE) +
-  theme(axis.text.x = element_text(size = text_size),
-        axis.text.y = element_text(size = text_size),
-        axis.title.y = element_text(size = text_size))+
-  scale_x_discrete(labels=function(x){sub(",\\s", "\n", x)})
-
-my_comparisons <- list()
-
-height_flow <- ggplot(school_data %>% filter(Flow == "Flowing Water (2 BL/s)"),
-       aes(x = interaction(Ablation,Darkness,sep=", "), y = School_Height,
-           color = interaction(Ablation,Darkness,sep=", "),
-           fill = interaction(Ablation,Darkness,sep=", ")))+
-  stat_dots(side = "both", binwidth = unit(dot_binwidth, "npc")) +
-  geom_point(aes(y = Height_Mean_Val), size = 5, color = "Black") +
-  geom_errorbar(aes(ymin=Height_Mean_Val-Height_SD_Val, ymax=Height_Mean_Val+Height_SD_Val), width=.2, color = "Black")+
-  guides(fill = guide_legend(title = "Condition")) +
-  scale_fill_manual(values=c(light_no_ab_color, light_ab_color, dark_no_ab_color)) +
-  scale_color_manual(values=c(light_no_ab_color, light_ab_color, dark_no_ab_color)) +
-  #ggtitle("Effect of Available Senses on Nearest Neighbor Distance (NND) in Flow (2 BL/s)") +
-  xlab("") +
-  ylab("NND (BL)") +
-  theme_light()+ 
-  theme(legend.position = "none") +
-  #ylim(0,3)+
-  stat_compare_means(comparisons = my_comparisons, label = "p.signif", hide.ns = TRUE) +
-  theme(axis.text.x = element_text(size = text_size),
-        axis.text.y = element_text(size = text_size),
-        axis.title.y = element_text(size = text_size))+
-  scale_x_discrete(labels=function(x){sub(",\\s", "\n", x)})
-
-
-height_still
-height_flow
-
-height_glm <- glm(School_Height ~ Ablation*Darkness*Flow, data = school_data)
-Anova(height_glm)
-emmeans(height_glm, specs = pairwise ~ Ablation:Darkness | Flow)
-```
-
 ### Polarization
 
 ```{r}
@@ -459,8 +487,8 @@ polar_still <- ggplot(school_data %>% filter(Flow == "Still Water"),
   geom_point(aes(y = Polar_Mean_Val), size = 5, color = "Black") +
   geom_errorbar(aes(ymin=Polar_Mean_Val-Polar_SD_Val, ymax=Polar_Mean_Val+Polar_SD_Val), width=.2, color = "Black")+
   guides(fill = guide_legend(title = "Condition")) +
-  scale_fill_manual(values=c(light_no_ab_color, light_ab_color, dark_no_ab_color)) +
-  scale_color_manual(values=c(light_no_ab_color, light_ab_color, dark_no_ab_color)) +
+  scale_fill_manual(values=c(light_no_ab_color, light_ab_color, dark_no_ab_color, dark_ab_color)) +
+  scale_color_manual(values=c(light_no_ab_color, light_ab_color, dark_no_ab_color, dark_ab_color)) +
   #ggtitle("Effect of Available Senses on Polarization in Still Water") +
   xlab("") +
   ylab("Polarization") +
@@ -483,8 +511,8 @@ polar_flow <- ggplot(school_data %>% filter(Flow == "Flowing Water (2 BL/s)"),
   geom_point(aes(y = Polar_Mean_Val), size = 5, color = "Black") +
   geom_errorbar(aes(ymin=Polar_Mean_Val-Polar_SD_Val, ymax=Polar_Mean_Val+Polar_SD_Val), width=.2, color = "Black")+
   guides(fill = guide_legend(title = "Condition")) +
-  scale_fill_manual(values=c(light_no_ab_color, light_ab_color, dark_no_ab_color)) +
-  scale_color_manual(values=c(light_no_ab_color, light_ab_color, dark_no_ab_color)) +
+  scale_fill_manual(values=c(light_no_ab_color, light_ab_color, dark_no_ab_color, dark_ab_color)) +
+  scale_color_manual(values=c(light_no_ab_color, light_ab_color, dark_no_ab_color, dark_ab_color)) +
   #ggtitle("Effect of Available Senses on Polarization in Flowing Water (2 BL/s)") +
   xlab("") +
   ylab("Polarization") +
@@ -524,8 +552,8 @@ speed_still <- ggplot(school_data %>% filter(Flow == "Still Water"),
   geom_point(aes(y = Speed_Mean_Val), size = 5, color = "Black") +
   geom_errorbar(aes(ymin=max(Speed_Mean_Val-Speed_SD_Val,0), ymax=Speed_Mean_Val+Speed_SD_Val), width=.2, color = "Black")+
   guides(fill = guide_legend(title = "Condition")) +
-  scale_fill_manual(values=c(light_no_ab_color, light_ab_color, dark_no_ab_color)) +
-  scale_color_manual(values=c(light_no_ab_color, light_ab_color, dark_no_ab_color)) +
+  scale_fill_manual(values=c(light_no_ab_color, light_ab_color, dark_no_ab_color, dark_ab_color)) +
+  scale_color_manual(values=c(light_no_ab_color, light_ab_color, dark_no_ab_color, dark_ab_color)) +
   #ggtitle("Effect of Available Senses on Speed (BL/s) in Still Water") +
   xlab("") +
   ylab("Speed (BL/s)") +
@@ -548,8 +576,8 @@ speed_flow <- ggplot(school_data %>% filter(Flow == "Flowing Water (2 BL/s)"),
   geom_point(aes(y = Speed_Mean_Val), size = 5, color = "Black") +
   geom_errorbar(aes(ymin=Speed_Mean_Val-Speed_SD_Val, ymax=Speed_Mean_Val+Speed_SD_Val), width=.2, color = "Black")+
   guides(fill = guide_legend(title = "Condition")) +
-  scale_fill_manual(values=c(light_no_ab_color, light_ab_color, dark_no_ab_color)) +
-  scale_color_manual(values=c(light_no_ab_color, light_ab_color, dark_no_ab_color)) +
+  scale_fill_manual(values=c(light_no_ab_color, light_ab_color, dark_no_ab_color, dark_ab_color)) +
+  scale_color_manual(values=c(light_no_ab_color, light_ab_color, dark_no_ab_color, dark_ab_color)) +
   #ggtitle("Effect of Available Senses on Speed (BL/s) in Flowing Water (2 BL/s)") +
   xlab("") +
   ylab("Speed (BL/s)") +
@@ -574,65 +602,6 @@ Anova(speed_glm_still, test.statistic="F")
 
 speed_glm_flow <- glm(School_Speed ~ Ablation*Darkness, data = school_data %>% filter(Flow == "Flowing Water (2 BL/s)"))
 Anova(speed_glm_flow, test.statistic="F")
-```
-
-### Area
-
-```{r}
-my_comparisons <- list( c("No Ablation, Light", "No Ablation, Dark"))
-
-area_still <- ggplot(school_data %>% filter(Flow == "Still Water"),
-       aes(x = interaction(Ablation,Darkness,sep=", "), y = Area,
-           color = interaction(Ablation,Darkness,sep=", "),
-           fill = interaction(Ablation,Darkness,sep=", ")))+
-  stat_dots(side = "both", binwidth = unit(dot_binwidth, "npc")) +
-  geom_point(aes(y = Area_Mean_Val), size = 5, color = "Black") +
-  geom_errorbar(aes(ymin=Area_Mean_Val-Area_SD_Val, ymax=Area_Mean_Val+Area_SD_Val), width=.2, color = "Black")+
-  guides(fill = guide_legend(title = "Condition")) +
-  scale_fill_manual(values=c(light_no_ab_color, light_ab_color, dark_no_ab_color)) +
-  scale_color_manual(values=c(light_no_ab_color, light_ab_color, dark_no_ab_color)) +
-  #ggtitle("Effect of Available Senses on Speed (BL/s) in Still Water") +
-  xlab("") +
-  ylab("Area (BL^2)") +
-  theme_light()+ 
-  theme(legend.position = "none") +
-  #ylim(0,8.5)+
-  stat_compare_means(comparisons = my_comparisons, label = "p.signif", hide.ns = TRUE) +
-  theme(axis.text.x = element_text(size = text_size),
-        axis.text.y = element_text(size = text_size),
-        axis.title.y = element_text(size = text_size))+
-  scale_x_discrete(labels=function(x){sub(",\\s", "\n", x)})
-
-my_comparisons <- list()
-
-area_flow <- ggplot(school_data %>% filter(Flow == "Flowing Water (2 BL/s)"),
-       aes(x = interaction(Ablation,Darkness,sep=", "), y = Area,
-           color = interaction(Ablation,Darkness,sep=", "),
-           fill = interaction(Ablation,Darkness,sep=", ")))+
-  stat_dots(side = "both", binwidth = unit(dot_binwidth, "npc")) +
-  geom_point(aes(y = Area_Mean_Val), size = 5, color = "Black") +
-  geom_errorbar(aes(ymin=Area_Mean_Val-Area_SD_Val, ymax=Area_Mean_Val+Area_SD_Val), width=.2, color = "Black")+
-  guides(fill = guide_legend(title = "Condition")) +
-  scale_fill_manual(values=c(light_no_ab_color, light_ab_color, dark_no_ab_color)) +
-  scale_color_manual(values=c(light_no_ab_color, light_ab_color, dark_no_ab_color)) +
-  #ggtitle("Effect of Available Senses on Speed (BL/s) in Still Water") +
-  xlab("") +
-  ylab("Area (BL^2)") +
-  theme_light()+ 
-  theme(legend.position = "none") +
-  #ylim(0,8.5)+
-  stat_compare_means(comparisons = my_comparisons, label = "p.signif", hide.ns = TRUE) +
-  theme(axis.text.x = element_text(size = text_size),
-        axis.text.y = element_text(size = text_size),
-        axis.title.y = element_text(size = text_size))+
-  scale_x_discrete(labels=function(x){sub(",\\s", "\n", x)})
-
-area_still
-area_flow
-
-area_glm <- glm(Area ~ Ablation*Darkness*Flow, data = school_data)
-Anova(area_glm)
-emmeans(area_glm, specs = pairwise ~ Ablation:Darkness | Flow)
 ```
 
 ### Number of Groups
@@ -679,8 +648,8 @@ group_still
 group_flow
 
 groups_glm <- glm(Groups ~ Ablation*Darkness*Flow, data = school_data, family  = poisson)
-Anova(area_glm)
-emmeans(area_glm, specs = pairwise ~ Ablation:Darkness | Flow)
+Anova(groups_glm)
+emmeans(groups_glm, specs = pairwise ~ Ablation:Darkness | Flow)
 
 groups_glm_still <- glm(Groups ~ Ablation*Darkness, data = school_data %>% filter(Flow == "Still Water"), family  = poisson)
 Anova(groups_glm_still, test.statistic="F")
@@ -700,7 +669,7 @@ school_stats_mega_plot <- ggarrange(nnd_still, nnd_flow,
           labels = c("A", "B", "C", "D", "E", "F", "G", "H"),
           ncol = 2, nrow = 4)  
 
-ggsave("Paper Figures/school_stats_mega_plot.png", school_stats_mega_plot, width = 10, height = 17)
+ggsave("Paper Figures/school_stats_mega_plot.png", school_stats_mega_plot, width = 12, height = 17)
 ```
 
 Parallax
