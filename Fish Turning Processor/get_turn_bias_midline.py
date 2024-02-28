@@ -26,22 +26,38 @@ fish_names = ["individual1","individual2",
 #                        [[0.75,-0.05],[-0.05,-0.05]],
 #                        [[-0.05,-0.05],[-0.05,0.27]]])
 
-#For Single Fish
+# #For Single Fish
 wall_lines = np.array([[[0,1000],[2250,1000]],
                        [[2250,1000],[2250,0]],
                        [[2250,0],[0,0]],
                        [[0,0],[0,1000]]])
+
+#Tailbeat len is the median of all frame distances between tailbeats
+tailbeat_len = 19
+
+
+#calculate the dot product value needed to have the minimum turn
+min_turn_angle = 30
+min_turn_radian = min_turn_angle * np.pi / 180
+peak_prom = abs(np.dot((1,0),(np.cos(min_turn_radian), np.sin(min_turn_radian)))-1)/2
+
 
 csv_output = "{Year},{Month},{Day},{Trial},{Ablation},{Darkness},{Singles},{Flow},{Frame},{Fish},{Turn_Dir},{Fish_Left},{Fish_Right},{Wall_Dist}\n"
 
 def calc_mag(p1,p2):
     return math.sqrt((p1[0]-p2[0])**2 + (p1[1]-p2[1])**2)
 
+def calc_mag_multi(p1,p2):
+    return np.asarray([math.sqrt((p1[i][0]-p2[i][0])**2 + (p1[i][1]-p2[i][1])**2) for i in range(len(p1))])
+
+def calc_mag_vec(v1):
+    return math.sqrt((v1[0])**2 + (v1[1])**2)
+
 def moving_average(x, w):
-    return np.convolve(x, np.ones(w), 'valid') / w
+    return np.convolve(x, np.ones(w), 'same') / w
 
 def moving_sum(x, w):
-    return np.convolve(x, np.ones(w), 'valid')
+    return np.convolve(x, np.ones(w), 'same')
 
 def closest_right_distance_to_wall(headX, headY, midlineX, midlineY):
 
@@ -73,8 +89,8 @@ def closest_right_distance_to_wall(headX, headY, midlineX, midlineY):
         distances[i] = answer[0][0] * np.sqrt(nX**2 + nY**2)
         percents[i] = answer[1][0]
 
-    #Then we only get the none negative distance snad percents (the real ones)
-    real_distances = (distances * (distances >= 0) * (percents >= 0))
+    #Then we only get the none negative distances and percents (the real ones)
+    real_distances = (distances * (distances >= 0) * (percents >= 0) * (percents <= 1))
 
     #Then find the closest distance o those, and the percent that goes along with it
     closest_real_dist = np.nanmin(np.where(real_distances == 0, np.nan, real_distances))
@@ -97,34 +113,43 @@ def turn_frames(head_x_data,head_y_data,mid_x_data,mid_y_data):
     #Set up an array for dot products
     dot_prods = np.zeros(len(head_point_data))+1
 
-    #This is to make it a 45 degree change over the course of a second
-    offset = 60
+    for i in range(tailbeat_len,len(head_point_data)-tailbeat_len-1):
 
-    for i in range(len(head_point_data)-offset-1):
+        vec_20_before = (head_point_data[i-tailbeat_len:i] - mid_point_data[i-tailbeat_len:i]) / calc_mag_multi(head_point_data[i-tailbeat_len:i],mid_point_data[i-tailbeat_len:i]).reshape(tailbeat_len,1)
+        vec_20_after = (head_point_data[i:i+tailbeat_len] - mid_point_data[i:i+tailbeat_len]) / calc_mag_multi(head_point_data[i:i+tailbeat_len],mid_point_data[i:i+tailbeat_len]).reshape(tailbeat_len,1)
 
-        vec1 = (head_point_data[i] - mid_point_data[i]) / calc_mag(head_point_data[i],mid_point_data[i])
-        vec2 = (head_point_data[i+offset] - mid_point_data[i+offset]) / calc_mag(head_point_data[i+offset],mid_point_data[i+offset])
+        vec_20_before_avg = np.average(vec_20_before, axis = 0)
+        vec_20_after_avg = np.average(vec_20_after, axis = 0)
 
-        dot_prods[i] = np.dot(vec1,vec2)
+        vec_20_before_avg_unit = vec_20_before_avg / calc_mag_vec(vec_20_before_avg)
+        vec_20_after_avg_unit = vec_20_after_avg / calc_mag_vec(vec_20_after_avg)
 
-        if np.isnan(np.dot(vec1,vec2)):
+        dot_prods[i] = np.dot(vec_20_before_avg_unit,vec_20_after_avg_unit)
+
+        if np.isnan(dot_prods[i]):
             dot_prods[i] = 1
 
     #Flip the dot products around so that higher more of a turn, not less
     dot_prods = abs(dot_prods-1)/2
 
     #Get the moving average. It's a window I just chose, but it works well I suppose
-    dot_prods_avg = moving_average(dot_prods,10)
+    #No more average since we're averaging the vectors over a tailbeat
+    #dot_prods_avg = moving_average(dot_prods,10)
+
+    #Gethe moving sum over one second
+    #dot_prods_sum = moving_sum(dot_prods_avg,60)
+
+    #print(len(dot_prods),len(dot_prods_avg),len(dot_prods_sum))
 
     #Instead of setting an arbitray amount, look at ones that are more sificantly different from the rest. 
     #Though I suppose that if they turned a lot this wouldn't work well...
     #Now it represents 45 degrees
 
     #peak_prom = np.std(dot_prods)*1.5
-    peak_prom = 0.146
+    #peak_prom = 0.146
 
     #Now zero out all the areas less than the peak prom
-    dot_prods_over_min = np.where(dot_prods_avg<=peak_prom,0,1)*dot_prods_avg
+    dot_prods_over_min = np.where(dot_prods<=peak_prom,0,1)*dot_prods
 
     #And then find the maxes in those non zeroed areas
     peaks, _  = find_peaks(dot_prods_over_min, prominence = peak_prom)
@@ -141,10 +166,12 @@ def turn_frames(head_x_data,head_y_data,mid_x_data,mid_y_data):
     # ax1 = plt.subplot(gs[:,1])
 
     # ax1.plot(np.arange(len(dot_prods)), dot_prods)
-    # ax1.plot(np.arange(len(dot_prods_avg)), dot_prods_avg)
-    # #ax1.plot(np.arange(len(dot_prod_sum)), dot_prod_sum)
+    # #ax1.plot(np.arange(len(dot_prods_avg)), dot_prods_avg)
+    # #ax1.plot(np.arange(len(dot_prods_sum)), dot_prods_sum)
     # #Works best to display
-    # ax1.plot(peaks, dot_prods_over_min[peaks], "x")
+    # ax1.plot(peaks, dot_prods[peaks], "x")
+    # ax1.hlines(y=peak_prom, xmin=0, xmax=len(dot_prods), linewidth=1, color='r')
+    # #ax1.set(ylim=(0, 0.5))
 
     # plt.show()
 
@@ -160,7 +187,7 @@ def turn_frames(head_x_data,head_y_data,mid_x_data,mid_y_data):
     for p in peaks:
         #mid to head and mid to next
         m2h = np.pad(head_point_data[p] - mid_point_data[p], (0, 1), 'constant')
-        m2n = np.pad(head_point_data[p+offset] - mid_point_data[p], (0, 1), 'constant')
+        m2n = np.pad(head_point_data[p+tailbeat_len] - mid_point_data[p], (0, 1), 'constant')
 
         turn_dir = is_point_LR(m2h,m2n)
 
@@ -281,7 +308,7 @@ f = open("single_fish_data_turning.csv", "w")
 
 f.write("Year,Month,Day,Trial,Ablation,Darkness,Singles,Flow,Frame,Fish,Turn_Dir,Fish_Left,Fish_Right,Wall_Dist\n")
 
-folder = "Single_Fish_Data/"
+folder = "single_Fish_Data/"
 
 for file_name in os.listdir(folder):
     if file_name.endswith(".csv"):
