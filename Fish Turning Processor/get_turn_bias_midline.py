@@ -14,6 +14,9 @@ fish_names = ["individual1","individual2",
               "individual5","individual6",
               "individual7","individual8"]
 
+#Fish len is the median of all fish lengths 
+fish_len = 0.083197
+
 # x_edges = [250,2250]
 # y_edges = [200,900]
 
@@ -21,28 +24,28 @@ fish_names = ["individual1","individual2",
 # y_edges = [-0.05,0.27]
 
 #For Real Fish
-# wall_lines = np.array([[[-0.05,0.27],[0.75,0.27]],
-#                        [[0.75,0.27],[0.75,-0.05]],
-#                        [[0.75,-0.05],[-0.05,-0.05]],
-#                        [[-0.05,-0.05],[-0.05,0.27]]])
+wall_lines = np.array([[[-0.05,0.27],[0.75,0.27]],
+                       [[0.75,0.27],[0.75,-0.05]],
+                       [[0.75,-0.05],[-0.05,-0.05]],
+                       [[-0.05,-0.05],[-0.05,0.27]]])
 
 # #For Single Fish
-wall_lines = np.array([[[0,1000],[2250,1000]],
-                       [[2250,1000],[2250,0]],
-                       [[2250,0],[0,0]],
-                       [[0,0],[0,1000]]])
+# wall_lines = np.array([[[0,1000],[2250,1000]],
+#                        [[2250,1000],[2250,0]],
+#                        [[2250,0],[0,0]],
+#                        [[0,0],[0,1000]]])
 
 #Tailbeat len is the median of all frame distances between tailbeats
 tailbeat_len = 19
 
 
 #calculate the dot product value needed to have the minimum turn
-min_turn_angle = 30
+min_turn_angle = 15
 min_turn_radian = min_turn_angle * np.pi / 180
 peak_prom = abs(np.dot((1,0),(np.cos(min_turn_radian), np.sin(min_turn_radian)))-1)/2
 
 
-csv_output = "{Year},{Month},{Day},{Trial},{Ablation},{Darkness},{Singles},{Flow},{Frame},{Fish},{Turn_Dir},{Fish_Left},{Fish_Right},{Wall_Dist}\n"
+csv_output = "{Year},{Month},{Day},{Trial},{Ablation},{Darkness},{Singles},{Flow},{Frame},{Fish},{Turn_Dir},{Fish_Left},{Fish_Right},{Right_Wall_Dist},{Left_Wall_Dist}\n"
 
 def calc_mag(p1,p2):
     return math.sqrt((p1[0]-p2[0])**2 + (p1[1]-p2[1])**2)
@@ -59,7 +62,7 @@ def moving_average(x, w):
 def moving_sum(x, w):
     return np.convolve(x, np.ones(w), 'same')
 
-def closest_right_distance_to_wall(headX, headY, midlineX, midlineY):
+def closest_LR_distance_to_wall(headX, headY, midlineX, midlineY, direction):
 
     #find all the distances from every wall
     distances = np.full([4], np.nan)
@@ -72,8 +75,15 @@ def closest_right_distance_to_wall(headX, headY, midlineX, midlineY):
         #But this gives k and b 
         # where k is the mutliplier of vector n that makes it intersect with vector w (wall)
         # and where b is the mutliplier of vector w that makes it intersect with vector n (right perpendicular to fish)
-        nX = (headY - midlineY)
-        nY = -1*(headX - midlineX)
+
+        if direction == "right":
+            nX = (headY - midlineY)
+            nY = -1*(headX - midlineX)
+        elif direction == "left":
+            nX = -1*(headY - midlineY)
+            nY = (headX - midlineX)
+        else:
+            print("HEY")
 
         a = np.array([[wall[0][0] - headX],
                       [wall[0][1] - headY]])
@@ -182,7 +192,8 @@ def turn_frames(head_x_data,head_y_data,mid_x_data,mid_y_data):
     #But I can do it with is_point_LR() for each point, comparing one head to the next...
     turn_dirs = []
     final_peaks = []
-    wall_dists = []
+    R_wall_dists = []
+    L_wall_dists = []
 
     for p in peaks:
         #mid to head and mid to next
@@ -197,13 +208,15 @@ def turn_frames(head_x_data,head_y_data,mid_x_data,mid_y_data):
         else:
             #Also we want to check that they aren't too close to the edge!
             #Now we don't check! We're jsut going to calculate it!
-            distance, percent = closest_right_distance_to_wall(head_point_data[p][0],head_point_data[p][1],mid_point_data[p][0],mid_point_data[p][1])
+            R_distance, R_percent = closest_LR_distance_to_wall(head_point_data[p][0],head_point_data[p][1],mid_point_data[p][0],mid_point_data[p][1],"right")
+            L_distance, L_percent = closest_LR_distance_to_wall(head_point_data[p][0],head_point_data[p][1],mid_point_data[p][0],mid_point_data[p][1],"left")
 
             #Only pass it on if in bounds
-            if not np.isnan(distance):
+            if not np.isnan(R_distance*L_distance):
                 turn_dirs.append(turn_dir)
                 final_peaks.append(p)
-                wall_dists.append(distance)
+                R_wall_dists.append(R_distance/fish_len)
+                L_wall_dists.append(L_distance/fish_len)
             else:
                 print("Out of Bounds!!")
                 print(head_point_data[p])
@@ -211,7 +224,7 @@ def turn_frames(head_x_data,head_y_data,mid_x_data,mid_y_data):
                 print("")
 
 
-    return(final_peaks,turn_dirs,wall_dists)
+    return(final_peaks,turn_dirs,R_wall_dists,L_wall_dists)
 
 
 def is_point_LR(mid_to_head,mid_to_other):
@@ -284,7 +297,7 @@ def process_trial(folder,datafile):
         mid_x_data = fish_data[scorerer][fish]["midline2"]["x"].to_numpy()
         mid_y_data = fish_data[scorerer][fish]["midline2"]["y"].to_numpy()
 
-        turning_frames, turn_dirs, wall_dists = turn_frames(head_x_data,head_y_data,mid_x_data,mid_y_data)
+        turning_frames, turn_dirs, R_wall_dists, L_wall_dists = turn_frames(head_x_data,head_y_data,mid_x_data,mid_y_data)
 
         for i,frame in enumerate(turning_frames):
             num_LR = get_num_LR(frame,fish,fish_data,scorerer)
@@ -302,13 +315,14 @@ def process_trial(folder,datafile):
                                       Turn_Dir = turn_dirs[i],
                                       Fish_Left = num_LR[1],
                                       Fish_Right = num_LR[0],
-                                      Wall_Dist = wall_dists[i]))
+                                      Right_Wall_Dist = R_wall_dists[i],
+                                      Left_Wall_Dist = L_wall_dists[i]))
 
-f = open("single_fish_data_turning.csv", "w")
+f = open("eight_fish_data_turning.csv", "w")
 
-f.write("Year,Month,Day,Trial,Ablation,Darkness,Singles,Flow,Frame,Fish,Turn_Dir,Fish_Left,Fish_Right,Wall_Dist\n")
+f.write("Year,Month,Day,Trial,Ablation,Darkness,Singles,Flow,Frame,Fish,Turn_Dir,Fish_Left,Fish_Right,Right_Wall_Dist,Left_Wall_Dist\n")
 
-folder = "single_Fish_Data/"
+folder = "eight_Fish_Data/"
 
 for file_name in os.listdir(folder):
     if file_name.endswith(".csv"):

@@ -74,7 +74,8 @@ eight_fish_turning_data <- read.csv("Data/eight_fish_data_turning.csv") %>%
                                                              "3:4","2:5","1:6","0:7"))) %>%
                            mutate(turn_bool = ifelse(Turn_Dir == 0,1,0)) %>% 
                            dplyr::select(-c("Singles")) %>%
-                           mutate(Type = "Eight Fish")
+                           mutate(Type = "Eight Fish") %>%
+                           mutate(Min_Wall = pmin(Right_Wall_Dist,Left_Wall_Dist))
 
 single_fish_turning_data <- read.csv("Data/single_fish_data_turning.csv") %>%
                            mutate(Flow = ifelse(Flow == "0", "Still Water", "Flowing Water (2 BL/s)")) %>%
@@ -94,7 +95,73 @@ single_fish_turning_data <- read.csv("Data/single_fish_data_turning.csv") %>%
                            mutate(turn_bool = ifelse(Turn_Dir == 0,1,0)) %>% 
                            dplyr::select(-c("Singles")) %>%
                            mutate(Type = "Combined Single")
+
+eight_fish_data_sum  <- eight_fish_turning_data %>% na.omit %>%
+                                     group_by(Fish_Ratio,Fish_Num_Ratio,Flow,Ablation,Darkness,Flow_Ablation_Darkness,Type) %>%
+                                     summarize(mean_right_turn = mean(turn_bool),
+                                               sd_right_turn = sd(turn_bool),
+                                               se_right_turn = sd_right_turn/sqrt(n()),
+                                               n = n()) %>%
+                                     ungroup()
+
+eight_fish_data_sum_away  <- eight_fish_turning_data %>% na.omit %>% filter(Min_Wall >= 2) %>%
+                                     group_by(Fish_Ratio,Fish_Num_Ratio,Flow,Ablation,Darkness,Flow_Ablation_Darkness,Type) %>%
+                                     summarize(mean_right_turn = mean(turn_bool),
+                                               sd_right_turn = sd(turn_bool),
+                                               se_right_turn = sd_right_turn/sqrt(n()),
+                                               n = n()) %>%
+                                     ungroup()
 ```
+
+
+```{r}
+eight_fish_still <- ggplot(eight_fish_data_sum_away %>% filter(Flow == "Still Water"),
+       aes(x = Fish_Num_Ratio, y = mean_right_turn, color = interaction(Ablation, Darkness, sep =", ")))+
+  geom_point()+
+  #geom_line(alpha = 0.25) +
+  geom_smooth(se = F, method = glm, formula = y ~ x, method.args = list(family = "binomial"))+
+  #facet_wrap(~ Darkness + Ablation) +
+  theme_classic() +
+  xlab("# Fish on Left : # Fish on Right") +
+  ylab("Probability of a Right Turn") +
+  ylim(0,1) +
+  scale_colour_manual(values = c(light_no_ab_color,light_ab_color,dark_no_ab_color,dark_ab_color)) +
+  #ggtitle("Observed Probability of a Right Turn Based on Ratio of Fish to the Left and Right") +
+  scale_x_continuous(breaks = c(0,0.125,0.25,0.375,
+                                0.5,0.625,0.75,0.875),
+                     labels = c("7:0","6:1","5:2","4:3",
+                                "3:4","2:5","1:6","0:7"))+ 
+  labs(color = "Sensory Conditions")+
+  theme(axis.text.x = element_text(size = text_size),
+        axis.text.y = element_text(size = text_size),
+        axis.title.y = element_text(size = text_size))
+
+eight_fish_flow <- ggplot(eight_fish_data_sum %>% filter(Flow == "Flowing Water (2 BL/s)"),
+       aes(x = Fish_Num_Ratio, y = mean_right_turn, color = interaction(Ablation, Darkness, sep =", ")))+
+  geom_point()+
+  #geom_line(alpha = 0.25) +
+  geom_smooth(se = F, method = glm, formula = y ~ x, method.args = list(family = "binomial"))+
+  #facet_wrap(~ Darkness + Ablation) +
+  theme_classic() +
+  xlab("# Fish on Left : # Fish on Right") +
+  ylab("Probability of a Right Turn") +
+  ylim(0,1) +
+  scale_colour_manual(values = c(light_no_ab_color,light_ab_color,dark_no_ab_color,dark_ab_color)) +
+  #ggtitle("Observed Probability of a Right Turn Based on Ratio of Fish to the Left and Right") +
+  scale_x_continuous(breaks = c(0,0.125,0.25,0.375,
+                                0.5,0.625,0.75,0.875),
+                     labels = c("7:0","6:1","5:2","4:3",
+                                "3:4","2:5","1:6","0:7"))+ 
+  labs(color = "Sensory Conditions")+
+  theme(axis.text.x = element_text(size = text_size),
+        axis.text.y = element_text(size = text_size),
+        axis.title.y = element_text(size = text_size))
+
+eight_fish_still
+eight_fish_flow
+
+```
+
 
 ## Lets compare models for each of the different groups
 
@@ -104,10 +171,10 @@ Everything?
 
 eight_fish_turning_base <- glm(turn_bool ~ 1,
                                family = "binomial",
-                               data = eight_fish_turning_data %>% filter(Flow == "Still Water"))
+                               data = eight_fish_turning_data %>% filter(Flow == "Still Water" & Min_Wall > 2))
 
 eight_fish_turning_step <- stepAIC(eight_fish_turning_base, 
-                                   list(upper = ~ Wall_Dist*Fish_Num_Ratio*Ablation*Darkness, lower = ~1), 
+                                   list(upper = ~ Left_Wall_Dist*Right_Wall_Dist*Fish_Num_Ratio*Ablation*Darkness, lower = ~1), 
                                    direction = "both",
                                    trace = F)
 Anova(eight_fish_turning_step)
@@ -119,10 +186,10 @@ single_fish_turning_base <- glm(turn_bool ~ 1,
                                data = single_fish_turning_data %>% filter(Flow_Ablation_Darkness == "Still Water, No Ablation, Light"))
 
 single_fish_turning_step <- stepAIC(single_fish_turning_base, 
-                                   list(upper = ~ Wall_Dist*Fish_Num_Ratio, lower = ~1), 
+                                   list(upper = ~ Left_Wall_Dist*Right_Wall_Dist*Fish_Num_Ratio, lower = ~1), 
                                    direction = "both",
                                    trace = F)
-#Anova(single_fish_turning_step)
+Anova(single_fish_turning_step)
 
 ```
 

@@ -40,7 +40,6 @@ moving_average_n = 35
 #Tailbeat len is the median of all frame distances between tailbeats
 tailbeat_len = 19
 
-
 #Fish len is the median of all fish lengths in pixels
 #Scale is different becasue of calibration
 fish_len = 0.083197
@@ -1477,43 +1476,49 @@ for trial in trials:
 
 fish_sigular_dataframe.to_csv("Fish_Individual_Values_3D.csv")
 fish_comp_dataframe.to_csv("Fish_Comp_Values_3D.csv")
-fish_raw_comp_dataframe.to_csv("Fish_Raw_Comp_Values_3D.csv")
+#fish_raw_comp_dataframe.to_csv("Fish_Raw_Comp_Values_3D.csv")
 fish_school_dataframe.to_csv("Fish_School_Values_3D.csv")
 
-# #Recalculate when new data is added
-# all_trials_tailbeat_lens = []
-# all_trials_fish_lens = []
+#Recalculate when new data is added
+all_trials_tailbeat_lens = []
+all_trials_fish_lens = []
 
-# for trial in trials:
-#     all_trials_tailbeat_lens.extend(np.asarray(trial.return_tailbeat_lens()))
-#     all_trials_fish_lens.extend(np.asarray(trial.return_fish_lens()))
+for trial in trials:
+    all_trials_tailbeat_lens.extend(np.asarray(trial.return_tailbeat_lens()))
+    all_trials_fish_lens.extend(np.asarray(trial.return_fish_lens()))
 
-# all_trials_fish_lens = np.asarray(all_trials_fish_lens)
-# #all_trials_fish_lens = all_trials_fish_lens[all_trials_fish_lens < 1.25]
+all_trials_fish_lens = np.asarray(all_trials_fish_lens)*fish_len
+#all_trials_fish_lens = all_trials_fish_lens[all_trials_fish_lens < 1.25]
 
-# print("Tailbeat Len Median")
-# print(np.nanmedian(all_trials_tailbeat_lens)) #18
+print("Tailbeat Len Median")
+print(np.nanmedian(all_trials_tailbeat_lens)) #18
 
-# print("Fish Len Median")
-# print(np.nanmedian(all_trials_fish_lens))
+print("Fish Len Median")
+print(np.nanmedian(all_trials_fish_lens))
 
-# print("Fish Len Mean")
-# print(np.nanmean(all_trials_fish_lens))
+print("Fish Len Mean")
+print(np.nanmean(all_trials_fish_lens))
 
-# print("Fish Len SD")
-# print(np.nanstd(all_trials_fish_lens))
+q75, q25 = np.nanpercentile(all_trials_fish_lens, [75 ,25])
+iqr = q75 - q25
 
-# print("Fish Len Max?")
-# print(np.nanmean(all_trials_fish_lens) + 3*np.nanstd(all_trials_fish_lens))
+print("Fish Len IQR")
+print(iqr)
 
-# print("Fish Len Max Observed")
-# print(np.nanmax(all_trials_fish_lens))
+print("Fish Len SD")
+print(np.nanstd(all_trials_fish_lens))
 
-# fig,ax = plt.subplots(1,2)
-# ax[0].hist(all_trials_fish_lens, bins = 30)
-# ax[1].hist(np.log(all_trials_fish_lens), bins = 30)
-# #ax.set_xlim(0,1.5)
-# plt.show()
+print("Fish Len Max?")
+print(np.nanmean(all_trials_fish_lens) + 3*np.nanstd(all_trials_fish_lens))
+
+print("Fish Len Max Observed")
+print(np.nanmax(all_trials_fish_lens))
+
+fig,ax = plt.subplots(1,2)
+ax[0].hist(all_trials_fish_lens, bins = 30)
+ax[1].hist(np.log(all_trials_fish_lens), bins = 30)
+#ax.set_xlim(0,1.5)
+plt.show()
 
 
 # Fish Len Median

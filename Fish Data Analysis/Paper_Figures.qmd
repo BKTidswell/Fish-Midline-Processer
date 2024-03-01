@@ -669,6 +669,13 @@ school_stats_mega_plot <- ggarrange(nnd_still, nnd_flow,
           labels = c("A", "B", "C", "D", "E", "F", "G", "H"),
           ncol = 2, nrow = 4)  
 
+school_stats_mega_plot
+
+school_stats_mega_plot <- annotate_figure(school_stats_mega_plot, 
+                top = text_grob("                 Still Water                                     Flowing Water (2 BL/s)",
+                                size = 24),
+                fig.lab.pos = "top")
+
 ggsave("Paper Figures/school_stats_mega_plot.png", school_stats_mega_plot, width = 12, height = 17)
 ```
 
