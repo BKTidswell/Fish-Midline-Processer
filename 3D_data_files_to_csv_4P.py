@@ -55,6 +55,9 @@ fish_max_len = (fish_len + 3*fish_sd) / fish_len
 #Header list for reading the raw location CSVs
 header = list(range(4))
 
+def calc_mag(p1,p2):
+    return math.sqrt((p1[0]-p2[0])**2 + (p1[1]-p2[1])**2)
+
 def get_dist_np_2D(x1s,y1s,x2s,y2s):
     dist = np.sqrt((x1s-x2s)**2+(y1s-y2s)**2)
     return dist
@@ -88,7 +91,7 @@ def mean_tailbeat_chunk(data,tailbeat_len):
         start = k//tailbeat_len * tailbeat_len
         end = (k//tailbeat_len + 1) * tailbeat_len
 
-        mean_data[k] = np.mean(data[start:end])
+        mean_data[k] = np.nanmean(data[start:end])
 
     return mean_data[::tailbeat_len]
 
@@ -100,7 +103,7 @@ def median_tailbeat_chunk(data,tailbeat_len):
         start = k//tailbeat_len * tailbeat_len
         end = (k//tailbeat_len + 1) * tailbeat_len
 
-        mean_data[k] = np.median(data[start:end])
+        mean_data[k] = np.nanmedian(data[start:end])
 
     return mean_data[::tailbeat_len]
 
@@ -116,8 +119,8 @@ def angular_mean_tailbeat_chunk(data,tailbeat_len):
 
         data_range = data[start:end]
 
-        cos_mean = np.mean(np.cos(data_range))
-        sin_mean = np.mean(np.sin(data_range))
+        cos_mean = np.nanmean(np.cos(data_range))
+        sin_mean = np.nanmean(np.sin(data_range))
 
         #SIN then COSINE
         angular_mean = np.rad2deg(np.arctan2(sin_mean,cos_mean))
@@ -133,7 +136,7 @@ def mean_tailbeat_chunk_sync(data,tailbeat_len):
         start = k//tailbeat_len * tailbeat_len
         end = (k//tailbeat_len + 1) * tailbeat_len
 
-        mean_data[k] = np.mean(data[start:end])
+        mean_data[k] = np.nanmean(data[start:end])
 
     return np.power(2,abs(mean_data[::tailbeat_len])*-1)
 
@@ -706,8 +709,6 @@ class fish_comp:
 
         plt.show()
 
-
-
 class school_comps:
     def __init__(self, fishes, n_fish, flow):
         self.fishes = fishes
@@ -752,6 +753,9 @@ class school_comps:
         self.calc_school_height()
 
         #self.graph_values()
+
+        self.calc_angle_to_nn()
+        self.calc_accel_to_nn()
 
     def calc_school_pos_stats(self):
         school_xs = [fish.head_x for fish in self.fishes]
@@ -823,9 +827,9 @@ class school_comps:
                     fish1 = self.fishes[i]
                     fish2 = self.fishes[j]
 
-                    dists = get_dist_np_2D(fish1.head_x,fish1.head_y,fish2.head_x,fish2.head_y)
+                    #dists = get_dist_np_2D(fish1.head_x,fish1.head_y,fish2.head_x,fish2.head_y)
 
-                    #dists = get_dist_np_3D(fish1.head_x,fish1.head_y,fish1.head_z,fish2.head_x,fish2.head_y,fish2.head_z)
+                    dists = get_dist_np_3D(fish1.head_x,fish1.head_y,fish1.head_z,fish2.head_x,fish2.head_y,fish2.head_z)
 
                     for t in range(len(self.school_center_x)):
                         nnd_array[t][i][j] = dists[t]
@@ -833,6 +837,159 @@ class school_comps:
         #Then we get the mins of each row (or column, they are the same), and then get the mean for the mean
         # NND for that timepoint
         self.nearest_neighbor_distance = np.nanmean(np.nanmin(nnd_array,axis = 1),axis = 1)
+
+    def calc_angle_to_nn(self):
+
+        self.angle_to_nn_array = np.zeros((self.n_fish,int(len(self.school_center_x)/tailbeat_len))) + np.nan
+        self.heading_ps_array = np.zeros((self.n_fish,int(len(self.school_center_x)/tailbeat_len))) + np.nan
+        
+        #now calculate all nnds
+        for i in range(self.n_fish):
+
+
+            fish1 = self.fishes[i]
+
+            #Get the vectors by chunks here
+            #calculate the change in heading angle per second for the focal fish
+
+            fish_i_head_point_data = np.column_stack((mean_tailbeat_chunk(fish1.head_x,tailbeat_len), 
+                                                      mean_tailbeat_chunk(fish1.head_y,tailbeat_len)))
+            fish_i_mid_point_data = np.column_stack((mean_tailbeat_chunk(fish1.midline_x,tailbeat_len),
+                                                     mean_tailbeat_chunk(fish1.midline_y,tailbeat_len)))
+
+            #Make array to store the headings into
+            fish_i_heading = np.zeros(int(len(self.school_center_x)/tailbeat_len)-1) + np.nan
+
+            # print(fish_i_head_point_data)
+            # print(fish_i_mid_point_data)
+
+            #Using vectors
+            # for t in range(len(fish_i_head_point_data)-1):
+
+            #     vec1 = (fish_i_head_point_data[t] - fish_i_mid_point_data[t]) / calc_mag(fish_i_head_point_data[t],fish_i_mid_point_data[t])
+            #     vec2 = (fish_i_head_point_data[t+1] - fish_i_mid_point_data[t+1]) / calc_mag(fish_i_head_point_data[t+1],fish_i_mid_point_data[t+1])
+
+            #     fish_i_heading[t] = np.dot(vec1,vec2)
+
+            #using arctan2
+
+            fish_i_heading = np.arctan2(mean_tailbeat_chunk(fish1.head_y,tailbeat_len) - np.roll(mean_tailbeat_chunk(fish1.head_y,tailbeat_len),1), mean_tailbeat_chunk(fish1.head_x,tailbeat_len) - np.roll(mean_tailbeat_chunk(fish1.head_x,tailbeat_len),1))
+
+            #print(fish_i_heading)
+
+            #Turn into radians
+            #fish_i_heading = np.abs(fish_i_heading - 1)/2 * np.pi
+
+            fish_i_angle_ps = np.diff(fish_i_heading) / fps
+
+            #Make array to save the NNDs into
+            fish_i_dists = np.zeros((self.n_fish,len(self.school_center_x)-1)) + np.nan
+
+            for j in range(self.n_fish):
+
+                if i != j:
+                    fish2 = self.fishes[j]
+
+                    dists = get_dist_np_3D(fish1.head_x,fish1.head_y,fish1.head_z,fish2.head_x,fish2.head_y,fish2.head_z)
+
+                    for t in range(len(self.school_center_x)-1):
+                        fish_i_dists[j][t] = dists[t]
+
+            #replace nans with super large values
+            fish_i_dists_non_nan = np.nan_to_num(fish_i_dists, nan=10**10)
+
+            # print(fish_i_dists.shape)
+            # print(fish_i_dists)
+
+            #Then we make a mask. We don't want to compress since the frame component is SUPER important here
+            # But now we can just skip the masked values
+            argmin_nnd = np.nanargmin(fish_i_dists_non_nan, axis = 0)
+            min_nnd = np.nanmin(fish_i_dists, axis = 0)
+
+            argmin_nnd_mask = np.ma.masked_array(argmin_nnd, mask=np.isnan(min_nnd))
+
+            # print(argmin_nnd)
+            # print(min_nnd)
+            # print(argmin_nnd_mask)
+
+            #Now that we have, for a single fish, the IDs of the other fish who is its NND we can 
+            # calculate the angle to them
+
+            direction_to_nnd = np.zeros(len(self.school_center_x)) + np.nan
+
+            for t, v in enumerate(argmin_nnd_mask):
+                if (not v is np.ma.masked):
+                    direction_to_nnd[t] = np.arctan2(self.fishes[v].head_y[t] - fish1.head_y[t],
+                                                     self.fishes[v].head_x[t] - fish1.head_x[t])
+
+            #now save it all into the big array for each fish
+            for t in range(len(fish_i_angle_ps)):
+                self.angle_to_nn_array[i][t] = mean_tailbeat_chunk(direction_to_nnd,tailbeat_len)[t]
+                self.heading_ps_array[i][t] = fish_i_angle_ps[t]
+
+            #print(direction_to_nnd)
+
+        #     print(direction_to_nnd.shape)
+        #     print(fish_i_angle_ps.shape)
+
+        #     plt.scatter(direction_to_nnd[:-1], fish_i_angle_ps)
+        #     ax = plt.gca()
+        #     ax.set_xlim([-1*np.pi,np.pi])
+        #     ax.set_ylim([-2*np.pi/60,2*np.pi/60])
+        #     plt.show()
+        
+        # sys.exit()
+
+    def calc_accel_to_nn(self):
+
+        self.distance_to_nn_array = np.zeros((self.n_fish,int(len(self.school_center_x)/tailbeat_len))) + np.nan
+        self.nn_relative_x_array = np.zeros((self.n_fish,int(len(self.school_center_x)/tailbeat_len))) + np.nan
+        self.nn_relative_y_array = np.zeros((self.n_fish,int(len(self.school_center_x)/tailbeat_len))) + np.nan
+        self.accel_array = np.zeros((self.n_fish,int(len(self.school_center_x)/tailbeat_len))) + np.nan
+        
+        #now calculate all nnds
+        for i in range(self.n_fish):
+
+            #calculate the change in heading angle per second for the focal fish
+            fish_i_dists = np.zeros((self.n_fish,len(self.school_center_x)-1)) + np.nan
+
+            fish1 = self.fishes[i]
+
+            fish_i_accel = np.diff(fish1.speed) / fps
+
+            chunked_fish_i_accel = mean_tailbeat_chunk(fish_i_accel,tailbeat_len)
+
+            for j in range(self.n_fish):
+
+                if i != j:
+                    fish2 = self.fishes[j]
+
+                    dists = get_dist_np_3D(fish1.head_x,fish1.head_y,fish1.head_z,fish2.head_x,fish2.head_y,fish2.head_z)
+
+                    for t in range(len(self.school_center_x)-1):
+                        fish_i_dists[j][t] = dists[t]
+
+            min_nnd = np.nanmin(fish_i_dists, axis = 0)
+
+            #replace nans with super large values
+            fish_i_dists_non_nan = np.nan_to_num(fish_i_dists, nan=10**10)
+
+            # print(fish_i_dists.shape)
+            # print(fish_i_dists)
+
+            #Then we make a mask. We don't want to compress since the frame component is SUPER important here
+            # But now we can just skip the masked values
+            argmin_nnd = np.nanargmin(fish_i_dists_non_nan, axis = 0)
+            min_nnd = np.nanmin(fish_i_dists, axis = 0)
+
+            argmin_nnd_mask = np.ma.masked_array(argmin_nnd, mask=np.isnan(min_nnd))
+
+            #now save it all into the big array for each fish
+            for t in range(len(chunked_fish_i_accel)):
+                self.distance_to_nn_array[i][t] = mean_tailbeat_chunk(min_nnd,tailbeat_len)[t]
+                self.accel_array[i][t] = mean_tailbeat_chunk(fish_i_accel,tailbeat_len)[t]
+        
+        # sys.exit()
 
     def calc_tailbeat_cor(self):
         pass
@@ -1442,11 +1599,46 @@ class trial:
 
         return(out_data)
 
+    def return_nn_vals(self):
+        firstfish = True
+
+        for f in range(self.n_fish):
+
+            focal_angle_to_nn = self.school_comp.angle_to_nn_array[f]
+            focal_heading_ps_array = self.school_comp.heading_ps_array[f]
+            focal_distance_to_nn = self.school_comp.distance_to_nn_array[f]
+            focal_accel_array = self.school_comp.accel_array[f]
+
+            data_len = len(focal_angle_to_nn)
+
+            d = {'Year': np.repeat(self.year,data_len),
+                 'Month': np.repeat(self.month,data_len),
+                 'Day': np.repeat(self.day,data_len),
+                 'Trial': np.repeat(self.trial,data_len),
+                 'Individual': np.repeat("individual"+str(1+f), data_len),
+                 'Tailbeat': np.linspace(1,data_len,num = data_len),
+                 'Ablation': np.repeat(self.abalation,data_len), 
+                 'Darkness': np.repeat(self.darkness,data_len), 
+                 'Flow': np.repeat(self.flow,data_len), 
+                 'Angle_to_NN': focal_angle_to_nn,
+                 'Angle_PS': focal_heading_ps_array,
+                 'Distance_to_NN':focal_distance_to_nn,
+                 'Acceleration':focal_accel_array}
+
+            if firstfish:
+                out_data = pd.DataFrame(data=d)
+                firstfish = False
+            else:
+                out_data = out_data.append(pd.DataFrame(data=d))
+
+        return(out_data)
+
+
 data_folder = "3D_Finished_Fish_Data_4P_gaps/"
 
 trials = []
 
-single_file = ""#"2020_07_28_03_LN_DN_F2"#"2021_10_06_36_LY_DN_F2_3D_DLC_dlcrnetms5_DLC_2-2_4P_8F_Light_VentralMay10shuffle1_100000_el_filtered.csv"
+single_file = "" #"2020_07_28_03_LN_DN_F2" #"2021_10_06_36_LY_DN_F2_3D_DLC_dlcrnetms5_DLC_2-2_4P_8F_Light_VentralMay10shuffle1_100000_el_filtered.csv"
 
 for file_name in os.listdir(data_folder):
     if file_name.endswith(".csv") and single_file in file_name:
@@ -1467,58 +1659,61 @@ for trial in trials:
         fish_comp_dataframe = trial.return_comp_vals()
         fish_raw_comp_dataframe = trial.return_raw_comp_vals()
         fish_school_dataframe = trial.return_school_vals()
+        fish_nn_dataframe = trial.return_nn_vals()
         first_trial = False
     else:
         fish_sigular_dataframe = fish_sigular_dataframe.append(trial.return_fish_vals())
         fish_comp_dataframe = fish_comp_dataframe.append(trial.return_comp_vals())
         fish_raw_comp_dataframe = fish_raw_comp_dataframe.append(trial.return_raw_comp_vals())
         fish_school_dataframe = fish_school_dataframe.append(trial.return_school_vals())
+        fish_nn_dataframe = fish_nn_dataframe.append(trial.return_nn_vals())
 
 fish_sigular_dataframe.to_csv("Fish_Individual_Values_3D.csv")
 fish_comp_dataframe.to_csv("Fish_Comp_Values_3D.csv")
 #fish_raw_comp_dataframe.to_csv("Fish_Raw_Comp_Values_3D.csv")
 fish_school_dataframe.to_csv("Fish_School_Values_3D.csv")
+fish_nn_dataframe.to_csv("Fish_NN_Values_3D.csv")
 
-#Recalculate when new data is added
-all_trials_tailbeat_lens = []
-all_trials_fish_lens = []
+# #Recalculate when new data is added
+# all_trials_tailbeat_lens = []
+# all_trials_fish_lens = []
 
-for trial in trials:
-    all_trials_tailbeat_lens.extend(np.asarray(trial.return_tailbeat_lens()))
-    all_trials_fish_lens.extend(np.asarray(trial.return_fish_lens()))
+# for trial in trials:
+#     all_trials_tailbeat_lens.extend(np.asarray(trial.return_tailbeat_lens()))
+#     all_trials_fish_lens.extend(np.asarray(trial.return_fish_lens()))
 
-all_trials_fish_lens = np.asarray(all_trials_fish_lens)*fish_len
-#all_trials_fish_lens = all_trials_fish_lens[all_trials_fish_lens < 1.25]
+# all_trials_fish_lens = np.asarray(all_trials_fish_lens)*fish_len
+# #all_trials_fish_lens = all_trials_fish_lens[all_trials_fish_lens < 1.25]
 
-print("Tailbeat Len Median")
-print(np.nanmedian(all_trials_tailbeat_lens)) #18
+# print("Tailbeat Len Median")
+# print(np.nanmedian(all_trials_tailbeat_lens)) #18
 
-print("Fish Len Median")
-print(np.nanmedian(all_trials_fish_lens))
+# print("Fish Len Median")
+# print(np.nanmedian(all_trials_fish_lens))
 
-print("Fish Len Mean")
-print(np.nanmean(all_trials_fish_lens))
+# print("Fish Len Mean")
+# print(np.nanmean(all_trials_fish_lens))
 
-q75, q25 = np.nanpercentile(all_trials_fish_lens, [75 ,25])
-iqr = q75 - q25
+# q75, q25 = np.nanpercentile(all_trials_fish_lens, [75 ,25])
+# iqr = q75 - q25
 
-print("Fish Len IQR")
-print(iqr)
+# print("Fish Len IQR")
+# print(iqr)
 
-print("Fish Len SD")
-print(np.nanstd(all_trials_fish_lens))
+# print("Fish Len SD")
+# print(np.nanstd(all_trials_fish_lens))
 
-print("Fish Len Max?")
-print(np.nanmean(all_trials_fish_lens) + 3*np.nanstd(all_trials_fish_lens))
+# print("Fish Len Max?")
+# print(np.nanmean(all_trials_fish_lens) + 3*np.nanstd(all_trials_fish_lens))
 
-print("Fish Len Max Observed")
-print(np.nanmax(all_trials_fish_lens))
+# print("Fish Len Max Observed")
+# print(np.nanmax(all_trials_fish_lens))
 
-fig,ax = plt.subplots(1,2)
-ax[0].hist(all_trials_fish_lens, bins = 30)
-ax[1].hist(np.log(all_trials_fish_lens), bins = 30)
-#ax.set_xlim(0,1.5)
-plt.show()
+# fig,ax = plt.subplots(1,2)
+# ax[0].hist(all_trials_fish_lens, bins = 30)
+# ax[1].hist(np.log(all_trials_fish_lens), bins = 30)
+# #ax.set_xlim(0,1.5)
+# plt.show()
 
 
 # Fish Len Median

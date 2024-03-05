@@ -118,8 +118,8 @@ eight_fish_data_sum_away  <- eight_fish_turning_data %>% na.omit %>% filter(Min_
 eight_fish_still <- ggplot(eight_fish_data_sum_away %>% filter(Flow == "Still Water"),
        aes(x = Fish_Num_Ratio, y = mean_right_turn, color = interaction(Ablation, Darkness, sep =", ")))+
   geom_point()+
-  #geom_line(alpha = 0.25) +
-  geom_smooth(se = F, method = glm, formula = y ~ x, method.args = list(family = "binomial"))+
+  geom_line(alpha = 0.25) +
+  #geom_smooth(se = F, method = glm, formula = y ~ x, method.args = list(family = "binomial"))+
   #facet_wrap(~ Darkness + Ablation) +
   theme_classic() +
   xlab("# Fish on Left : # Fish on Right") +
@@ -201,13 +201,13 @@ Anova(single_fish_turning_step)
 turning_glm_F0LNDN_B <- glm(turn_bool ~ 1,
                          data = eight_fish_turning_data %>% filter(Flow_Ablation_Darkness == "Still Water, No Ablation, Light"),
                          family = binomial)
-turning_glm_F0LNDN_W <- glm(turn_bool ~ Wall_Dist,
+turning_glm_F0LNDN_W <- glm(turn_bool ~ Left_Wall_Dist,
                          data = eight_fish_turning_data %>% filter(Flow_Ablation_Darkness == "Still Water, No Ablation, Light"),
                          family = binomial)
 turning_glm_F0LNDN_F <- glm(turn_bool ~ Fish_Num_Ratio,
                          data = eight_fish_turning_data %>% filter(Flow_Ablation_Darkness == "Still Water, No Ablation, Light"),
                          family = binomial)
-turning_glm_F0LNDN_WF <- glm(turn_bool ~ Wall_Dist*Fish_Num_Ratio,
+turning_glm_F0LNDN_WF <- glm(turn_bool ~ Left_Wall_Dist*Fish_Num_Ratio,
                          data = eight_fish_turning_data %>% filter(Flow_Ablation_Darkness == "Still Water, No Ablation, Light"),
                          family = binomial)
 
@@ -224,13 +224,13 @@ Anova(turning_glm_F0LNDN_F)
 turning_glm_F0LYDN_B <- glm(turn_bool ~1,
                          data = eight_fish_turning_data %>% filter(Flow_Ablation_Darkness == "Still Water, Ablated, Light"),
                          family = binomial)
-turning_glm_F0LYDN_W <- glm(turn_bool ~ Wall_Dist,
+turning_glm_F0LYDN_W <- glm(turn_bool ~ Left_Wall_Dist,
                          data = eight_fish_turning_data %>% filter(Flow_Ablation_Darkness == "Still Water, Ablated, Light"),
                          family = binomial)
 turning_glm_F0LYDN_F <- glm(turn_bool ~ Fish_Num_Ratio,
                          data = eight_fish_turning_data %>% filter(Flow_Ablation_Darkness == "Still Water, Ablated, Light"),
                          family = binomial)
-turning_glm_F0LYDN_WF <- glm(turn_bool ~ Wall_Dist*Fish_Num_Ratio,
+turning_glm_F0LYDN_WF <- glm(turn_bool ~ Left_Wall_Dist*Fish_Num_Ratio,
                          data = eight_fish_turning_data %>% filter(Flow_Ablation_Darkness == "Still Water, Ablated, Light"),
                          family = binomial)
 
@@ -247,13 +247,13 @@ Anova(turning_glm_F0LYDN_F)
 turning_glm_F0LNDY_B <- glm(turn_bool ~ 1,
                          data = eight_fish_turning_data %>% filter(Flow_Ablation_Darkness == "Still Water, No Ablation, Dark"),
                          family = binomial)
-turning_glm_F0LNDY_W <- glm(turn_bool ~ Wall_Dist,
+turning_glm_F0LNDY_W <- glm(turn_bool ~ Left_Wall_Dist,
                          data = eight_fish_turning_data %>% filter(Flow_Ablation_Darkness == "Still Water, No Ablation, Dark"),
                          family = binomial)
 turning_glm_F0LNDY_F <- glm(turn_bool ~ Fish_Num_Ratio,
                          data = eight_fish_turning_data %>% filter(Flow_Ablation_Darkness == "Still Water, No Ablation, Dark"),
                          family = binomial)
-turning_glm_F0LNDY_WF <- glm(turn_bool ~ Wall_Dist*Fish_Num_Ratio,
+turning_glm_F0LNDY_WF <- glm(turn_bool ~ Left_Wall_Dist*Fish_Num_Ratio,
                          data = eight_fish_turning_data %>% filter(Flow_Ablation_Darkness == "Still Water, No Ablation, Dark"),
                          family = binomial)
 
@@ -270,13 +270,13 @@ Anova(turning_glm_F0LNDY_F)
 turning_glm_F0LYDY_B <- glm(turn_bool ~ 1,
                          data = eight_fish_turning_data %>% filter(Flow_Ablation_Darkness == "Still Water, Ablated, Dark"),
                          family = binomial)
-turning_glm_F0LYDY_W <- glm(turn_bool ~ Wall_Dist,
+turning_glm_F0LYDY_W <- glm(turn_bool ~ Left_Wall_Dist,
                          data = eight_fish_turning_data %>% filter(Flow_Ablation_Darkness == "Still Water, Ablated, Dark"),
                          family = binomial)
 turning_glm_F0LYDY_F <- glm(turn_bool ~ Fish_Num_Ratio,
                          data = eight_fish_turning_data %>% filter(Flow_Ablation_Darkness == "Still Water, Ablated, Dark"),
                          family = binomial)
-turning_glm_F0LYDY_WF <- glm(turn_bool ~ Wall_Dist*Fish_Num_Ratio,
+turning_glm_F0LYDY_WF <- glm(turn_bool ~ Left_Wall_Dist*Fish_Num_Ratio,
                          data = eight_fish_turning_data %>% filter(Flow_Ablation_Darkness == "Still Water, Ablated, Dark"),
                          family = binomial)
 

@@ -1,0 +1,164 @@
+---
+title: "NN_Accel_Heading"
+format: html
+editor: visual
+---
+
+## Loading in the Libraries for Everything
+```{r}
+library(MASS)
+library(tidyverse)
+library(ggplot2)
+library(bbmle) #For ICtab
+library(car)
+library(ggpubr)
+library(ggdist)
+library(emmeans)
+library(lme4)
+```
+
+
+```{r}
+rad2deg <- function(rad) {(rad * 180) / (pi)}
+deg2rad <- function(deg) {(deg * pi) / (180)}
+round_any <- function(x, accuracy, f=round){f(x/ accuracy) * accuracy}
+ang_mean <- function(x){rad2deg(atan2(mean(sin(deg2rad(x))),mean(cos(deg2rad(x)))))}
+
+fold_angle_0_360_to_0_180 <- function(x){abs(abs(x-180)-180)}
+
+fold_angle_neg_180_180_to_neg_90_90 <- function(x){ifelse(x > 90,90-abs(90-x),ifelse(x < -90, -90+abs(-90-x), x))}
+
+min_n <- function(x,n){sort(x)[1:n]}
+max_n <- function(x,n){sort(x,decreasing = TRUE)[1:n]}
+
+light_no_ab_color = "#d4d7dd"
+light_ab_color = "#f5ba9e"
+dark_no_ab_color = "#5e94d4"
+dark_ab_color = "#1E4371"
+sim_color = "#777777"
+
+flow_split_still = "#F59DE2"
+flow_split_flow = "#5DD492"
+
+dark_split_light = "#5e94d4"
+dark_split_dark = "#011627"
+
+tailbeat_len = 19
+
+allowed_flow_type = c("Still Water","Flowing Water (2 BL/s)")
+
+dot_binwidth = 0.03
+
+text_size = 16
+```
+
+Load in the data
+
+```{r}
+
+nn_accel_heading_df <- read.csv("Data/Fish_NN_Values_3D.csv") %>%
+                           mutate(Flow = ifelse(Flow == "0", "Still Water", "Flowing Water (2 BL/s)")) %>%
+                           mutate(Ablation = ifelse(Ablation  == "N", "No Ablation", "Ablated")) %>%
+                           mutate(Darkness = ifelse(Darkness == "N", "Light", "Dark")) %>%
+                           mutate(Flow = factor(Flow), Ablation = factor(Ablation), Darkness = factor(Darkness)) %>%
+                           mutate(Flow = fct_relevel(Flow, c("Still Water","Flowing Water (2 BL/s)"))) %>%
+                           mutate(Ablation = fct_relevel(Ablation, c("No Ablation","Ablated"))) %>%
+                           mutate(Darkness = fct_relevel(Darkness, c("Light","Dark"))) %>%
+                           mutate(Flow_Ablation_Darkness = factor(paste(Flow,Ablation,Darkness,sep=", ")))
+
+nn_heading_sum <- nn_accel_heading_df %>% mutate(angle_bins = round_any(Angle_to_NN,pi/4)) %>%
+                                                #Limit to attraction zone
+                                                #filter(Distance_to_NN <= 2) %>%
+                                                group_by(angle_bins,Flow,Ablation,Darkness,Flow_Ablation_Darkness) %>%
+                                                summarise(mean_turn = mean(Angle_PS, na.rm = T),
+                                                          sd_turn = sd(Angle_PS, na.rm = T),
+                                                          n = n()) %>%
+                                                ungroup() %>%
+                                                na.omit()
+
+nn_accel_sum <- nn_accel_heading_df %>% mutate(distance_bins = round_any(Distance_to_NN,0.5)) %>%
+                                                group_by(distance_bins,Flow,Ablation,Darkness,Flow_Ablation_Darkness) %>%
+                                                summarise(mean_accel = mean(Acceleration, na.rm = T),
+                                                          sd_accel = sd(Acceleration, na.rm = T),
+                                                          n = n()) %>%
+                                                ungroup() %>%
+                                                na.omit()
+                                                
+                           
+```
+
+```{r}
+
+heading_base_lm <- lm(Angle_PS ~ Flow_Ablation_Darkness, data = nn_accel_heading_df %>% filter(Flow == "Still Water"))
+heading_lin_lm <- lm(Angle_PS ~ Angle_to_NN*Flow_Ablation_Darkness, data = nn_accel_heading_df %>% filter(Flow == "Still Water"))
+heading_cos_lm <- lm(Angle_PS ~ cos(Angle_to_NN)*Flow_Ablation_Darkness, data = nn_accel_heading_df %>% filter(Flow == "Still Water"))
+heading_sin_lm <- lm(Angle_PS ~ sin(Angle_to_NN)*Flow_Ablation_Darkness, data = nn_accel_heading_df %>% filter(Flow == "Still Water"))
+
+AIC(heading_base_lm,heading_lin_lm,heading_cos_lm,heading_sin_lm) %>% arrange(AIC)
+
+Anova(heading_sin_lm)
+
+ggplot(nn_accel_heading_df %>% filter(Flow == "Still Water"),
+       aes(x = Angle_to_NN, y = Angle_PS, color = interaction(Ablation, Darkness, sep =", ")))+
+  geom_point(alpha = 0.1)+
+  facet_wrap(~ interaction(Ablation, Darkness, sep =", ")) +
+  geom_smooth(se = F, method = glm, formula = y ~ sin(x))+
+  theme_classic() +
+  xlab("direction of neighbour (rad)") +
+  ylab("focal fish turning angle (rad/sec)") +
+  scale_colour_manual(values = c(light_no_ab_color,light_ab_color,dark_no_ab_color,dark_ab_color)) +
+  scale_x_continuous(breaks = unique(nn_heading_sum$angle_bins),
+                     labels = c("-π","-3π/4","-π/2","-π/4","0","π/4","π/2","3π/4","π"))+
+  labs(color = "Sensory Conditions")
+
+AIC(heading_sum_base_lm,heading_sum_lin_lm,heading_sum_cos_lm,heading_sum_sin_lm) %>% arrange(AIC)
+
+ggplot(nn_heading_sum %>% filter(Flow == "Still Water"),
+       aes(x = angle_bins, y = mean_turn, color = interaction(Ablation, Darkness, sep =", ")))+
+  geom_point()+
+  geom_line(alpha = 0.75) +
+  #geom_smooth(se = F, method = glm, formula = y ~ sin(x))+
+  theme_classic() +
+  xlab("direction of neighbour (rad)") +
+  ylab("focal fish turning angle (rad/sec)") +
+  scale_colour_manual(values = c(light_no_ab_color,light_ab_color,dark_no_ab_color,dark_ab_color)) +
+  scale_x_continuous(breaks = unique(nn_heading_sum$angle_bins),
+                     labels = c("-π","-3π/4","-π/2","-π/4","0","π/4","π/2","3π/4","π"))+
+  labs(color = "Sensory Conditions")
+
+```
+
+```{r}
+
+accel_base_lm <- lm(Acceleration ~ Flow_Ablation_Darkness, data = nn_accel_heading_df %>% filter(Flow == "Still Water") %>% na.omit())
+accel_lin_lm <- lm(Acceleration ~ Distance_to_NN*Flow_Ablation_Darkness, data = nn_accel_heading_df %>% filter(Flow == "Still Water") %>% na.omit())
+
+AIC(accel_base_lm,accel_lin_lm) %>% arrange(AIC)
+
+Anova(accel_lin_lm)
+
+ggplot(nn_accel_heading_df %>% filter(Flow == "Still Water"),
+       aes(x = Distance_to_NN, y = Acceleration, color = interaction(Ablation, Darkness, sep =", ")))+
+  geom_point(alpha = 0.1)+
+  facet_wrap(~ interaction(Ablation, Darkness, sep =", ")) +
+  geom_smooth(se = F, method = glm, formula = y ~ x)+
+  theme_classic() +
+  xlab("distance from neighbour (BL)") +
+  ylab("focal fish acceleration (BL/s^2)") +
+  ylim(-0.2, 0.2) +
+  scale_colour_manual(values = c(light_no_ab_color,light_ab_color,dark_no_ab_color,dark_ab_color)) +
+  labs(color = "Sensory Conditions")
+
+ggplot(nn_accel_sum %>% filter(Flow == "Still Water"),
+       aes(x = distance_bins, y = mean_accel, color = interaction(Ablation, Darkness, sep =", ")))+
+  geom_point()+
+  geom_line(alpha = 0.75) +
+  #geom_smooth(se = F, method = glm, formula = y ~ x)+
+  theme_classic() +
+  xlab("distance from neighbour (BL)") +
+  ylab("focal fish acceleration (BL/s^2)") +
+  scale_colour_manual(values = c(light_no_ab_color,light_ab_color,dark_no_ab_color,dark_ab_color)) +
+  labs(color = "Sensory Conditions")
+
+```
+
