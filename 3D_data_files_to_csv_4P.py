@@ -207,6 +207,7 @@ class fish_data:
         #These are the summary stats for the fish 
         self.yaw_heading = []
         self.pitch_heading = []
+        self.yaw_heading_ps = []
         self.speed = []
         self.accel = []
         self.zero_crossings = []
@@ -321,6 +322,46 @@ class fish_data:
         #Becasue of roll we don't want to the last value since it will be wrong
         self.pitch_heading = np.rad2deg(np.arctan2(self.vec_xy,self.vec_z))
 
+    #calcualtes the yaw heading change per second
+    def calc_yaw_heading_ps(self):
+
+        # chunked_yaw_cos = mean_tailbeat_chunk_sync(np.cos(np.deg2rad(self.yaw_heading)), tailbeat_len)
+        # chunked_yaw_sin = mean_tailbeat_chunk_sync(np.sin(np.deg2rad(self.yaw_heading)), tailbeat_len)
+
+        # self.yaw_heading_ps = np.arctan2(np.roll(chunked_yaw_sin,-1)-np.roll(chunked_yaw_sin,1),
+        #                                  np.roll(chunked_yaw_cos,-1)-np.roll(chunked_yaw_cos,1))[1:-1]
+
+        # self.yaw_heading_ps = np.rad2deg(self.yaw_heading_ps) * fps/2
+        
+
+        chunked_yaw_mean = angular_mean_tailbeat_chunk(np.deg2rad(self.yaw_heading), tailbeat_len)
+
+        self.yaw_heading_ps = np.rad2deg(np.arctan2(np.sin(np.roll(chunked_yaw_mean,-1) - np.roll(chunked_yaw_mean,1)),
+                                                    np.cos(np.roll(chunked_yaw_mean,-1) - np.roll(chunked_yaw_mean,1))))[1:-1] * fps/2
+
+
+        # print(chunked_yaw_sin)
+        # print(np.sin(chunked_yaw_mean))
+        # print(np.roll(chunked_yaw_sin,-1)-np.roll(chunked_yaw_sin,1))
+        # print(np.sin(np.roll(chunked_yaw_mean,-1) - np.roll(chunked_yaw_mean,1)))
+
+        # print()
+
+        # print(chunked_yaw_cos)
+        # print(np.roll(chunked_yaw_cos,-1)-np.roll(chunked_yaw_cos,1))
+
+        # print()
+
+        # print(self.yaw_heading_ps)
+
+        # yaw_vec = np.column_stack((np.cos(np.deg2rad(self.yaw_heading)), np.sin(np.deg2rad(self.yaw_heading))))
+
+        # yaw_heading_dot = np.sum(np.multiply(np.roll(yaw_vec,-1), np.roll(yaw_vec,1)), axis = 1)
+
+        # self.yaw_heading_ps = np.rad2deg(np.arccos(yaw_heading_dot)) * fps/2
+
+        #sys.exit()
+
     def calc_speed(self):
         #First we get the next points on the fish
         head_x_next = np.roll(self.head_x, -1)
@@ -339,7 +380,14 @@ class fish_data:
         vec_x_flow = speed_vec_x - (self.flow)/fps
 
         #It is divided in order to get it in body lengths and then times fps to get BL/s
-        self.speed = np.sqrt(vec_x_flow**2+speed_vec_y**2+speed_vec_z**2)[:-1] * fps
+        self.speed = np.sqrt(vec_x_flow**2+speed_vec_y**2+speed_vec_z**2) * fps
+
+    def calc_accel(self):
+
+        chunked_speed = mean_tailbeat_chunk_sync(self.speed,tailbeat_len)
+
+        #remove the edge cases where rolling makes invalid values
+        self.accel = (np.roll(chunked_speed, -1) - np.roll(chunked_speed, 1))[1:-1] * fps/2
 
     def calc_tailtip_perp(self):
 
@@ -757,9 +805,6 @@ class school_comps:
 
         #self.graph_values()
 
-        self.calc_angle_to_nn()
-        self.calc_accel_to_nn()
-
     def calc_school_pos_stats(self):
         school_xs = [fish.head_x for fish in self.fishes]
         school_ys = [fish.head_y for fish in self.fishes]
@@ -840,207 +885,6 @@ class school_comps:
         #Then we get the mins of each row (or column, they are the same), and then get the mean for the mean
         # NND for that timepoint
         self.nearest_neighbor_distance = np.nanmean(np.nanmin(nnd_array,axis = 1),axis = 1)
-
-    def calc_angle_to_nn(self):
-
-        self.angle_to_nn_array = np.zeros((self.n_fish,len(self.school_center_x))) + np.nan
-        self.heading_ps_array = np.zeros((self.n_fish,len(self.school_center_x))) + np.nan
-        
-        #now calculate all nnds
-        for i in range(self.n_fish):
-
-
-            fish1 = self.fishes[i]
-
-            #Get the vectors by chunks here
-            #calculate the change in heading angle per second for the focal fish
-
-            # fish_i_head_point_data = np.column_stack((mean_tailbeat_chunk(fish1.head_x,tailbeat_len), 
-            #                                           mean_tailbeat_chunk(fish1.head_y,tailbeat_len)))
-            # fish_i_mid_point_data = np.column_stack((mean_tailbeat_chunk(fish1.midline_x,tailbeat_len),
-            #                                          mean_tailbeat_chunk(fish1.midline_y,tailbeat_len)))
-
-            #Make array to store the headings into
-            #fish_i_heading = np.zeros(int(len(self.school_center_x)/tailbeat_len)-1) + np.nan
-
-            # print(fish_i_head_point_data)
-            # print(fish_i_mid_point_data)
-
-            #Using vectors
-            # for t in range(len(fish_i_head_point_data)-1):
-
-            #     vec1 = (fish_i_head_point_data[t] - fish_i_mid_point_data[t]) / calc_mag(fish_i_head_point_data[t],fish_i_mid_point_data[t])
-            #     vec2 = (fish_i_head_point_data[t+1] - fish_i_mid_point_data[t+1]) / calc_mag(fish_i_head_point_data[t+1],fish_i_mid_point_data[t+1])
-
-            #     fish_i_heading[t] = np.dot(vec1,vec2)
-
-            #using arctan2
-
-            #fish_i_heading = np.arctan2(mean_tailbeat_chunk(fish1.head_y,tailbeat_len) - np.roll(mean_tailbeat_chunk(fish1.head_y,tailbeat_len),1), mean_tailbeat_chunk(fish1.head_x,tailbeat_len) - np.roll(mean_tailbeat_chunk(fish1.head_x,tailbeat_len),1))
-
-            #fish_i_heading = np.arctan2(fish1.head_y - np.roll(fish1.head_y,1), fish1.head_x - np.roll(fish1.head_x,1))
-
-            #print(fish_i_heading)
-
-            #Turn into radians
-            #fish_i_heading = np.abs(fish_i_heading - 1)/2 * np.pi
-
-            fish_i_angle_ps = np.rad2deg(np.arctan2(np.sin(np.deg2rad(fish1.yaw_heading-np.roll(fish1.yaw_heading,1))),
-                                                    np.cos(np.deg2rad(fish1.yaw_heading-np.roll(fish1.yaw_heading,1))))) / fps
-
-            #fish_i_angle_ps = np.diff(fish_i_heading) / fps
-
-            #Make array to save the NNDs into
-            fish_i_dists = np.zeros((self.n_fish,len(self.school_center_x)-1)) + np.nan
-
-            for j in range(self.n_fish):
-
-                if i != j:
-                    fish2 = self.fishes[j]
-
-                    dists = get_dist_np_3D(fish1.head_x,fish1.head_y,fish1.head_z,fish2.head_x,fish2.head_y,fish2.head_z)
-
-                    for t in range(len(self.school_center_x)-1):
-                        fish_i_dists[j][t] = dists[t]
-
-            #replace nans with super large values
-            fish_i_dists_non_nan = np.nan_to_num(fish_i_dists, nan=10**10)
-
-            # print(fish_i_dists.shape)
-            # print(fish_i_dists)
-
-            #Then we make a mask. We don't want to compress since the frame component is SUPER important here
-            # But now we can just skip the masked values
-            argmin_nnd = np.nanargmin(fish_i_dists_non_nan, axis = 0)
-            min_nnd = np.nanmin(fish_i_dists, axis = 0)
-
-            argmin_nnd_mask = np.ma.masked_array(argmin_nnd, mask=np.isnan(min_nnd))
-
-            # print(argmin_nnd)
-            # print(min_nnd)
-            # print(argmin_nnd_mask)
-
-            #Now that we have, for a single fish, the IDs of the other fish who is its NND we can 
-            # calculate the angle to them
-
-            direction_to_nnd = np.zeros(len(self.school_center_x)) + np.nan
-
-            for t, v in enumerate(argmin_nnd_mask):
-                if (not v is np.ma.masked):
-                    direction_to_nnd[t] = np.arctan2(self.fishes[v].head_y[t] - fish1.head_y[t],
-                                                     self.fishes[v].head_x[t] - fish1.head_x[t])
-
-            #now save it all into the big array for each fish
-            for t in range(len(fish_i_angle_ps)):
-                self.angle_to_nn_array[i][t] = direction_to_nnd[t]
-                self.heading_ps_array[i][t] = fish_i_angle_ps[t]
-
-            #print(direction_to_nnd)
-
-        #     print(direction_to_nnd.shape)
-        #     print(fish_i_angle_ps.shape)
-
-        #     plt.scatter(direction_to_nnd[:-1], fish_i_angle_ps)
-        #     ax = plt.gca()
-        #     ax.set_xlim([-1*np.pi,np.pi])
-        #     ax.set_ylim([-2*np.pi/60,2*np.pi/60])
-        #     plt.show()
-        
-        # sys.exit()
-
-    def calc_accel_to_nn(self):
-
-        self.distance_to_nn_array = np.zeros((self.n_fish,len(self.school_center_x))) + np.nan
-        self.nn_relative_x_array = np.zeros((self.n_fish,len(self.school_center_x))) + np.nan
-        self.nn_relative_y_array = np.zeros((self.n_fish,len(self.school_center_x))) + np.nan
-        self.accel_array = np.zeros((self.n_fish,len(self.school_center_x))) + np.nan
-        
-        #now calculate all nnds
-        for i in range(self.n_fish):
-
-            #calculate the change in heading angle per second for the focal fish
-            fish_i_dists = np.zeros((self.n_fish,len(self.school_center_x)-1)) + np.nan
-
-            fish1 = self.fishes[i]
-
-            fish_i_accel = np.diff(fish1.speed) / fps
-
-            for j in range(self.n_fish):
-
-                if i != j:
-                    fish2 = self.fishes[j]
-
-                    dists = get_dist_np_3D(fish1.head_x,fish1.head_y,fish1.head_z,fish2.head_x,fish2.head_y,fish2.head_z)
-
-                    for t in range(len(self.school_center_x)-1):
-                        fish_i_dists[j][t] = dists[t]
-
-            min_nnd = np.nanmin(fish_i_dists, axis = 0)
-
-            #replace nans with super large values
-            fish_i_dists_non_nan = np.nan_to_num(fish_i_dists, nan=10**10)
-
-            # print(fish_i_dists.shape)
-            # print(fish_i_dists)
-
-            #Then we make a mask. We don't want to compress since the frame component is SUPER important here
-            # But now we can just skip the masked values
-            argmin_nnd = np.nanargmin(fish_i_dists_non_nan, axis = 0)
-            min_nnd = np.nanmin(fish_i_dists, axis = 0)
-
-            argmin_nnd_mask = np.ma.masked_array(argmin_nnd, mask=np.isnan(min_nnd))
-
-            nn_head_x = []
-            nn_head_y = []
-
-            #now save it all into the big array for each fish
-            for t in range(len(fish_i_accel)):
-                self.distance_to_nn_array[i][t] = min_nnd[t]
-                self.accel_array[i][t] = fish_i_accel[t]
-
-                if (not argmin_nnd_mask[t] is np.ma.masked):
-                    self.nn_relative_x_array[i][t] = fish1.head_x[t] - self.fishes[argmin_nnd_mask[t]].head_x[t]
-                    self.nn_relative_y_array[i][t] = fish1.head_y[t] - self.fishes[argmin_nnd_mask[t]].head_y[t]
-
-                    nn_head_x.append(self.fishes[argmin_nnd_mask[t]].head_x[t])
-                    nn_head_y.append(self.fishes[argmin_nnd_mask[t]].head_y[t])
-
-
-            # fig = plt.figure(figsize=(16, 10))
-            # gs = gridspec.GridSpec(ncols = 5, nrows = 3) 
-
-            # ax0 = plt.subplot(gs[:,:3])
-
-            # ax0.scatter(fish1.head_x, fish1.head_y, alpha = np.linspace(0,1,num = len(fish1.head_x)), s = 2)
-            # ax0.scatter(fish1.midline_x, fish1.midline_y, alpha = np.linspace(0,1,num = len(fish1.head_x)), s = 2)
-            # ax0.scatter(nn_head_x, nn_head_y, alpha = np.linspace(0,1,num = len(nn_head_y)), s = 2)
-            # ax0.set_title("Fish Path (Blue = Fish 1, Orange = NN Fish)")
-
-            # ax1 = plt.subplot(gs[0,3])
-            # ax1.plot(range(len(self.distance_to_nn_array[i])), self.distance_to_nn_array[i])
-            # ax1.set_title("Distance to NN")
-
-            # ax2 = plt.subplot(gs[1,3])
-            # ax2.plot(range(len(fish1.speed)), fish1.speed)
-            # ax2.set_title("Fish 1 Speed")
-
-            # ax3 = plt.subplot(gs[1,4])
-            # ax3.plot(range(len(self.accel_array[i])), self.accel_array[i])
-            # ax3.set_title("Fish 1 Accel")
-
-            # ax4 = plt.subplot(gs[0,4])
-            # ax4.plot(range(len(self.angle_to_nn_array[i])), self.angle_to_nn_array[i])
-            # ax4.set_title("Angle to NN")
-
-            # ax5 = plt.subplot(gs[2,3])
-            # ax5.plot(range(len(fish1.yaw_heading)), fish1.yaw_heading)
-            # ax5.set_title("Heading")
-
-            # ax6 = plt.subplot(gs[2,4])
-            # ax6.plot(range(len(self.heading_ps_array[i])), self.heading_ps_array[i])
-            # ax6.set_title("Heading Per Second")
-
-            # plt.show()
         
     def calc_tailbeat_cor(self):
         pass
@@ -1488,6 +1332,8 @@ class trial:
             chunked_pitch_heading_diffs = angular_mean_tailbeat_chunk(current_comp.pitch_heading_diff,tailbeat_len)
             chunked_f1_speed = mean_tailbeat_chunk(current_comp.f1.speed,tailbeat_len)
             chunked_f2_speed = mean_tailbeat_chunk(current_comp.f2.speed,tailbeat_len)
+            chunked_f1_accel = current_comp.f1.accel
+            chunked_f2_accel = current_comp.f2.accel
             chunked_f1_X = mean_tailbeat_chunk(current_comp.f1.head_x,tailbeat_len)
             chunked_f1_Y = mean_tailbeat_chunk(current_comp.f1.head_y,tailbeat_len)
             chunked_f1_Z = mean_tailbeat_chunk(current_comp.f1.head_z,tailbeat_len)
@@ -1496,42 +1342,69 @@ class trial:
             chunked_f2_Z = mean_tailbeat_chunk(current_comp.f2.head_z,tailbeat_len)
             chunked_f1_yaw_heading = mean_tailbeat_chunk(current_comp.f1.yaw_heading,tailbeat_len)
             chunked_f2_yaw_heading = mean_tailbeat_chunk(current_comp.f2.yaw_heading,tailbeat_len)
+            chunked_f1_yaw_heading_ps = current_comp.f1.yaw_heading_ps
+            chunked_f2_yaw_heading_ps = current_comp.f2.yaw_heading_ps
             chunked_speed_diffs = mean_tailbeat_chunk(current_comp.speed_diff,tailbeat_len)
-            chunked_tailbeat_offsets = mean_tailbeat_chunk(current_comp.tailbeat_offset_reps,tailbeat_len)
+            #chunked_tailbeat_offsets = mean_tailbeat_chunk(current_comp.tailbeat_offset_reps,tailbeat_len)
 
-            short_data_length = min([len(chunked_x_diffs),len(chunked_y_diffs),len(chunked_dists),
+            min_data_length = min([len(chunked_x_diffs),len(chunked_y_diffs),len(chunked_dists),
                                      len(chunked_angles),len(chunked_yaw_heading_diffs),len(chunked_pitch_heading_diffs),
-                                     len(chunked_speed_diffs),
-                                     len(chunked_tailbeat_offsets)])
+                                     len(chunked_f1_yaw_heading_ps),len(chunked_f2_yaw_heading_ps),
+                                     len(chunked_f1_accel),len(chunked_f2_accel),
+                                     len(chunked_speed_diffs)])
 
-            d = {'Year': np.repeat(self.year,short_data_length),
-                 'Month': np.repeat(self.month,short_data_length),
-                 'Day': np.repeat(self.day,short_data_length),
-                 'Trial': np.repeat(self.trial,short_data_length), 
-                 'Ablation': np.repeat(self.abalation,short_data_length), 
-                 'Darkness': np.repeat(self.darkness,short_data_length), 
-                 'Flow': np.repeat(self.flow,short_data_length), 
-                 'Fish': np.repeat(current_comp.name,short_data_length),
-                 'Tailbeat_Num': range(short_data_length),
-                 'X_Distance': chunked_x_diffs[:short_data_length], 
-                 'Y_Distance': chunked_y_diffs[:short_data_length],
-                 'Z_Distance': chunked_z_diffs[:short_data_length], 
-                 'Distance': chunked_dists[:short_data_length],
-                 'Angle': chunked_angles[:short_data_length],
-                 'Yaw_Heading_Diff': chunked_yaw_heading_diffs[:short_data_length],
-                 'Pitch_Heading_Diff': chunked_pitch_heading_diffs[:short_data_length],
-                 'Fish1_Speed': chunked_f1_speed[:short_data_length],
-                 'Fish2_Speed': chunked_f2_speed[:short_data_length],
-                 'Fish1_X': chunked_f1_X[:short_data_length],
-                 'Fish1_Y': chunked_f1_Y[:short_data_length],
-                 'Fish1_Z': chunked_f1_Z[:short_data_length],
-                 'Fish2_X': chunked_f2_X[:short_data_length],
-                 'Fish2_Y': chunked_f2_Y[:short_data_length],
-                 'Fish2_Z': chunked_f2_Z[:short_data_length],
-                 'Fish1_Yaw_Heading': chunked_f1_yaw_heading[:short_data_length],
-                 'Fish2_Yaw_Heading': chunked_f2_yaw_heading[:short_data_length],
-                 'Speed_Diff': chunked_speed_diffs[:short_data_length],
-                 'Sync': chunked_tailbeat_offsets[:short_data_length]}
+            max_data_length = max([len(chunked_x_diffs),len(chunked_y_diffs),len(chunked_dists),
+                                     len(chunked_angles),len(chunked_yaw_heading_diffs),len(chunked_pitch_heading_diffs),
+                                     len(chunked_f1_yaw_heading_ps),len(chunked_f2_yaw_heading_ps),
+                                     len(chunked_f1_accel),len(chunked_f2_accel),
+                                     len(chunked_speed_diffs)])
+
+            tailbeat_offset = (max_data_length - min_data_length) // 2
+
+            # print(self.year, self.month, self.day, self.trial)
+            # print(min_data_length,max_data_length)
+
+            # print([len(chunked_x_diffs),len(chunked_y_diffs),len(chunked_dists),
+            #                          len(chunked_angles),len(chunked_yaw_heading_diffs),len(chunked_pitch_heading_diffs),
+            #                          len(chunked_f1_yaw_heading_ps),len(chunked_f2_yaw_heading_ps),
+            #                          len(chunked_f1_accel),len(chunked_f2_accel),
+            #                          len(chunked_speed_diffs)])
+
+            d = {'Year': np.repeat(self.year,min_data_length),
+                 'Month': np.repeat(self.month,min_data_length),
+                 'Day': np.repeat(self.day,min_data_length),
+                 'Trial': np.repeat(self.trial,min_data_length), 
+                 'Ablation': np.repeat(self.abalation,min_data_length), 
+                 'Darkness': np.repeat(self.darkness,min_data_length), 
+                 'Flow': np.repeat(self.flow,min_data_length), 
+                 'Fish': np.repeat(current_comp.name,min_data_length),
+                 'Tailbeat_Num': range(tailbeat_offset,max_data_length-tailbeat_offset),
+                 'X_Distance': chunked_x_diffs[tailbeat_offset:-tailbeat_offset], 
+                 'Y_Distance': chunked_y_diffs[tailbeat_offset:-tailbeat_offset],
+                 'Z_Distance': chunked_z_diffs[tailbeat_offset:-tailbeat_offset], 
+                 'Distance': chunked_dists[tailbeat_offset:-tailbeat_offset],
+                 'Angle': chunked_angles[tailbeat_offset:-tailbeat_offset],
+                 'Yaw_Heading_Diff': chunked_yaw_heading_diffs[tailbeat_offset:-tailbeat_offset],
+                 'Pitch_Heading_Diff': chunked_pitch_heading_diffs[tailbeat_offset:-tailbeat_offset],
+                 'Fish1_Speed': chunked_f1_speed[tailbeat_offset:-tailbeat_offset],
+                 'Fish2_Speed': chunked_f2_speed[tailbeat_offset:-tailbeat_offset],
+                 'Fish1_Accel': chunked_f1_accel,
+                 'Fish2_Accel': chunked_f2_accel,
+                 'Fish1_X': chunked_f1_X[tailbeat_offset:-tailbeat_offset],
+                 'Fish1_Y': chunked_f1_Y[tailbeat_offset:-tailbeat_offset],
+                 'Fish1_Z': chunked_f1_Z[tailbeat_offset:-tailbeat_offset],
+                 'Fish2_X': chunked_f2_X[tailbeat_offset:-tailbeat_offset],
+                 'Fish2_Y': chunked_f2_Y[tailbeat_offset:-tailbeat_offset],
+                 'Fish2_Z': chunked_f2_Z[tailbeat_offset:-tailbeat_offset],
+                 'Fish1_Yaw_Heading': chunked_f1_yaw_heading[tailbeat_offset:-tailbeat_offset],
+                 'Fish2_Yaw_Heading': chunked_f2_yaw_heading[tailbeat_offset:-tailbeat_offset],
+                 'Fish1_Yaw_Heading_PS': chunked_f1_yaw_heading_ps,
+                 'Fish2_Yaw_Heading_PS': chunked_f2_yaw_heading_ps,
+                 'Speed_Diff': chunked_speed_diffs[tailbeat_offset:-tailbeat_offset]} #,
+                 #'Sync': chunked_tailbeat_offsets[:short_data_length]}
+
+            # for key in d:
+            #     print(key,len(d[key]))
 
             if firstfish:
                 out_data = pd.DataFrame(data=d)
@@ -1650,51 +1523,12 @@ class trial:
 
         return(out_data)
 
-    def return_nn_vals(self):
-        firstfish = True
-
-        for f in range(self.n_fish):
-
-            focal_angle_to_nn = self.school_comp.angle_to_nn_array[f]
-            focal_heading_ps_array = self.school_comp.heading_ps_array[f]
-            focal_distance_to_nn = self.school_comp.distance_to_nn_array[f]
-            focal_accel_array = self.school_comp.accel_array[f]
-            focal_relative_x = self.school_comp.nn_relative_x_array[f]
-            focal_relative_y = self.school_comp.nn_relative_y_array[f]
-
-            data_len = len(focal_angle_to_nn)
-
-            d = {'Year': np.repeat(self.year,data_len),
-                 'Month': np.repeat(self.month,data_len),
-                 'Day': np.repeat(self.day,data_len),
-                 'Trial': np.repeat(self.trial,data_len), 
-                 'Individual': np.repeat("individual"+str(1+f), data_len),
-                 'Frame': np.linspace(1,data_len,num = data_len),
-                 'Tailbeat': np.linspace(1,data_len,num = data_len) // tailbeat_len,
-                 'Ablation': np.repeat(self.abalation,data_len), 
-                 'Darkness': np.repeat(self.darkness,data_len), 
-                 'Flow': np.repeat(self.flow,data_len), 
-                 'Angle_to_NN': focal_angle_to_nn,
-                 'Angle_PS': focal_heading_ps_array,
-                 'Distance_to_NN':focal_distance_to_nn,
-                 'Acceleration':focal_accel_array,
-                 'Relative_X':focal_relative_x,
-                 'Relative_Y':focal_relative_y}
-
-            if firstfish:
-                out_data = pd.DataFrame(data=d)
-                firstfish = False
-            else:
-                out_data = out_data.append(pd.DataFrame(data=d))
-
-        return(out_data)
-
 
 data_folder = "3D_Finished_Fish_Data_4P_gaps/"
 
 trials = []
 
-single_file = "" #"2020_07_28_03_LN_DN_F2" #"2021_10_06_36_LY_DN_F2_3D_DLC_dlcrnetms5_DLC_2-2_4P_8F_Light_VentralMay10shuffle1_100000_el_filtered.csv"
+single_file = "" #"2020_07_28_11"# "2020_07_28_03_LN_DN_F2" #"2021_10_06_36_LY_DN_F2_3D_DLC_dlcrnetms5_DLC_2-2_4P_8F_Light_VentralMay10shuffle1_100000_el_filtered.csv"
 
 for file_name in os.listdir(data_folder):
     if file_name.endswith(".csv") and single_file in file_name:
@@ -1715,20 +1549,17 @@ for trial in trials:
         fish_comp_dataframe = trial.return_comp_vals()
         fish_raw_comp_dataframe = trial.return_raw_comp_vals()
         fish_school_dataframe = trial.return_school_vals()
-        fish_nn_dataframe = trial.return_nn_vals()
         first_trial = False
     else:
         fish_sigular_dataframe = fish_sigular_dataframe.append(trial.return_fish_vals())
         fish_comp_dataframe = fish_comp_dataframe.append(trial.return_comp_vals())
         fish_raw_comp_dataframe = fish_raw_comp_dataframe.append(trial.return_raw_comp_vals())
         fish_school_dataframe = fish_school_dataframe.append(trial.return_school_vals())
-        fish_nn_dataframe = fish_nn_dataframe.append(trial.return_nn_vals())
 
 fish_sigular_dataframe.to_csv("Fish_Individual_Values_3D.csv")
 fish_comp_dataframe.to_csv("Fish_Comp_Values_3D.csv")
-#fish_raw_comp_dataframe.to_csv("Fish_Raw_Comp_Values_3D.csv")
+fish_raw_comp_dataframe.to_csv("Fish_Raw_Comp_Values_3D.csv")
 fish_school_dataframe.to_csv("Fish_School_Values_3D.csv")
-fish_nn_dataframe.to_csv("Fish_NN_Values_3D.csv")
 
 # #Recalculate when new data is added
 # all_trials_tailbeat_lens = []
