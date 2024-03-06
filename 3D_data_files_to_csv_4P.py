@@ -332,7 +332,7 @@ class fish_data:
         #                                  np.roll(chunked_yaw_cos,-1)-np.roll(chunked_yaw_cos,1))[1:-1]
 
         # self.yaw_heading_ps = np.rad2deg(self.yaw_heading_ps) * fps/2
-        
+
 
         chunked_yaw_mean = angular_mean_tailbeat_chunk(np.deg2rad(self.yaw_heading), tailbeat_len)
 
@@ -501,6 +501,8 @@ class fish_comp:
         self.calc_speed_diff()
         self.calc_rayleigh_r()
 
+        self.calc_relative_x()
+
         #self.graph_values()
 
     def calc_dist(self):        
@@ -567,6 +569,25 @@ class fish_comp:
 
     def calc_speed_diff(self):
         self.speed_diff = self.f1.speed - self.f2.speed
+
+    def calc_relative_x(self):
+        x_diff = self.f2.head_x - self.f1.head_x
+        y_diff = self.f2.head_y - self.f1.head_y
+
+        diff_vec = np.column_stack((x_diff,y_diff))
+
+        heading_vec = np.column_stack((self.f1.vec_x,self.f1.vec_y))
+
+        self.relative_x = np.zeros(len(x_diff)) + np.nan
+
+        for i in range(len(x_diff)):
+            self.relative_x[i] = np.dot(diff_vec[i],heading_vec[i])
+
+        # relative_x_dot = np.sum(np.multiply(diff_vec, heading_vec), axis = 1)
+
+        # self.relative_x = np.arccos(relative_x_dot)
+
+        #print(self.relative_x)
 
     def calc_tailbeat_offset(self):
         #Setup an array to hold all the zero crossing differences
@@ -699,8 +720,6 @@ class fish_comp:
         tailbeat_lengths = abs(np.diff(np.append(self.f1.zero_crossings,len(self.f1.tailtip_zero_centered))))
 
         self.tailbeat_offset_reps = np.repeat(rayleigh_out,tailbeat_lengths[:len(rayleigh_out)])
-
-
 
     def graph_values(self):
         fig = plt.figure(figsize=(16, 10))
@@ -1340,6 +1359,7 @@ class trial:
             chunked_f2_X = mean_tailbeat_chunk(current_comp.f2.head_x,tailbeat_len)
             chunked_f2_Y = mean_tailbeat_chunk(current_comp.f2.head_y,tailbeat_len)
             chunked_f2_Z = mean_tailbeat_chunk(current_comp.f2.head_z,tailbeat_len)
+            chunked_relative_x = mean_tailbeat_chunk(current_comp.relative_x,tailbeat_len)
             chunked_f1_yaw_heading = mean_tailbeat_chunk(current_comp.f1.yaw_heading,tailbeat_len)
             chunked_f2_yaw_heading = mean_tailbeat_chunk(current_comp.f2.yaw_heading,tailbeat_len)
             chunked_f1_yaw_heading_ps = current_comp.f1.yaw_heading_ps
@@ -1396,6 +1416,7 @@ class trial:
                  'Fish2_X': chunked_f2_X[tailbeat_offset:-tailbeat_offset],
                  'Fish2_Y': chunked_f2_Y[tailbeat_offset:-tailbeat_offset],
                  'Fish2_Z': chunked_f2_Z[tailbeat_offset:-tailbeat_offset],
+                 'Relative_X': chunked_relative_x[tailbeat_offset:-tailbeat_offset],
                  'Fish1_Yaw_Heading': chunked_f1_yaw_heading[tailbeat_offset:-tailbeat_offset],
                  'Fish2_Yaw_Heading': chunked_f2_yaw_heading[tailbeat_offset:-tailbeat_offset],
                  'Fish1_Yaw_Heading_PS': chunked_f1_yaw_heading_ps,
@@ -1528,7 +1549,7 @@ data_folder = "3D_Finished_Fish_Data_4P_gaps/"
 
 trials = []
 
-single_file = "" #"2020_07_28_11"# "2020_07_28_03_LN_DN_F2" #"2021_10_06_36_LY_DN_F2_3D_DLC_dlcrnetms5_DLC_2-2_4P_8F_Light_VentralMay10shuffle1_100000_el_filtered.csv"
+single_file = # "2020_07_28_11" # "2020_07_28_03_LN_DN_F2" #"2021_10_06_36_LY_DN_F2_3D_DLC_dlcrnetms5_DLC_2-2_4P_8F_Light_VentralMay10shuffle1_100000_el_filtered.csv"
 
 for file_name in os.listdir(data_folder):
     if file_name.endswith(".csv") and single_file in file_name:
@@ -1545,21 +1566,21 @@ print("Creating CSVs...")
 
 for trial in trials:
     if first_trial:
-        fish_sigular_dataframe = trial.return_fish_vals()
+        # fish_sigular_dataframe = trial.return_fish_vals()
         fish_comp_dataframe = trial.return_comp_vals()
-        fish_raw_comp_dataframe = trial.return_raw_comp_vals()
-        fish_school_dataframe = trial.return_school_vals()
+        # fish_raw_comp_dataframe = trial.return_raw_comp_vals()
+        # fish_school_dataframe = trial.return_school_vals()
         first_trial = False
     else:
-        fish_sigular_dataframe = fish_sigular_dataframe.append(trial.return_fish_vals())
+        # fish_sigular_dataframe = fish_sigular_dataframe.append(trial.return_fish_vals())
         fish_comp_dataframe = fish_comp_dataframe.append(trial.return_comp_vals())
-        fish_raw_comp_dataframe = fish_raw_comp_dataframe.append(trial.return_raw_comp_vals())
-        fish_school_dataframe = fish_school_dataframe.append(trial.return_school_vals())
+        # fish_raw_comp_dataframe = fish_raw_comp_dataframe.append(trial.return_raw_comp_vals())
+        # fish_school_dataframe = fish_school_dataframe.append(trial.return_school_vals())
 
-fish_sigular_dataframe.to_csv("Fish_Individual_Values_3D.csv")
+# fish_sigular_dataframe.to_csv("Fish_Individual_Values_3D.csv")
 fish_comp_dataframe.to_csv("Fish_Comp_Values_3D.csv")
-fish_raw_comp_dataframe.to_csv("Fish_Raw_Comp_Values_3D.csv")
-fish_school_dataframe.to_csv("Fish_School_Values_3D.csv")
+# fish_raw_comp_dataframe.to_csv("Fish_Raw_Comp_Values_3D.csv")
+# fish_school_dataframe.to_csv("Fish_School_Values_3D.csv")
 
 # #Recalculate when new data is added
 # all_trials_tailbeat_lens = []

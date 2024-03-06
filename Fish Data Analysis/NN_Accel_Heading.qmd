@@ -97,7 +97,8 @@ fish_comp_data_switch_fish <- fish_comp_data %>% mutate(Fish3 = Fish1,
                                               Fish2_Yaw_Heading = Fish3_Yaw_Heading,
                                               Fish2_Yaw_Heading_PS = Fish3_Yaw_Heading_PS) %>%
                                        #Switch around angle when we switch focal fish
-                                       mutate(Angle = ifelse(Angle < 0, Angle + 180, Angle - 180)) %>%
+                                       mutate(Angle = ifelse(Angle < 0, Angle + 180, Angle - 180),
+                                              Relative_X = -1*Relative_X) %>%
                                        select(-c(Fish3,Fish3_X,Fish3_Y,Fish3_Z,Fish3_Speed,Fish3_Accel,Fish3_Yaw_Heading,Fish3_Yaw_Heading_PS))
 
 fish_comp_data_combo <- bind_rows(fish_comp_data, fish_comp_data_switch_fish)
@@ -112,8 +113,6 @@ fish_data_nn <- fish_comp_data_combo %>% group_by(Fish1,Tailbeat_Num,Data_ID) %>
                                     filter(row_n == 1) %>%
                                     ungroup() %>%
                                     mutate(Angle_Rads = deg2rad(Angle),
-                                           RelativeX = Fish1_X - Fish2_X,
-                                           RelativeY = Fish1_Y - Fish2_Y,
                                            Fish1_Yaw_Heading_PS = deg2rad(Fish1_Yaw_Heading_PS))
 
 
@@ -125,7 +124,7 @@ nn_heading_sum <- fish_data_nn %>% mutate(angle_bins = round_any(Angle_Rads,pi/4
                                                 ungroup() %>%
                                                 na.omit()
 
-nn_accel_sum <- fish_data_nn %>% mutate(distance_bins = round_any(Distance,0.5)) %>%
+nn_accel_sum <- fish_data_nn %>% mutate(distance_bins = round_any(Relative_X,0.25)) %>%
                                                 group_by(distance_bins,Flow,Ablation,Darkness,Flow_Ablation_Darkness) %>%
                                                 summarise(mean_accel = mean(Fish1_Accel, na.rm = T),
                                                           sd_accel = sd(Fish1_Accel, na.rm = T),
@@ -178,29 +177,29 @@ ggplot(nn_heading_sum %>% filter(Flow == "Still Water"),
 ```{r}
 
 accel_base_lm <- lm(Fish1_Accel ~ Flow_Ablation_Darkness, data = fish_data_nn %>% filter(Flow == "Still Water"))
-accel_lin_lm <- lm(Fish1_Accel ~ Distance*Flow_Ablation_Darkness, data = fish_data_nn %>% filter(Flow == "Still Water"))
+accel_lin_lm <- lm(Fish1_Accel ~ Relative_X*Flow_Ablation_Darkness, data = fish_data_nn %>% filter(Flow == "Still Water"))
 
 AIC(accel_base_lm,accel_lin_lm) %>% arrange(AIC)
 
 Anova(accel_base_lm)
 
 ggplot(fish_data_nn %>% filter(Flow == "Still Water"),
-       aes(x = Distance, y = Fish1_Accel, color = interaction(Ablation, Darkness, sep =", ")))+
+       aes(x = Relative_X, y = Fish1_Accel, color = interaction(Ablation, Darkness, sep =", ")))+
   geom_point(alpha = 0.1)+
   facet_wrap(~ interaction(Ablation, Darkness, sep =", ")) +
   geom_smooth(se = F, method = glm, formula = y ~ x)+
   theme_classic() +
   xlab("distance from neighbour (BL)") +
   ylab("focal fish acceleration (BL/s^2)") +
-  ylim(-0.01, 0.01) +
+  #ylim(-0.01, 0.01) +
   scale_colour_manual(values = c(light_no_ab_color,light_ab_color,dark_no_ab_color,dark_ab_color)) +
   labs(color = "Sensory Conditions")
 
 ggplot(nn_accel_sum %>% filter(Flow == "Still Water" & distance_bins < 3),
        aes(x = distance_bins, y = mean_accel, color = interaction(Ablation, Darkness, sep =", ")))+
   geom_point()+
-  geom_line(alpha = 0.75) +
-  #geom_smooth(se = F, method = glm, formula = y ~ x)+
+  #geom_line(alpha = 0.75) +
+  geom_smooth(se = F, method = glm, formula = y ~ 1)+
   theme_classic() +
   xlab("distance from neighbour (BL)") +
   ylab("focal fish acceleration (BL/s^2)") +
