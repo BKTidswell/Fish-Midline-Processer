@@ -15,6 +15,7 @@ library(ggpubr)
 library(ggdist)
 library(emmeans)
 library(lme4)
+library(viridis)
 ```
 
 
@@ -64,9 +65,21 @@ nn_accel_heading_df <- read.csv("Data/Fish_NN_Values_3D.csv") %>%
                            mutate(Flow = fct_relevel(Flow, c("Still Water","Flowing Water (2 BL/s)"))) %>%
                            mutate(Ablation = fct_relevel(Ablation, c("No Ablation","Ablated"))) %>%
                            mutate(Darkness = fct_relevel(Darkness, c("Light","Dark"))) %>%
-                           mutate(Flow_Ablation_Darkness = factor(paste(Flow,Ablation,Darkness,sep=", ")))
+                           mutate(Flow_Ablation_Darkness = factor(paste(Flow,Ablation,Darkness,sep=", "))) %>%
+                           mutate(Distance_to_NN = ifelse(Relative_X < 1, Distance_to_NN*-1, Distance_to_NN))
 
-nn_heading_sum <- nn_accel_heading_df %>% mutate(angle_bins = round_any(Angle_to_NN,pi/4)) %>%
+nn_accel_heading_df_tb <- nn_accel_heading_df %>% group_by(Year,Month,Day,Trial,Individual,Tailbeat,
+                                                           Flow,Ablation,Darkness,Flow_Ablation_Darkness) %>%
+                                                  summarise(Angle_to_NN = mean(Angle_to_NN, na.rm = T),
+                                                            Angle_PS = mean(Angle_PS, na.rm = T),
+                                                            Distance_to_NN = mean(Distance_to_NN, na.rm = T),
+                                                            Acceleration = mean(Acceleration, na.rm = T),
+                                                            Relative_X = mean(Relative_X, na.rm = T),
+                                                            Relative_Y = mean(Relative_Y, na.rm = T)) %>%
+                                                  ungroup() %>%
+                                                  na.omit()
+                                                     
+nn_heading_sum <- nn_accel_heading_df_tb %>% mutate(angle_bins = round_any(Angle_to_NN,pi/4)) %>%
                                                 #Limit to attraction zone
                                                 #filter(Distance_to_NN <= 2) %>%
                                                 group_by(angle_bins,Flow,Ablation,Darkness,Flow_Ablation_Darkness) %>%
@@ -76,7 +89,7 @@ nn_heading_sum <- nn_accel_heading_df %>% mutate(angle_bins = round_any(Angle_to
                                                 ungroup() %>%
                                                 na.omit()
 
-nn_accel_sum <- nn_accel_heading_df %>% mutate(distance_bins = round_any(Distance_to_NN,0.5)) %>%
+nn_accel_sum <- nn_accel_heading_df_tb %>% mutate(distance_bins = round_any(Distance_to_NN,0.5)) %>%
                                                 group_by(distance_bins,Flow,Ablation,Darkness,Flow_Ablation_Darkness) %>%
                                                 summarise(mean_accel = mean(Acceleration, na.rm = T),
                                                           sd_accel = sd(Acceleration, na.rm = T),
@@ -89,29 +102,28 @@ nn_accel_sum <- nn_accel_heading_df %>% mutate(distance_bins = round_any(Distanc
 
 ```{r}
 
-heading_base_lm <- lm(Angle_PS ~ Flow_Ablation_Darkness, data = nn_accel_heading_df %>% filter(Flow == "Still Water"))
-heading_lin_lm <- lm(Angle_PS ~ Angle_to_NN*Flow_Ablation_Darkness, data = nn_accel_heading_df %>% filter(Flow == "Still Water"))
-heading_cos_lm <- lm(Angle_PS ~ cos(Angle_to_NN)*Flow_Ablation_Darkness, data = nn_accel_heading_df %>% filter(Flow == "Still Water"))
-heading_sin_lm <- lm(Angle_PS ~ sin(Angle_to_NN)*Flow_Ablation_Darkness, data = nn_accel_heading_df %>% filter(Flow == "Still Water"))
+heading_base_lm <- lm(Angle_PS ~ Flow_Ablation_Darkness, data = nn_accel_heading_df_tb %>% filter(Flow == "Still Water"))
+heading_lin_lm <- lm(Angle_PS ~ Angle_to_NN*Flow_Ablation_Darkness, data = nn_accel_heading_df_tb %>% filter(Flow == "Still Water"))
+heading_cos_lm <- lm(Angle_PS ~ cos(Angle_to_NN)*Flow_Ablation_Darkness, data = nn_accel_heading_df_tb %>% filter(Flow == "Still Water"))
+heading_sin_lm <- lm(Angle_PS ~ sin(Angle_to_NN)*Flow_Ablation_Darkness, data = nn_accel_heading_df_tb %>% filter(Flow == "Still Water"))
 
 AIC(heading_base_lm,heading_lin_lm,heading_cos_lm,heading_sin_lm) %>% arrange(AIC)
 
-Anova(heading_sin_lm)
+Anova(heading_cos_lm)
 
-ggplot(nn_accel_heading_df %>% filter(Flow == "Still Water"),
+ggplot(nn_accel_heading_df_tb %>% filter(Flow == "Still Water"),
        aes(x = Angle_to_NN, y = Angle_PS, color = interaction(Ablation, Darkness, sep =", ")))+
   geom_point(alpha = 0.1)+
   facet_wrap(~ interaction(Ablation, Darkness, sep =", ")) +
   geom_smooth(se = F, method = glm, formula = y ~ sin(x))+
   theme_classic() +
+  ylim(-0.1,0.1)+
   xlab("direction of neighbour (rad)") +
   ylab("focal fish turning angle (rad/sec)") +
   scale_colour_manual(values = c(light_no_ab_color,light_ab_color,dark_no_ab_color,dark_ab_color)) +
   scale_x_continuous(breaks = unique(nn_heading_sum$angle_bins),
                      labels = c("-π","-3π/4","-π/2","-π/4","0","π/4","π/2","3π/4","π"))+
   labs(color = "Sensory Conditions")
-
-AIC(heading_sum_base_lm,heading_sum_lin_lm,heading_sum_cos_lm,heading_sum_sin_lm) %>% arrange(AIC)
 
 ggplot(nn_heading_sum %>% filter(Flow == "Still Water"),
        aes(x = angle_bins, y = mean_turn, color = interaction(Ablation, Darkness, sep =", ")))+
@@ -130,14 +142,14 @@ ggplot(nn_heading_sum %>% filter(Flow == "Still Water"),
 
 ```{r}
 
-accel_base_lm <- lm(Acceleration ~ Flow_Ablation_Darkness, data = nn_accel_heading_df %>% filter(Flow == "Still Water") %>% na.omit())
-accel_lin_lm <- lm(Acceleration ~ Distance_to_NN*Flow_Ablation_Darkness, data = nn_accel_heading_df %>% filter(Flow == "Still Water") %>% na.omit())
+accel_base_lm <- lm(Acceleration ~ Flow_Ablation_Darkness, data = nn_accel_heading_df_tb %>% filter(Flow == "Still Water"))
+accel_lin_lm <- lm(Acceleration ~ Distance_to_NN*Flow_Ablation_Darkness, data = nn_accel_heading_df_tb %>% filter(Flow == "Still Water"))
 
 AIC(accel_base_lm,accel_lin_lm) %>% arrange(AIC)
 
-Anova(accel_lin_lm)
+Anova(accel_base_lm)
 
-ggplot(nn_accel_heading_df %>% filter(Flow == "Still Water"),
+ggplot(nn_accel_heading_df_tb %>% filter(Flow == "Still Water"),
        aes(x = Distance_to_NN, y = Acceleration, color = interaction(Ablation, Darkness, sep =", ")))+
   geom_point(alpha = 0.1)+
   facet_wrap(~ interaction(Ablation, Darkness, sep =", ")) +
@@ -145,7 +157,7 @@ ggplot(nn_accel_heading_df %>% filter(Flow == "Still Water"),
   theme_classic() +
   xlab("distance from neighbour (BL)") +
   ylab("focal fish acceleration (BL/s^2)") +
-  ylim(-0.2, 0.2) +
+  ylim(-0.01, 0.01) +
   scale_colour_manual(values = c(light_no_ab_color,light_ab_color,dark_no_ab_color,dark_ab_color)) +
   labs(color = "Sensory Conditions")
 
@@ -159,6 +171,35 @@ ggplot(nn_accel_sum %>% filter(Flow == "Still Water"),
   ylab("focal fish acceleration (BL/s^2)") +
   scale_colour_manual(values = c(light_no_ab_color,light_ab_color,dark_no_ab_color,dark_ab_color)) +
   labs(color = "Sensory Conditions")
+
+```
+
+```{r}
+
+directional_df <- nn_accel_heading_df_tb %>% mutate(round_X = round_any(Relative_X,0.5),
+                                                    round_Y = round_any(Relative_Y,0.5)) %>%
+                                                      group_by(round_X,round_Y,Flow,Ablation,Darkness,Flow_Ablation_Darkness) %>%
+                                                      summarise(mean_accel = mean(Acceleration),
+                                                                mean_turn = mean(Angle_PS)) %>%
+                                                      ungroup()
+
+ggplot(directional_df %>% filter(Flow == "Still Water"),
+       aes(round_X, round_Y, fill= mean_accel)) + 
+  geom_tile()+
+  facet_wrap(~Flow_Ablation_Darkness)+
+  scale_fill_viridis(option="magma")+
+  coord_fixed()+
+  theme_classic()
+
+
+ggplot(directional_df %>% filter(Flow == "Still Water"),
+       aes(round_X, round_Y, fill= mean_turn)) + 
+  geom_tile()+
+  facet_wrap(~Flow_Ablation_Darkness)+
+  scale_fill_viridis(option="magma")+
+  coord_fixed()+
+  theme_classic()
+
 
 ```
 

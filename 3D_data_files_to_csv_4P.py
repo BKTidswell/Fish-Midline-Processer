@@ -208,6 +208,7 @@ class fish_data:
         self.yaw_heading = []
         self.pitch_heading = []
         self.speed = []
+        self.accel = []
         self.zero_crossings = []
         self.tb_freq_reps = []
         self.body_lengths = []
@@ -226,6 +227,8 @@ class fish_data:
         self.calc_speed()
         self.calc_tailtip_perp()
         self.calc_tb_freq()
+        self.calc_accel()
+        self.calc_yaw_heading_ps()
         
         
     def get_fish_BL(self):
@@ -840,8 +843,8 @@ class school_comps:
 
     def calc_angle_to_nn(self):
 
-        self.angle_to_nn_array = np.zeros((self.n_fish,int(len(self.school_center_x)/tailbeat_len))) + np.nan
-        self.heading_ps_array = np.zeros((self.n_fish,int(len(self.school_center_x)/tailbeat_len))) + np.nan
+        self.angle_to_nn_array = np.zeros((self.n_fish,len(self.school_center_x))) + np.nan
+        self.heading_ps_array = np.zeros((self.n_fish,len(self.school_center_x))) + np.nan
         
         #now calculate all nnds
         for i in range(self.n_fish):
@@ -852,13 +855,13 @@ class school_comps:
             #Get the vectors by chunks here
             #calculate the change in heading angle per second for the focal fish
 
-            fish_i_head_point_data = np.column_stack((mean_tailbeat_chunk(fish1.head_x,tailbeat_len), 
-                                                      mean_tailbeat_chunk(fish1.head_y,tailbeat_len)))
-            fish_i_mid_point_data = np.column_stack((mean_tailbeat_chunk(fish1.midline_x,tailbeat_len),
-                                                     mean_tailbeat_chunk(fish1.midline_y,tailbeat_len)))
+            # fish_i_head_point_data = np.column_stack((mean_tailbeat_chunk(fish1.head_x,tailbeat_len), 
+            #                                           mean_tailbeat_chunk(fish1.head_y,tailbeat_len)))
+            # fish_i_mid_point_data = np.column_stack((mean_tailbeat_chunk(fish1.midline_x,tailbeat_len),
+            #                                          mean_tailbeat_chunk(fish1.midline_y,tailbeat_len)))
 
             #Make array to store the headings into
-            fish_i_heading = np.zeros(int(len(self.school_center_x)/tailbeat_len)-1) + np.nan
+            #fish_i_heading = np.zeros(int(len(self.school_center_x)/tailbeat_len)-1) + np.nan
 
             # print(fish_i_head_point_data)
             # print(fish_i_mid_point_data)
@@ -873,14 +876,19 @@ class school_comps:
 
             #using arctan2
 
-            fish_i_heading = np.arctan2(mean_tailbeat_chunk(fish1.head_y,tailbeat_len) - np.roll(mean_tailbeat_chunk(fish1.head_y,tailbeat_len),1), mean_tailbeat_chunk(fish1.head_x,tailbeat_len) - np.roll(mean_tailbeat_chunk(fish1.head_x,tailbeat_len),1))
+            #fish_i_heading = np.arctan2(mean_tailbeat_chunk(fish1.head_y,tailbeat_len) - np.roll(mean_tailbeat_chunk(fish1.head_y,tailbeat_len),1), mean_tailbeat_chunk(fish1.head_x,tailbeat_len) - np.roll(mean_tailbeat_chunk(fish1.head_x,tailbeat_len),1))
+
+            #fish_i_heading = np.arctan2(fish1.head_y - np.roll(fish1.head_y,1), fish1.head_x - np.roll(fish1.head_x,1))
 
             #print(fish_i_heading)
 
             #Turn into radians
             #fish_i_heading = np.abs(fish_i_heading - 1)/2 * np.pi
 
-            fish_i_angle_ps = np.diff(fish_i_heading) / fps
+            fish_i_angle_ps = np.rad2deg(np.arctan2(np.sin(np.deg2rad(fish1.yaw_heading-np.roll(fish1.yaw_heading,1))),
+                                                    np.cos(np.deg2rad(fish1.yaw_heading-np.roll(fish1.yaw_heading,1))))) / fps
+
+            #fish_i_angle_ps = np.diff(fish_i_heading) / fps
 
             #Make array to save the NNDs into
             fish_i_dists = np.zeros((self.n_fish,len(self.school_center_x)-1)) + np.nan
@@ -924,7 +932,7 @@ class school_comps:
 
             #now save it all into the big array for each fish
             for t in range(len(fish_i_angle_ps)):
-                self.angle_to_nn_array[i][t] = mean_tailbeat_chunk(direction_to_nnd,tailbeat_len)[t]
+                self.angle_to_nn_array[i][t] = direction_to_nnd[t]
                 self.heading_ps_array[i][t] = fish_i_angle_ps[t]
 
             #print(direction_to_nnd)
@@ -942,10 +950,10 @@ class school_comps:
 
     def calc_accel_to_nn(self):
 
-        self.distance_to_nn_array = np.zeros((self.n_fish,int(len(self.school_center_x)/tailbeat_len))) + np.nan
-        self.nn_relative_x_array = np.zeros((self.n_fish,int(len(self.school_center_x)/tailbeat_len))) + np.nan
-        self.nn_relative_y_array = np.zeros((self.n_fish,int(len(self.school_center_x)/tailbeat_len))) + np.nan
-        self.accel_array = np.zeros((self.n_fish,int(len(self.school_center_x)/tailbeat_len))) + np.nan
+        self.distance_to_nn_array = np.zeros((self.n_fish,len(self.school_center_x))) + np.nan
+        self.nn_relative_x_array = np.zeros((self.n_fish,len(self.school_center_x))) + np.nan
+        self.nn_relative_y_array = np.zeros((self.n_fish,len(self.school_center_x))) + np.nan
+        self.accel_array = np.zeros((self.n_fish,len(self.school_center_x))) + np.nan
         
         #now calculate all nnds
         for i in range(self.n_fish):
@@ -956,8 +964,6 @@ class school_comps:
             fish1 = self.fishes[i]
 
             fish_i_accel = np.diff(fish1.speed) / fps
-
-            chunked_fish_i_accel = mean_tailbeat_chunk(fish_i_accel,tailbeat_len)
 
             for j in range(self.n_fish):
 
@@ -984,13 +990,58 @@ class school_comps:
 
             argmin_nnd_mask = np.ma.masked_array(argmin_nnd, mask=np.isnan(min_nnd))
 
-            #now save it all into the big array for each fish
-            for t in range(len(chunked_fish_i_accel)):
-                self.distance_to_nn_array[i][t] = mean_tailbeat_chunk(min_nnd,tailbeat_len)[t]
-                self.accel_array[i][t] = mean_tailbeat_chunk(fish_i_accel,tailbeat_len)[t]
-        
-        # sys.exit()
+            nn_head_x = []
+            nn_head_y = []
 
+            #now save it all into the big array for each fish
+            for t in range(len(fish_i_accel)):
+                self.distance_to_nn_array[i][t] = min_nnd[t]
+                self.accel_array[i][t] = fish_i_accel[t]
+
+                if (not argmin_nnd_mask[t] is np.ma.masked):
+                    self.nn_relative_x_array[i][t] = fish1.head_x[t] - self.fishes[argmin_nnd_mask[t]].head_x[t]
+                    self.nn_relative_y_array[i][t] = fish1.head_y[t] - self.fishes[argmin_nnd_mask[t]].head_y[t]
+
+                    nn_head_x.append(self.fishes[argmin_nnd_mask[t]].head_x[t])
+                    nn_head_y.append(self.fishes[argmin_nnd_mask[t]].head_y[t])
+
+
+            # fig = plt.figure(figsize=(16, 10))
+            # gs = gridspec.GridSpec(ncols = 5, nrows = 3) 
+
+            # ax0 = plt.subplot(gs[:,:3])
+
+            # ax0.scatter(fish1.head_x, fish1.head_y, alpha = np.linspace(0,1,num = len(fish1.head_x)), s = 2)
+            # ax0.scatter(fish1.midline_x, fish1.midline_y, alpha = np.linspace(0,1,num = len(fish1.head_x)), s = 2)
+            # ax0.scatter(nn_head_x, nn_head_y, alpha = np.linspace(0,1,num = len(nn_head_y)), s = 2)
+            # ax0.set_title("Fish Path (Blue = Fish 1, Orange = NN Fish)")
+
+            # ax1 = plt.subplot(gs[0,3])
+            # ax1.plot(range(len(self.distance_to_nn_array[i])), self.distance_to_nn_array[i])
+            # ax1.set_title("Distance to NN")
+
+            # ax2 = plt.subplot(gs[1,3])
+            # ax2.plot(range(len(fish1.speed)), fish1.speed)
+            # ax2.set_title("Fish 1 Speed")
+
+            # ax3 = plt.subplot(gs[1,4])
+            # ax3.plot(range(len(self.accel_array[i])), self.accel_array[i])
+            # ax3.set_title("Fish 1 Accel")
+
+            # ax4 = plt.subplot(gs[0,4])
+            # ax4.plot(range(len(self.angle_to_nn_array[i])), self.angle_to_nn_array[i])
+            # ax4.set_title("Angle to NN")
+
+            # ax5 = plt.subplot(gs[2,3])
+            # ax5.plot(range(len(fish1.yaw_heading)), fish1.yaw_heading)
+            # ax5.set_title("Heading")
+
+            # ax6 = plt.subplot(gs[2,4])
+            # ax6.plot(range(len(self.heading_ps_array[i])), self.heading_ps_array[i])
+            # ax6.set_title("Heading Per Second")
+
+            # plt.show()
+        
     def calc_tailbeat_cor(self):
         pass
 
@@ -1608,22 +1659,27 @@ class trial:
             focal_heading_ps_array = self.school_comp.heading_ps_array[f]
             focal_distance_to_nn = self.school_comp.distance_to_nn_array[f]
             focal_accel_array = self.school_comp.accel_array[f]
+            focal_relative_x = self.school_comp.nn_relative_x_array[f]
+            focal_relative_y = self.school_comp.nn_relative_y_array[f]
 
             data_len = len(focal_angle_to_nn)
 
             d = {'Year': np.repeat(self.year,data_len),
                  'Month': np.repeat(self.month,data_len),
                  'Day': np.repeat(self.day,data_len),
-                 'Trial': np.repeat(self.trial,data_len),
+                 'Trial': np.repeat(self.trial,data_len), 
                  'Individual': np.repeat("individual"+str(1+f), data_len),
-                 'Tailbeat': np.linspace(1,data_len,num = data_len),
+                 'Frame': np.linspace(1,data_len,num = data_len),
+                 'Tailbeat': np.linspace(1,data_len,num = data_len) // tailbeat_len,
                  'Ablation': np.repeat(self.abalation,data_len), 
                  'Darkness': np.repeat(self.darkness,data_len), 
                  'Flow': np.repeat(self.flow,data_len), 
                  'Angle_to_NN': focal_angle_to_nn,
                  'Angle_PS': focal_heading_ps_array,
                  'Distance_to_NN':focal_distance_to_nn,
-                 'Acceleration':focal_accel_array}
+                 'Acceleration':focal_accel_array,
+                 'Relative_X':focal_relative_x,
+                 'Relative_Y':focal_relative_y}
 
             if firstfish:
                 out_data = pd.DataFrame(data=d)
