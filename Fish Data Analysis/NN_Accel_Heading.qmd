@@ -56,6 +56,19 @@ text_size = 16
 Load in the data
 
 ```{r}
+raw_new <- read.csv("Data/Fish_Comp_Values_3D.csv")
+raw_old <- read.csv("Data/older_Fish_Comp_Values_3D.csv") %>% mutate(Angle = deg2rad(Angle),
+                                                                     Fish1_Yaw_Heading = deg2rad(Fish1_Yaw_Heading),
+                                                                     Fish1_Yaw_Heading_PS = deg2rad(Fish1_Yaw_Heading_PS))
+
+hist(raw_new$Angle - deg2rad(raw_old$Angle))
+hist(raw_new$Fish1_Yaw_Heading - deg2rad(raw_old$Fish1_Yaw_Heading))
+hist(raw_new$Fish1_Yaw_Heading_PS - deg2rad(raw_old$Fish1_Yaw_Heading_PS))
+
+```
+
+
+```{r}
 
 fish_comp_data <- read.csv("Data/Fish_Comp_Values_3D.csv") %>%
                            mutate(Flow = ifelse(Flow == "0", "Still Water", "Flowing Water (2 BL/s)")) %>%
@@ -97,7 +110,7 @@ fish_comp_data_switch_fish <- fish_comp_data %>% mutate(Fish3 = Fish1,
                                               Fish2_Yaw_Heading = Fish3_Yaw_Heading,
                                               Fish2_Yaw_Heading_PS = Fish3_Yaw_Heading_PS) %>%
                                        #Switch around angle when we switch focal fish
-                                       mutate(Angle = ifelse(Angle < 0, Angle + 180, Angle - 180),
+                                       mutate(Angle = ifelse(Angle >= 0, Angle - pi, Angle + pi),
                                               Relative_X = -1*Relative_X) %>%
                                        select(-c(Fish3,Fish3_X,Fish3_Y,Fish3_Z,Fish3_Speed,Fish3_Accel,Fish3_Yaw_Heading,Fish3_Yaw_Heading_PS))
 
@@ -112,12 +125,15 @@ fish_data_nn <- fish_comp_data_combo %>% group_by(Fish1,Tailbeat_Num,Data_ID) %>
                                     mutate(row_n = row_number()) %>%
                                     filter(row_n == 1) %>%
                                     ungroup() %>%
-                                    mutate(Angle_Rads = deg2rad(Angle),
-                                           Fish1_Yaw_Heading_PS = deg2rad(Fish1_Yaw_Heading_PS)) %>%
+                                    mutate(Fish1_Yaw_Heading_PS = Fish1_Yaw_Heading_PS) %>%
                                     filter(Distance <= 2)
 
+fish_data_nn_normal <- fish_data_nn %>% group_by(Flow_Ablation_Darkness) %>%
+                                        mutate(Fish1_Yaw_Heading_PS = Fish1_Yaw_Heading_PS - mean(Fish1_Yaw_Heading_PS)) %>%
+                                        ungroup()
 
-nn_heading_sum <- fish_data_nn %>% mutate(angle_bins = round_any(Angle_Rads,pi/8)) %>%
+
+nn_heading_sum <- fish_data_nn_normal %>% mutate(angle_bins = round_any(Angle,pi/6)) %>%
                                                 group_by(angle_bins,Flow,Ablation,Darkness,Flow_Ablation_Darkness) %>%
                                                 summarise(mean_turn = mean(Fish1_Yaw_Heading_PS, na.rm = T),
                                                           sd_turn = sd(Fish1_Yaw_Heading_PS, na.rm = T),
@@ -125,7 +141,7 @@ nn_heading_sum <- fish_data_nn %>% mutate(angle_bins = round_any(Angle_Rads,pi/8
                                                 ungroup() %>%
                                                 na.omit()
 
-nn_accel_sum <- fish_data_nn %>% mutate(distance_bins = round_any(Relative_X,0.25)) %>%
+nn_accel_sum <- fish_data_nn_normal %>% mutate(distance_bins = round_any(Relative_X,0.25)) %>%
                                                 group_by(distance_bins,Flow,Ablation,Darkness,Flow_Ablation_Darkness) %>%
                                                 summarise(mean_accel = mean(Fish1_Accel, na.rm = T),
                                                           sd_accel = sd(Fish1_Accel, na.rm = T),
@@ -146,22 +162,22 @@ fish_data_nn_model <- fish_data_nn %>% filter(Flow == "Still Water") %>%
 heading_ps_angle_base <- lm(Fish1_Yaw_Heading_PS ~ 1, data = fish_data_nn_model) 
 
 heading_ps_angle_step <- stepAIC(heading_ps_angle_base,
-                                   list(upper = ~ ((cos(Angle_Rads)+sin(Angle_Rads))*Ablation*Darkness), lower = ~1),
+                                   list(upper = ~ (sin(Angle)+Ablation:sin(Angle)+Darkness:sin(Angle)), lower = ~1),
                                    direction = "both",
                                    trace = F)
 
 Anova(heading_ps_angle_step)
 
-tester_model <- lm(Fish1_Yaw_Heading_PS ~ sin(Angle_Rads)*Ablation*Darkness, data = fish_data_nn_model) 
+tester_model <- lm(Fish1_Yaw_Heading_PS ~ sin(Angle):Ablation:Darkness, data = fish_data_nn_model) 
 Anova(tester_model)
 
 ggplot(fish_data_nn %>% filter(Flow == "Still Water"),
-       aes(x = Angle_Rads, y = Fish1_Yaw_Heading_PS, color = interaction(Ablation, Darkness, sep =", ")))+
+       aes(x = Angle, y = Fish1_Yaw_Heading_PS, color = interaction(Ablation, Darkness, sep =", ")))+
   geom_point(alpha = 0.1)+
   facet_wrap(~ interaction(Ablation, Darkness, sep =", ")) +
   #geom_smooth(se = F)+
-  geom_smooth(se = F, method = glm, formula = y ~ 1)+
-  #geom_line(aes(y = predict(heading_ps_angle_step)), size = 1)+
+  #geom_smooth(se = F, method = glm, formula = y ~ 1)+
+  geom_line(aes(y = predict(heading_ps_angle_step)), size = 1)+
   theme_classic() +
   #ylim(-5,5)+
   xlab("direction of neighbour (degrees)") +
@@ -178,10 +194,10 @@ ggplot(nn_heading_sum %>% filter(Flow == "Still Water"),
   #geom_line(aes(y = sin_pred)) +
   #geom_line(alpha = 0.75) +
   #geom_smooth(se = F, method = glm, formula = y ~ sin(x))+
-  geom_line(aes(y = rad2deg(predict(heading_ps_angle_step,
-                    newdata = nn_heading_sum %>% filter(Flow == "Still Water") %>% mutate(Angle_Rads = angle_bins)))), size = 1)+
+  geom_line(aes(y = rad2deg(predict(tester_model,
+                    newdata = nn_heading_sum %>% filter(Flow == "Still Water") %>% mutate(Angle = angle_bins)))), size = 1)+
   theme_classic() +
-  #ylim(-0.6,0.6)+
+  ylim(-50,50) +
   xlab("direction of neighbour (degrees)") +
   ylab("focal fish turning angle (degrees/sec)") +
   scale_colour_manual(values = c(light_no_ab_color,light_ab_color,dark_no_ab_color,dark_ab_color)) +
@@ -190,6 +206,9 @@ ggplot(nn_heading_sum %>% filter(Flow == "Still Water"),
   # scale_x_continuous(breaks = unique(nn_heading_sum$angle_bins),
   #                    labels = c("-π","-3π/4","-π/2","-π/4","0","π/4","π/2","3π/4","π"))+
   labs(color = "Sensory Conditions")
+
+# emmeans(tester_model, ~ Ablation|Darkness, type = "response")
+# emmeans(tester_model, ~ Darkness|Ablation, type = "response")
 
 ```
 

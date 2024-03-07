@@ -111,7 +111,7 @@ def median_tailbeat_chunk(data,tailbeat_len):
     return mean_data[::tailbeat_len]
 
 def angular_mean_tailbeat_chunk(data,tailbeat_len):
-    data = np.deg2rad(data)
+    #data = np.deg2rad(data)
 
     max_tb_frame = len(data)-len(data)%tailbeat_len
     mean_data = np.zeros(max_tb_frame)
@@ -126,7 +126,8 @@ def angular_mean_tailbeat_chunk(data,tailbeat_len):
         sin_mean = np.nanmean(np.sin(data_range))
 
         #SIN then COSINE
-        angular_mean = np.rad2deg(np.arctan2(sin_mean,cos_mean))
+        #angular_mean = np.rad2deg(np.arctan2(sin_mean,cos_mean))
+        angular_mean = np.arctan2(sin_mean,cos_mean)
         mean_data[k] = angular_mean
 
     return mean_data[::tailbeat_len]
@@ -233,7 +234,8 @@ class fish_data:
         self.calc_tb_freq()
         self.calc_accel()
         self.calc_yaw_heading_ps()
-        
+
+        #self.graph_values()        
         
     def get_fish_BL(self):
         self.body_lengths = (get_dist_np_3D(self.head_x,self.head_y,self.head_z,self.midline_x,self.midline_y,self.midline_z) + 
@@ -303,7 +305,7 @@ class fish_data:
 
         #Then we use arctan to calculate the heading based on the x and y point vectors
         #Becasue of roll we don't want to the last value since it will be wrong
-        self.yaw_heading = np.rad2deg(np.arctan2(self.vec_y,self.vec_x))
+        self.yaw_heading = np.arctan2(self.vec_y,self.vec_x)
 
         # print(self.vec_x)
         # print(self.vec_y)
@@ -323,7 +325,7 @@ class fish_data:
 
         #Then we use arctan to calculate the heading based on the x and y point vectors
         #Becasue of roll we don't want to the last value since it will be wrong
-        self.pitch_heading = np.rad2deg(np.arctan2(self.vec_xy,self.vec_z))
+        self.pitch_heading = np.arctan2(self.vec_xy,self.vec_z)
 
     #calcualtes the yaw heading change per second
     def calc_yaw_heading_ps(self):
@@ -337,10 +339,11 @@ class fish_data:
         # self.yaw_heading_ps = np.rad2deg(self.yaw_heading_ps) * fps/2
 
 
-        chunked_yaw_mean = np.deg2rad(angular_mean_tailbeat_chunk(self.yaw_heading, tailbeat_len))
+        chunked_yaw_mean = angular_mean_tailbeat_chunk(self.yaw_heading, tailbeat_len)
 
-        self.yaw_heading_ps = np.rad2deg(np.arctan2(np.sin(np.roll(chunked_yaw_mean,-1) - np.roll(chunked_yaw_mean,1)),
-                                                    np.cos(np.roll(chunked_yaw_mean,-1) - np.roll(chunked_yaw_mean,1))))[1:-1] * fps/(2*tailbeat_len)
+        self.yaw_heading_ps = np.arctan2(np.sin(np.roll(chunked_yaw_mean,-1) - np.roll(chunked_yaw_mean,1)),
+                                         np.cos(np.roll(chunked_yaw_mean,-1) - np.roll(chunked_yaw_mean,1)))[1:-1] * fps/(2*tailbeat_len)
+
 
         # print(repr(self.yaw_heading))
         # print(repr(chunked_yaw_mean))
@@ -354,7 +357,6 @@ class fish_data:
         # ax0 = plt.subplot(gs[0,0])
         # ax0.scatter(range(len(self.yaw_heading)), self.yaw_heading)
         # ax0.scatter(np.linspace(0,len(chunked_yaw_mean),len(chunked_yaw_mean))*tailbeat_len, chunked_yaw_mean)
-        # ax0.plot(self.tailtip_x, self.tailtip_y)
 
         # ax1 = plt.subplot(gs[0,1])
         # ax1.scatter(range(len(self.yaw_heading_ps)), self.yaw_heading_ps / 60 * 2)
@@ -494,7 +496,7 @@ class fish_data:
         ax3.set_title("Speed")
 
         ax4 = plt.subplot(gs[1,2])
-        ax4.plot(range(len(self.heading)), self.heading)
+        ax4.plot(range(len(self.yaw_heading)), self.yaw_heading)
         ax4.set_title("Heading")
 
         plt.show()
@@ -572,7 +574,7 @@ class fish_comp:
             #     print(dot_prods[t], cross_prods[t])
             #     print(np.rad2deg(np.arccos(dot_prods[t]) * np.sign(cross_prods[t])))
 
-        self.angle = np.rad2deg(np.arccos(dot_prods) * np.sign(cross_prods))
+        self.angle = np.arccos(dot_prods) * np.sign(cross_prods)
 
         #sys.exit()
 
@@ -588,7 +590,7 @@ class fish_comp:
             dot_product = np.dot(f1_vector[i], f2_vector[i])
 
             prod_of_norms = np.linalg.norm(f1_vector[i]) * np.linalg.norm(f2_vector[i])
-            self.yaw_heading_diff[i] = np.degrees(np.arccos(dot_product / prod_of_norms))
+            self.yaw_heading_diff[i] = np.arccos(dot_product / prod_of_norms)
 
     #Now with a dot product!
     def calc_pitch_heading_diff(self):
@@ -602,7 +604,7 @@ class fish_comp:
             dot_product = np.dot(f1_vector[i], f2_vector[i])
 
             prod_of_norms = np.linalg.norm(f1_vector[i]) * np.linalg.norm(f2_vector[i])
-            self.pitch_heading_diff[i] = np.degrees(np.arccos(dot_product / prod_of_norms))
+            self.pitch_heading_diff[i] = np.arccos(dot_product / prod_of_norms)
 
     def calc_heading_diff_filtered(self):
         #Makes sure that head wiggle doesn't mess up polarization
@@ -612,8 +614,8 @@ class fish_comp:
         self.f1.heading = savgol_filter(self.f1.heading,tailbeat_len,1)
         self.f2.heading = savgol_filter(self.f2.heading,tailbeat_len,1)
 
-        self.heading_diff = np.rad2deg(np.arctan2(np.sin(np.deg2rad(self.f1.heading-self.f2.heading)),
-                                                  np.cos(np.deg2rad(self.f1.heading-self.f2.heading))))
+        self.heading_diff = np.arctan2(np.sin(self.f1.heading-self.f2.heading),
+                                       np.cos(self.f1.heading-self.f2.heading))
 
         for i in range(len(self.f1.heading)):
             print(f1_heading_og[i],f2_heading_og[i],self.f1.heading[i],self.f2.heading[i],self.heading_diff[i])
@@ -778,8 +780,8 @@ class fish_comp:
 
         ax0 = plt.subplot(gs[:,0])
 
-        ax0.scatter(self.f1.head_x, self.f1.head_y, c = np.linspace(0,1,num = len(self.f1.head_x)), s = 2)
-        ax0.scatter(self.f2.head_x, self.f2.head_y, c = np.linspace(0,1,num = len(self.f2.head_x)), s = 2)
+        ax0.scatter(self.f1.head_x, self.f1.head_y, alpha = np.linspace(0,1,num = len(self.f1.head_x)), s = 2)
+        ax0.scatter(self.f2.head_x, self.f2.head_y, alpha = np.linspace(0,1,num = len(self.f2.head_x)), s = 2)
         ax0.set_title("Fish Path (Blue = Fish 1, Orange = Fish 2)")
 
         ax1 = plt.subplot(gs[0,1])
@@ -928,8 +930,8 @@ class school_comps:
 
     def calc_school_polarization(self):
         #formula from McKee 2020
-        sin_headings = np.sin(np.deg2rad([fish.yaw_heading for fish in self.fishes]))
-        cos_headings = np.cos(np.deg2rad([fish.yaw_heading for fish in self.fishes]))
+        sin_headings = np.sin([fish.yaw_heading for fish in self.fishes])
+        cos_headings = np.cos([fish.yaw_heading for fish in self.fishes])
 
         self.polarization = (1/self.n_fish)*np.sqrt(np.nansum(sin_headings, axis=0)**2 + np.nansum(cos_headings, axis=0)**2)
 
@@ -1397,7 +1399,7 @@ class trial:
             chunked_y_diffs = mean_tailbeat_chunk(current_comp.y_diff,tailbeat_len)
             chunked_z_diffs = mean_tailbeat_chunk(current_comp.z_diff,tailbeat_len)
             chunked_dists = get_dist_np_3D(0,0,0,chunked_x_diffs,chunked_y_diffs,chunked_z_diffs)
-            chunked_angles = mean_tailbeat_chunk(current_comp.angle,tailbeat_len)
+            chunked_angles = angular_mean_tailbeat_chunk(current_comp.angle,tailbeat_len)
             chunked_yaw_heading_diffs = angular_mean_tailbeat_chunk(current_comp.yaw_heading_diff,tailbeat_len)
             chunked_pitch_heading_diffs = angular_mean_tailbeat_chunk(current_comp.pitch_heading_diff,tailbeat_len)
             chunked_f1_speed = mean_tailbeat_chunk(current_comp.f1.speed,tailbeat_len)
@@ -1411,8 +1413,8 @@ class trial:
             chunked_f2_Y = mean_tailbeat_chunk(current_comp.f2.head_y,tailbeat_len)
             chunked_f2_Z = mean_tailbeat_chunk(current_comp.f2.head_z,tailbeat_len)
             chunked_relative_x = mean_tailbeat_chunk(current_comp.relative_x,tailbeat_len)
-            chunked_f1_yaw_heading = mean_tailbeat_chunk(current_comp.f1.yaw_heading,tailbeat_len)
-            chunked_f2_yaw_heading = mean_tailbeat_chunk(current_comp.f2.yaw_heading,tailbeat_len)
+            chunked_f1_yaw_heading = angular_mean_tailbeat_chunk(current_comp.f1.yaw_heading,tailbeat_len)
+            chunked_f2_yaw_heading = angular_mean_tailbeat_chunk(current_comp.f2.yaw_heading,tailbeat_len)
             chunked_f1_yaw_heading_ps = current_comp.f1.yaw_heading_ps
             chunked_f2_yaw_heading_ps = current_comp.f2.yaw_heading_ps
             chunked_speed_diffs = mean_tailbeat_chunk(current_comp.speed_diff,tailbeat_len)
