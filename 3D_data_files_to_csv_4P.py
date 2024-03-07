@@ -334,11 +334,29 @@ class fish_data:
         # self.yaw_heading_ps = np.rad2deg(self.yaw_heading_ps) * fps/2
 
 
-        chunked_yaw_mean = angular_mean_tailbeat_chunk(np.deg2rad(self.yaw_heading), tailbeat_len)
+        chunked_yaw_mean = np.deg2rad(angular_mean_tailbeat_chunk(self.yaw_heading, tailbeat_len))
 
         self.yaw_heading_ps = np.rad2deg(np.arctan2(np.sin(np.roll(chunked_yaw_mean,-1) - np.roll(chunked_yaw_mean,1)),
-                                                    np.cos(np.roll(chunked_yaw_mean,-1) - np.roll(chunked_yaw_mean,1))))[1:-1] * fps/2
+                                                    np.cos(np.roll(chunked_yaw_mean,-1) - np.roll(chunked_yaw_mean,1))))[1:-1] * fps/(2*tailbeat_len)
 
+        # print(repr(self.yaw_heading))
+        # print(repr(chunked_yaw_mean))
+        # print(repr(self.yaw_heading_ps))
+
+        #print(chunked_yaw_mean)
+
+        # fig = plt.figure(figsize=(8, 6))
+        # gs = gridspec.GridSpec(ncols = 2, nrows = 1) 
+
+        # ax0 = plt.subplot(gs[0,0])
+        # ax0.scatter(range(len(self.yaw_heading)), self.yaw_heading)
+        # ax0.scatter(np.linspace(0,len(chunked_yaw_mean),len(chunked_yaw_mean))*tailbeat_len, chunked_yaw_mean)
+        # ax0.plot(self.tailtip_x, self.tailtip_y)
+
+        # ax1 = plt.subplot(gs[0,1])
+        # ax1.scatter(range(len(self.yaw_heading_ps)), self.yaw_heading_ps / 60 * 2)
+
+        # plt.show()
 
         # print(chunked_yaw_sin)
         # print(np.sin(chunked_yaw_mean))
@@ -387,7 +405,7 @@ class fish_data:
         chunked_speed = mean_tailbeat_chunk_sync(self.speed,tailbeat_len)
 
         #remove the edge cases where rolling makes invalid values
-        self.accel = (np.roll(chunked_speed, -1) - np.roll(chunked_speed, 1))[1:-1] * fps/2
+        self.accel = (np.roll(chunked_speed, -1) - np.roll(chunked_speed, 1))[1:-1] * fps/(2*tailbeat_len)
 
     def calc_tailtip_perp(self):
 
@@ -1549,7 +1567,7 @@ data_folder = "3D_Finished_Fish_Data_4P_gaps/"
 
 trials = []
 
-single_file = # "2020_07_28_11" # "2020_07_28_03_LN_DN_F2" #"2021_10_06_36_LY_DN_F2_3D_DLC_dlcrnetms5_DLC_2-2_4P_8F_Light_VentralMay10shuffle1_100000_el_filtered.csv"
+single_file = "" #"2020_07_28_11" # "2020_07_28_03_LN_DN_F2" #"2021_10_06_36_LY_DN_F2_3D_DLC_dlcrnetms5_DLC_2-2_4P_8F_Light_VentralMay10shuffle1_100000_el_filtered.csv"
 
 for file_name in os.listdir(data_folder):
     if file_name.endswith(".csv") and single_file in file_name:
