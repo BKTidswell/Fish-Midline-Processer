@@ -558,20 +558,21 @@ class fish_comp:
         for t in range(len(self.f1.head_x)):
 
             unit_f1_body_vec = (f1_head[t] - f1_midline[t]) / calc_mag(f1_head[t],f1_midline[t])
-            unit_f1_f2_head_vec  = (f1_head[t] - f2_head[t]) / calc_mag(f1_head[t],f2_head[t])
-            unit_f1_body_vec_prep = [unit_f1_body_vec[1],-1*unit_f1_body_vec[0]]
+            unit_f1_f2_head_vec  = (f2_head[t] - f1_head[t]) / calc_mag(f1_head[t],f2_head[t])
+            unit_f1_body_vec_perp = [-1*unit_f1_body_vec[1],unit_f1_body_vec[0]]
 
             dot_prods[t] = np.dot(unit_f1_body_vec,unit_f1_f2_head_vec)
-            cross_prods[t] = np.cross(unit_f1_f2_head_vec,unit_f1_body_vec_prep)
+            cross_prods[t] = np.dot(unit_f1_f2_head_vec,unit_f1_body_vec_perp)
 
             # if not np.isnan(dot_prods[t]):
+            #     print()
             #     print(t)
             #     print(f1_head[t], f1_midline[t], f2_head[t])
-            #     print(unit_f1_body_vec, unit_f1_f2_head_vec, unit_f1_body_vec_prep)
+            #     print(unit_f1_body_vec, unit_f1_f2_head_vec, unit_f1_body_vec_perp)
             #     print(dot_prods[t], cross_prods[t])
-            #     print(np.rad2deg(np.arccos(dot_prods[t])))
+            #     print(np.rad2deg(np.arccos(dot_prods[t]) * np.sign(cross_prods[t])))
 
-        self.angle = dot_prods * np.sign(cross_prods)
+        self.angle = np.rad2deg(np.arccos(dot_prods) * np.sign(cross_prods))
 
         #sys.exit()
 
@@ -1599,7 +1600,7 @@ data_folder = "3D_Finished_Fish_Data_4P_gaps/"
 
 trials = []
 
-single_file = "2020_07_28_11" # "2020_07_28_03_LN_DN_F2" #"2021_10_06_36_LY_DN_F2_3D_DLC_dlcrnetms5_DLC_2-2_4P_8F_Light_VentralMay10shuffle1_100000_el_filtered.csv"
+single_file = "" #"2020_07_28_11" # "2020_07_28_03_LN_DN_F2" #"2021_10_06_36_LY_DN_F2_3D_DLC_dlcrnetms5_DLC_2-2_4P_8F_Light_VentralMay10shuffle1_100000_el_filtered.csv"
 
 for file_name in os.listdir(data_folder):
     if file_name.endswith(".csv") and single_file in file_name:

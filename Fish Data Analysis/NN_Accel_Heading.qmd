@@ -113,10 +113,11 @@ fish_data_nn <- fish_comp_data_combo %>% group_by(Fish1,Tailbeat_Num,Data_ID) %>
                                     filter(row_n == 1) %>%
                                     ungroup() %>%
                                     mutate(Angle_Rads = deg2rad(Angle),
-                                           Fish1_Yaw_Heading_PS = deg2rad(Fish1_Yaw_Heading_PS))
+                                           Fish1_Yaw_Heading_PS = deg2rad(Fish1_Yaw_Heading_PS)) %>%
+                                    filter(Distance <= 2)
 
 
-nn_heading_sum <- fish_data_nn %>% mutate(angle_bins = round_any(Angle_Rads,pi/4)) %>%
+nn_heading_sum <- fish_data_nn %>% mutate(angle_bins = round_any(Angle_Rads,pi/8)) %>%
                                                 group_by(angle_bins,Flow,Ablation,Darkness,Flow_Ablation_Darkness) %>%
                                                 summarise(mean_turn = mean(Fish1_Yaw_Heading_PS, na.rm = T),
                                                           sd_turn = sd(Fish1_Yaw_Heading_PS, na.rm = T),
@@ -134,82 +135,6 @@ nn_accel_sum <- fish_data_nn %>% mutate(distance_bins = round_any(Relative_X,0.2
                            
 ```
 
-Estimate the Wavelength
-
-```{r}
-# function to be minimized
-sum_squares <- function(lambda) {
-  lmfit <- lm(Fish1_Yaw_Heading_PS ~ (sin(2*pi/lambda*Fish1_Yaw_Heading_PS) + cos(2*pi/lambda*Fish1_Yaw_Heading_PS))*Ablation*Darkness,
-              data=fish_data_nn %>% filter(Flow == "Still Water"))
-  return(sum(lmfit$residuals^2))
-}
-
-lambda <- optimize(sum_squares,c(1,100))$minimum
-lambda
-
-
-#par 1 = amp
-#par 2 = freq
-#par 3 = phase
-
-min.RSS <- function(data, par) {
-             with(data, sum(par[1]*sin(par[2]*Angle_Rads+par[3]) - Fish1_Yaw_Heading_PS)^2)
-}
-
-result_F0LNDN <- optim(par = c(1, 1, 0), fn = min.RSS, data = fish_data_nn %>% filter(Flow_Ablation_Darkness == "Still Water, No Ablation, Light"))
-result_F0LYDN <- optim(par = c(1, 1, 0), fn = min.RSS, data = fish_data_nn %>% filter(Flow_Ablation_Darkness == "Still Water, Ablated, Light"))
-result_F0LNDY <- optim(par = c(1, 1, 0), fn = min.RSS, data = fish_data_nn %>% filter(Flow_Ablation_Darkness == "Still Water, No Ablation, Dark"))
-result_F0LYDY <- optim(par = c(1, 1, 0), fn = min.RSS, data = fish_data_nn %>% filter(Flow_Ablation_Darkness == "Still Water, Ablated, Dark"))
-
-result_F0LNDN$par
-result_F0LYDN$par
-result_F0LNDY$par
-result_F0LYDY$par
-
-#par 4 & 5 = amp Ablation & Darkness
-#par 6 & 7 = freq Ablation & Darkness
-#par 8 & 9 = phase Ablation & Darkness
-
-fish_data_nn_optim <- fish_data_nn %>% filter(Flow == "Still Water") %>% mutate(AblationCat = ifelse(Ablation == "Ablated",1,0),
-                                                                                DarknessCat = ifelse(Darkness == "Dark",1,0))
-
-min.RSS_cat <- function(data, par) {
-             with(data, sum((par[1]+par[4]*AblationCat+par[5]*DarknessCat)*
-                              sin((par[2]+par[6]*AblationCat+par[7]*DarknessCat)*Angle_Rads+
-                                    (par[3]+par[8]*AblationCat+par[9]*DarknessCat)) - Fish1_Yaw_Heading_PS)^2)
-}
-
-result_F0_cat <- optim(par = c(1, 1, 0, 0, 0, 0, 0, 0, 0), fn = min.RSS_cat, data = fish_data_nn_optim)
-
-result_F0_cat
-
-nn_heading_sum <- nn_heading_sum %>% mutate(AblationCat = ifelse(Ablation == "Ablated",1,0),
-                                            DarknessCat = ifelse(Darkness == "Dark",1,0)) %>%
-                                     mutate(sin_pred = (result_F0_cat$par[1]+result_F0_cat$par[4]*AblationCat+result_F0_cat$par[5]*DarknessCat)*
-                                                        sin((result_F0_cat$par[2]+result_F0_cat$par[6]*AblationCat+result_F0_cat$par[7]*DarknessCat)*angle_bins+
-                                                        (result_F0_cat$par[3]+result_F0_cat$par[8]*AblationCat+result_F0_cat$par[9]*DarknessCat)))
-
-# #Now let's check the F0LNDN condition
-# heading_ps_F0LNDN_lm_base <- lm(Fish1_Yaw_Heading_PS ~ 1, 
-#                                 data = fish_data_nn %>% filter(Flow_Ablation_Darkness == "Still Water, No Ablation, Light"))
-# heading_ps_F0LNDN_lm_lin <- lm(Fish1_Yaw_Heading_PS ~ Angle_Rads, 
-#                                 data = fish_data_nn %>% filter(Flow_Ablation_Darkness == "Still Water, No Ablation, Light"))
-# heading_ps_F0LNDN_lm_sin <- lm(Fish1_Yaw_Heading_PS ~ sin(0.4444551*Angle_Rads+0.2544464), 
-#                                 data = fish_data_nn %>% filter(Flow_Ablation_Darkness == "Still Water, No Ablation, Light"))
-# 
-# AIC(heading_ps_F0LNDN_lm_base,heading_ps_F0LNDN_lm_lin,heading_ps_F0LNDN_lm_sin) %>% arrange(AIC)
-# 
-# #Now let's check the F0LYDN condition
-# heading_ps_F0LYDN_lm_base <- lm(Fish1_Yaw_Heading_PS ~ 1, 
-#                                 data = fish_data_nn %>% filter(Flow_Ablation_Darkness == "Still Water, Ablated, Light"))
-# heading_ps_F0LYDN_lm_lin <- lm(Fish1_Yaw_Heading_PS ~ Angle_Rads, 
-#                                 data = fish_data_nn %>% filter(Flow_Ablation_Darkness == "Still Water, Ablated, Light"))
-# heading_ps_F0LYDN_lm_sin <- lm(Fish1_Yaw_Heading_PS ~ sin(1.11686351*Angle_Rads+-0.04623624), 
-#                                 data = fish_data_nn %>% filter(Flow_Ablation_Darkness == "Still Water, Ablated, Light"))
-# 
-# AIC(heading_ps_F0LYDN_lm_base,heading_ps_F0LYDN_lm_lin,heading_ps_F0LYDN_lm_sin) %>% arrange(AIC)
-
-```
 
 
 ```{r}
@@ -221,45 +146,49 @@ fish_data_nn_model <- fish_data_nn %>% filter(Flow == "Still Water") %>%
 heading_ps_angle_base <- lm(Fish1_Yaw_Heading_PS ~ 1, data = fish_data_nn_model) 
 
 heading_ps_angle_step <- stepAIC(heading_ps_angle_base,
-                                   list(upper = ~ ((Angle_Rads+cos(Angle_Rads)+sin(Angle_Rads))*Ablation*Darkness), lower = ~1),
+                                   list(upper = ~ ((cos(Angle_Rads)+sin(Angle_Rads))*Ablation*Darkness), lower = ~1),
                                    direction = "both",
                                    trace = F)
 
 Anova(heading_ps_angle_step)
 
-tester_model <- lm(Fish1_Yaw_Heading_PS ~ sin(Ablation+Darkness+Angle_Rads), data = fish_data_nn_model) 
+tester_model <- lm(Fish1_Yaw_Heading_PS ~ sin(Angle_Rads)*Ablation*Darkness, data = fish_data_nn_model) 
+Anova(tester_model)
 
 ggplot(fish_data_nn %>% filter(Flow == "Still Water"),
        aes(x = Angle_Rads, y = Fish1_Yaw_Heading_PS, color = interaction(Ablation, Darkness, sep =", ")))+
   geom_point(alpha = 0.1)+
   facet_wrap(~ interaction(Ablation, Darkness, sep =", ")) +
-  geom_smooth(se = F)+
-  #geom_smooth(se = F, method = glm, formula = y ~ sin(x))+
+  #geom_smooth(se = F)+
+  geom_smooth(se = F, method = glm, formula = y ~ 1)+
   #geom_line(aes(y = predict(heading_ps_angle_step)), size = 1)+
   theme_classic() +
   #ylim(-5,5)+
-  xlab("direction of neighbour (rad)") +
+  xlab("direction of neighbour (degrees)") +
   ylab("focal fish turning angle (rad/sec)") +
   scale_colour_manual(values = c(light_no_ab_color,light_ab_color,dark_no_ab_color,dark_ab_color)) +
   scale_x_continuous(breaks = unique(nn_heading_sum$angle_bins),
-                     labels = c("-π","-3π/4","-π/2","-π/4","0","π/4","π/2","3π/4","π"))+
+                     labels = rad2deg(unique(nn_heading_sum$angle_bins))) +
   labs(color = "Sensory Conditions")
 
 ggplot(nn_heading_sum %>% filter(Flow == "Still Water"),
-       aes(x = angle_bins, y = mean_turn, color = interaction(Ablation, Darkness, sep =", ")))+
+       aes(x = angle_bins, y = rad2deg(mean_turn), color = interaction(Ablation, Darkness, sep =", ")))+
   geom_point()+
   #geom_smooth(se = F)+
   #geom_line(aes(y = sin_pred)) +
   #geom_line(alpha = 0.75) +
   #geom_smooth(se = F, method = glm, formula = y ~ sin(x))+
-  geom_line(aes(y = predict(tester_model,
-                    newdata = nn_heading_sum %>% filter(Flow == "Still Water") %>% mutate(Angle_Rads = angle_bins))), size = 1)+
+  geom_line(aes(y = rad2deg(predict(heading_ps_angle_step,
+                    newdata = nn_heading_sum %>% filter(Flow == "Still Water") %>% mutate(Angle_Rads = angle_bins)))), size = 1)+
   theme_classic() +
-  xlab("direction of neighbour (rad)") +
-  ylab("focal fish turning angle (rad/sec)") +
+  #ylim(-0.6,0.6)+
+  xlab("direction of neighbour (degrees)") +
+  ylab("focal fish turning angle (degrees/sec)") +
   scale_colour_manual(values = c(light_no_ab_color,light_ab_color,dark_no_ab_color,dark_ab_color)) +
   scale_x_continuous(breaks = unique(nn_heading_sum$angle_bins),
-                     labels = c("-π","-3π/4","-π/2","-π/4","0","π/4","π/2","3π/4","π"))+
+                     labels = rad2deg(unique(nn_heading_sum$angle_bins))) +
+  # scale_x_continuous(breaks = unique(nn_heading_sum$angle_bins),
+  #                    labels = c("-π","-3π/4","-π/2","-π/4","0","π/4","π/2","3π/4","π"))+
   labs(color = "Sensory Conditions")
 
 ```
