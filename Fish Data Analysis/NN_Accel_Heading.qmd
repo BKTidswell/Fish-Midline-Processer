@@ -227,7 +227,7 @@ heading_ps_angle_step <- stepAIC(heading_ps_angle_base,
 
 Anova(heading_ps_angle_step)
 
-tester_model <- lm(Fish1_Yaw_Heading_PS ~ sin(Angle_Rads):Ablation:Darkness, data = fish_data_nn_model) 
+tester_model <- lm(Fish1_Yaw_Heading_PS ~ sin(Ablation+Darkness+Angle_Rads), data = fish_data_nn_model) 
 
 ggplot(fish_data_nn %>% filter(Flow == "Still Water"),
        aes(x = Angle_Rads, y = Fish1_Yaw_Heading_PS, color = interaction(Ablation, Darkness, sep =", ")))+
@@ -252,7 +252,7 @@ ggplot(nn_heading_sum %>% filter(Flow == "Still Water"),
   #geom_line(aes(y = sin_pred)) +
   #geom_line(alpha = 0.75) +
   #geom_smooth(se = F, method = glm, formula = y ~ sin(x))+
-  geom_line(aes(y = predict(heading_ps_angle_step,
+  geom_line(aes(y = predict(tester_model,
                     newdata = nn_heading_sum %>% filter(Flow == "Still Water") %>% mutate(Angle_Rads = angle_bins))), size = 1)+
   theme_classic() +
   xlab("direction of neighbour (rad)") +

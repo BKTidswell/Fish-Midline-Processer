@@ -55,6 +55,9 @@ fish_max_len = (fish_len + 3*fish_sd) / fish_len
 #Header list for reading the raw location CSVs
 header = list(range(4))
 
+def calc_mag_vec(p1):
+    return math.sqrt((p1[0])**2 + (p1[1])**2)
+
 def calc_mag(p1,p2):
     return math.sqrt((p1[0]-p2[0])**2 + (p1[1]-p2[1])**2)
 
@@ -534,14 +537,43 @@ class fish_comp:
 
     def calc_angle(self):
         #Calculate the angle of the x and y difference in degrees
-        angle_diff = np.rad2deg(np.arctan2(self.y_diff,self.x_diff))
+        #angle_diff = np.rad2deg(np.arctan2(self.y_diff,self.x_diff))
+
         #This makes it from 0 to 360
         #angle_diff_360 = np.mod(abs(angle_diff-360),360)
         #This rotates it so that 0 is at the top and 180 is below the fish for a sideways swimming fish model
         #self.angle = np.mod(angle_diff_360+90,360)
 
         #12/1/21: Back to making change notes. Now keeping it as the raw -180 to 180
-        self.angle = angle_diff
+
+        #3/7/24 Doing this with dot products to not run into issues with axes
+
+        f1_head = np.column_stack((self.f1.head_x, self.f1.head_y))
+        f1_midline = np.column_stack((self.f1.midline_x, self.f1.midline_y))
+        f2_head = np.column_stack((self.f2.head_x, self.f2.head_y))
+
+        dot_prods = np.zeros(len(self.f1.head_x)) + np.nan
+        cross_prods = np.zeros(len(self.f1.head_x)) + np.nan
+
+        for t in range(len(self.f1.head_x)):
+
+            unit_f1_body_vec = (f1_head[t] - f1_midline[t]) / calc_mag(f1_head[t],f1_midline[t])
+            unit_f1_f2_head_vec  = (f1_head[t] - f2_head[t]) / calc_mag(f1_head[t],f2_head[t])
+            unit_f1_body_vec_prep = [unit_f1_body_vec[1],-1*unit_f1_body_vec[0]]
+
+            dot_prods[t] = np.dot(unit_f1_body_vec,unit_f1_f2_head_vec)
+            cross_prods[t] = np.cross(unit_f1_f2_head_vec,unit_f1_body_vec_prep)
+
+            # if not np.isnan(dot_prods[t]):
+            #     print(t)
+            #     print(f1_head[t], f1_midline[t], f2_head[t])
+            #     print(unit_f1_body_vec, unit_f1_f2_head_vec, unit_f1_body_vec_prep)
+            #     print(dot_prods[t], cross_prods[t])
+            #     print(np.rad2deg(np.arccos(dot_prods[t])))
+
+        self.angle = dot_prods * np.sign(cross_prods)
+
+        #sys.exit()
 
     #Now with a dot product!
     def calc_yaw_heading_diff(self):
@@ -1567,7 +1599,7 @@ data_folder = "3D_Finished_Fish_Data_4P_gaps/"
 
 trials = []
 
-single_file = "" #"2020_07_28_11" # "2020_07_28_03_LN_DN_F2" #"2021_10_06_36_LY_DN_F2_3D_DLC_dlcrnetms5_DLC_2-2_4P_8F_Light_VentralMay10shuffle1_100000_el_filtered.csv"
+single_file = "2020_07_28_11" # "2020_07_28_03_LN_DN_F2" #"2021_10_06_36_LY_DN_F2_3D_DLC_dlcrnetms5_DLC_2-2_4P_8F_Light_VentralMay10shuffle1_100000_el_filtered.csv"
 
 for file_name in os.listdir(data_folder):
     if file_name.endswith(".csv") and single_file in file_name:
