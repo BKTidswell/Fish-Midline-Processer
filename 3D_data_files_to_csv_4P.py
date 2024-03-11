@@ -341,8 +341,32 @@ class fish_data:
 
         chunked_yaw_mean = angular_mean_tailbeat_chunk(self.yaw_heading, tailbeat_len)
 
-        self.yaw_heading_ps = np.arctan2(np.sin(np.roll(chunked_yaw_mean,-1) - np.roll(chunked_yaw_mean,1)),
-                                         np.cos(np.roll(chunked_yaw_mean,-1) - np.roll(chunked_yaw_mean,1)))[1:-1] * fps/(2*tailbeat_len)
+        # self.yaw_heading_ps = np.arctan2(np.sin(np.roll(chunked_yaw_mean,-1) - np.roll(chunked_yaw_mean,1)),
+        #                                  np.cos(np.roll(chunked_yaw_mean,-1) - np.roll(chunked_yaw_mean,1)))[1:-1] * fps/(2*tailbeat_len)
+
+
+        chunked_yaw_heading_vec = np.column_stack((np.cos(chunked_yaw_mean), np.sin(chunked_yaw_mean)))
+        
+        dot_prods = np.zeros(len(chunked_yaw_heading_vec)) + np.nan
+        cross_prods = np.zeros(len(chunked_yaw_heading_vec)) + np.nan
+
+        for t in range(1,len(chunked_yaw_heading_vec)-1):
+
+            chunked_yaw_heading_vec_prev = chunked_yaw_heading_vec[t-1]
+            chunked_yaw_heading_vec_next = chunked_yaw_heading_vec[t+1]
+            chunked_yaw_heading_vec_prev_perp = [-1*chunked_yaw_heading_vec[t-1][1],chunked_yaw_heading_vec[t-1][0]]
+
+            dot_prods[t] = np.dot(chunked_yaw_heading_vec_prev,chunked_yaw_heading_vec_next)
+            cross_prods[t] = np.dot(chunked_yaw_heading_vec_next,chunked_yaw_heading_vec_prev_perp)
+
+        self.yaw_heading_ps = np.arccos(dot_prods) * np.sign(cross_prods) * fps/(2*tailbeat_len)
+        self.yaw_heading_ps = self.yaw_heading_ps[1:-1]
+
+        # print(chunked_yaw_heading_vec)
+        # print(self.yaw_heading_ps)
+        # print(dot_yaw_heading_angle)
+
+        # sys.exit()
 
 
         # print(repr(self.yaw_heading))
@@ -624,23 +648,29 @@ class fish_comp:
         self.speed_diff = self.f1.speed - self.f2.speed
 
     def calc_relative_x(self):
-        x_diff = self.f2.head_x - self.f1.head_x
-        y_diff = self.f2.head_y - self.f1.head_y
+        f1_head = np.column_stack((self.f1.head_x, self.f1.head_y))
+        f1_midline = np.column_stack((self.f1.midline_x, self.f1.midline_y))
+        f2_head = np.column_stack((self.f2.head_x, self.f2.head_y))
 
-        diff_vec = np.column_stack((x_diff,y_diff))
+        self.relative_x = np.zeros(len(self.f1.head_x)) + np.nan
 
-        heading_vec = np.column_stack((self.f1.vec_x,self.f1.vec_y))
+        for t in range(len(self.f1.head_x)):
+            unit_f1_body_vec = (f1_head[t] - f1_midline[t]) / calc_mag(f1_head[t],f1_midline[t])
+            f1_f2_head_vec  = (f2_head[t] - f1_head[t])
 
-        self.relative_x = np.zeros(len(x_diff)) + np.nan
+            self.relative_x[t] = np.dot(f1_f2_head_vec,unit_f1_body_vec)
 
-        for i in range(len(x_diff)):
-            self.relative_x[i] = np.dot(diff_vec[i],heading_vec[i])
+        #     if not np.isnan(self.relative_x[t]):
+        #         print()
+        #         print(f1_head[t], f1_midline[t], f2_head[t])
+        #         print(self.relative_x[t])
+
+                
+        # sys.exit()
 
         # relative_x_dot = np.sum(np.multiply(diff_vec, heading_vec), axis = 1)
 
         # self.relative_x = np.arccos(relative_x_dot)
-
-        #print(self.relative_x)
 
     def calc_tailbeat_offset(self):
         #Setup an array to hold all the zero crossing differences
@@ -1312,10 +1342,19 @@ class trial:
 
         #This sets the indexes so I can avoid any issues with having Fish 1 always be compared first 
         # and so on and so forth
-        self.fish_comp_indexes = [[i,j] for i in range(n_fish) for j in range(i+1,n_fish)]
+        
+        #Now we're going to do all the fish both ways to make NND stuff easier
+        #self.fish_comp_indexes = [[i,j] for i in range(n_fish) for j in range(i+1,n_fish)]
 
-        for pair in self.fish_comp_indexes:
-            random.shuffle(pair)
+        # for pair in self.fish_comp_indexes:
+        #     random.shuffle(pair)
+
+        self.fish_comp_indexes = [[i,j] for i in range(n_fish) for j in range(n_fish)]
+
+        #Remove matched pairs
+        matched_index = [0,9,18,27,36,45,56,63]
+
+        self.fish_comp_indexes = np.delete(self.fish_comp_indexes, matched_index, axis = 0)
 
         self.fish_comps = [[0 for j in range(self.n_fish)] for i in range(self.n_fish)]
 
