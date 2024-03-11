@@ -73,42 +73,10 @@ fish_comp_data <- read.csv("Data/Fish_Comp_Values_3D.csv") %>%
                            
 fish_comp_data <- na.omit(fish_comp_data)
 
-fish_comp_data_switch_fish <- fish_comp_data %>% mutate(Fish3 = Fish1,
-                                              Fish3_X = Fish1_X,
-                                              Fish3_Y = Fish1_Y,
-                                              Fish3_Z = Fish1_Z,
-                                              Fish3_Speed = Fish1_Speed,
-                                              Fish3_Accel = Fish1_Accel,
-                                              Fish3_Yaw_Heading = Fish1_Yaw_Heading,
-                                              Fish3_Yaw_Heading_PS = Fish1_Yaw_Heading_PS
-                                              ) %>%
-                                       mutate(Fish1 = Fish2,
-                                              Fish1_X = Fish2_X,
-                                              Fish1_Y = Fish2_Y,
-                                              Fish1_Z = Fish2_Z,
-                                              Fish1_Speed = Fish2_Speed,
-                                              Fish1_Accel = Fish2_Accel,
-                                              Fish1_Yaw_Heading = Fish2_Yaw_Heading,
-                                              Fish1_Yaw_Heading_PS = Fish2_Yaw_Heading_PS) %>%
-                                       mutate(Fish2 = Fish3,
-                                              Fish2_X = Fish3_X,
-                                              Fish2_Y = Fish3_Y,
-                                              Fish2_Z = Fish3_Z,
-                                              Fish2_Speed = Fish3_Speed,
-                                              Fish2_Accel = Fish3_Accel,
-                                              Fish2_Yaw_Heading = Fish3_Yaw_Heading,
-                                              Fish2_Yaw_Heading_PS = Fish3_Yaw_Heading_PS) %>%
-                                       #Switch around angle when we switch focal fish
-                                       mutate(Angle = -1*ifelse(Angle >= 0, Angle - pi, Angle + pi),
-                                              Relative_X = -1*Relative_X) %>%
-                                       select(-c(Fish3,Fish3_X,Fish3_Y,Fish3_Z,Fish3_Speed,Fish3_Accel,Fish3_Yaw_Heading,Fish3_Yaw_Heading_PS))
+min_dist <- 0
+max_dist <- 0.75
 
-fish_comp_data_combo <- bind_rows(fish_comp_data, fish_comp_data_switch_fish)
-
-min_dist <- 0.75
-max_dist <- 10
-
-fish_data_nn <- fish_comp_data_combo %>% group_by(Fish1,Tailbeat_Num,Data_ID) %>%
+fish_data_nn <- fish_comp_data %>% group_by(Fish1,Tailbeat_Num,Data_ID) %>%
                                     mutate(#nndDistance = min(Distance, na.rm = TRUE),
                                            nndDistance = nth_min(Distance, 1),
                                            nndDistance = ifelse(is.infinite(nndDistance), NA, nndDistance),
@@ -151,28 +119,6 @@ nn_accel_sum <- fish_data_nn_normal %>% mutate(distance_bins = round_any(Relativ
                            
 ```
 
-Estimating functions
-
-```{r}
-#par 1 = amp
-#par 2 = freq
-#par 3 = phase
-
-min.RSS <- function(data, par) {
-             with(data, sum(par[1]*sin(2*pi/par[2]*Angle+par[3]) - Fish1_Yaw_Heading_PS)^2)
-}
-
-result_F0LNDN <- optim(par = c(1, 1, 0), fn = min.RSS, data = fish_data_nn_normal %>% filter(Flow_Ablation_Darkness == "Still Water, No Ablation, Light"))
-result_F0LYDN <- optim(par = c(1, 1, 0), fn = min.RSS, data = fish_data_nn_normal %>% filter(Flow_Ablation_Darkness == "Still Water, Ablated, Light"))
-result_F0LNDY <- optim(par = c(1, 1, 0), fn = min.RSS, data = fish_data_nn_normal %>% filter(Flow_Ablation_Darkness == "Still Water, No Ablation, Dark"))
-result_F0LYDY <- optim(par = c(1, 1, 0), fn = min.RSS, data = fish_data_nn_normal %>% filter(Flow_Ablation_Darkness == "Still Water, Ablated, Dark"))
-
-result_F0LNDN$par
-result_F0LYDN$par
-result_F0LNDY$par
-result_F0LYDY$par
-```
-
 
 ```{r}
 
@@ -193,10 +139,6 @@ manual_model <- lm(Fish1_Yaw_Heading_PS ~ sin(Angle) + sin(Angle):Ablation + sin
                    data = fish_data_nn_model) 
 Anova(manual_model)
 
-manual_model_2 <- lm(Fish2_Yaw_Heading_PS ~ sin(Angle) + sin(Angle):Ablation + sin(Angle):Darkness + sin(Angle):Ablation:Darkness, 
-                   data = fish_data_nn_model %>% mutate(Angle = ifelse(Angle >= 0, Angle - pi, Angle + pi))) 
-Anova(manual_model_2)
-
 #Raw data
 ggplot(fish_data_nn %>% filter(Flow == "Still Water"),
        aes(x = Angle, y = rad2deg(Fish2_Yaw_Heading_PS), color = interaction(Ablation, Darkness, sep =", ")))+
@@ -215,9 +157,7 @@ ggplot(fish_data_nn %>% filter(Flow == "Still Water"),
 ggplot(nn_heading_sum %>% filter(Flow == "Still Water"),
        aes(x = angle_bins, y = rad2deg(mean_turn), color = interaction(Ablation, Darkness, sep =", ")))+
   geom_point()+
-  geom_line()+
-  # geom_line(aes(y = rad2deg(predict(manual_model,
-  #                   newdata = nn_heading_sum %>% filter(Flow == "Still Water") %>% mutate(Angle = angle_bins)))), size = 1)+
+  #geom_line()+
   geom_line(aes(y = rad2deg(predict(manual_model,
                     newdata = nn_heading_sum %>% filter(Flow == "Still Water") %>% mutate(Angle = angle_bins)))), size = 1)+
   theme_classic() +
@@ -242,6 +182,28 @@ test(emmeans(manual_model, pairwise ~Ablation*Darkness | Angle, at = list(Angle 
 #   coord_polar(start = -pi / 2)+
 #   theme_classic()
 
+```
+
+Estimating functions
+
+```{r}
+#par 1 = amp
+#par 2 = freq
+#par 3 = phase
+
+min.RSS <- function(data, par) {
+             with(data, sum(par[1]*sin(2*pi/par[2]*Angle+par[3]) - Fish1_Yaw_Heading_PS)^2)
+}
+
+result_F0LNDN <- optim(par = c(1, 1, 0), fn = min.RSS, data = fish_data_nn_normal %>% filter(Flow_Ablation_Darkness == "Still Water, No Ablation, Light"))
+result_F0LYDN <- optim(par = c(1, 1, 0), fn = min.RSS, data = fish_data_nn_normal %>% filter(Flow_Ablation_Darkness == "Still Water, Ablated, Light"))
+result_F0LNDY <- optim(par = c(1, 1, 0), fn = min.RSS, data = fish_data_nn_normal %>% filter(Flow_Ablation_Darkness == "Still Water, No Ablation, Dark"))
+result_F0LYDY <- optim(par = c(1, 1, 0), fn = min.RSS, data = fish_data_nn_normal %>% filter(Flow_Ablation_Darkness == "Still Water, Ablated, Dark"))
+
+result_F0LNDN$par
+result_F0LYDN$par
+result_F0LNDY$par
+result_F0LYDY$par
 ```
 
 ```{r}

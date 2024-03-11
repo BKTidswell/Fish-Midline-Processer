@@ -1344,17 +1344,17 @@ class trial:
         # and so on and so forth
         
         #Now we're going to do all the fish both ways to make NND stuff easier
-        #self.fish_comp_indexes = [[i,j] for i in range(n_fish) for j in range(i+1,n_fish)]
+        self.fish_comp_indexes = [[i,j] for i in range(n_fish) for j in range(i+1,n_fish)]
 
-        # for pair in self.fish_comp_indexes:
-        #     random.shuffle(pair)
+        for pair in self.fish_comp_indexes:
+            random.shuffle(pair)
 
-        self.fish_comp_indexes = [[i,j] for i in range(n_fish) for j in range(n_fish)]
+        # self.fish_comp_indexes = [[i,j] for i in range(n_fish) for j in range(n_fish)]
 
-        #Remove matched pairs
-        matched_index = [0,9,18,27,36,45,56,63]
+        # #Remove matched pairs
+        # matched_index = [0,9,18,27,36,45,56,63]
 
-        self.fish_comp_indexes = np.delete(self.fish_comp_indexes, matched_index, axis = 0)
+        # self.fish_comp_indexes = np.delete(self.fish_comp_indexes, matched_index, axis = 0)
 
         self.fish_comps = [[0 for j in range(self.n_fish)] for i in range(self.n_fish)]
 
