@@ -69,16 +69,14 @@ school_data <- school_data %>% mutate(Flow = ifelse(Flow == "0", "Still Water", 
                            mutate(Darkness = fct_relevel(Darkness, c("Light","Dark"))) %>%
                            mutate(Flow_Ablation_Darkness = factor(paste(Flow,Ablation,Darkness,sep="/n"))) %>%
                             
-                           # ### Used to remove every third point to reduce autocorrelation
-                           mutate(Date = paste(Year,Month,Day,sep="_"),
-                                  Date_Trial = paste(Year,Month,Day,Trial,sep="_")) %>%
-                           group_by(Date_Trial) %>%
+                            # ### Used to remove every third point to reduce autocorrelation
+                           mutate(Data_ID = paste(Year,Month,Day,Trial, sep = "_"),
+                                  Date = paste(Year,Month,Day,Trial, sep = "_"),
+                                  Fish_ID = paste(Year,Month,Day,Trial,Fish1, sep = "_"),
+                                  Comp_ID = paste(Year,Month,Day,Trial,Fish1,Fish2, sep = "_")) %>%
+                           group_by(Comp_ID) %>%
                            filter(row_number() %% 3 == 1) %>%
                            ungroup()
-
-ggplot(school_data, aes(x = 1, y = NND, color = Flow_Ablation_Darkness))+
-  geom_point()+
-  facet_wrap(~Date_Trial)
 ```
 
 ### School Stats Table Here
@@ -112,7 +110,7 @@ groups_f_aov_me <- Anova(groups_lmer_flow)
 
 glmm_school_stats_table <- tibble(Stat = c(rep("NND",6),rep("Polarization",6),rep("Speed",6),rep("Groups",6)),
        Flow_or_Still = rep(c(rep("Still",3) , rep("Flow",3)), 4),
-       Condition = rep(c("Ablation","Darkness","Ablation:Darkness"), 8),
+       Condition = rep(c("Ablation","Darkness","Ablation x Darkness"), 8),
        DF = rep(c(rep(length(nnd_lmer_still@resp$y)-3,3),
                   rep(length(nnd_lmer_flow@resp$y)-3,3)),times = 4),
        Chisq = round(c(nnd_s_aov_me$Chisq[1:3],nnd_f_aov_me$Chisq[1:3],
@@ -132,13 +130,81 @@ glmm_school_stats_table
 tab_df(glmm_school_stats_table, file="sjt_des.doc")
 ```
 
-```{r}
-
-
-```
-
 ### Turning Results Text
 
 ```{r}
 
+fish_comp_data <- read.csv("Data/Fish_Comp_Values_3D.csv") %>%
+                           mutate(Flow = ifelse(Flow == "0", "Still Water", "Flowing Water (2 BL/s)")) %>%
+                           mutate(Ablation = ifelse(Ablation  == "N", "No Ablation", "Ablated")) %>%
+                           mutate(Darkness = ifelse(Darkness == "N", "Light", "Dark")) %>%
+                           mutate(Flow = factor(Flow), Ablation = factor(Ablation), Darkness = factor(Darkness)) %>%
+                           mutate(Flow = fct_relevel(Flow, c("Still Water","Flowing Water (2 BL/s)"))) %>%
+                           mutate(Ablation = fct_relevel(Ablation, c("No Ablation","Ablated"))) %>%
+                           mutate(Darkness = fct_relevel(Darkness, c("Light","Dark"))) %>%
+                           mutate(Flow_Ablation_Darkness = factor(paste(Flow,Ablation,Darkness,sep=", "))) %>%
+                           separate(Fish, c("Fish1", "Fish2"),sep="x") %>% 
+                           mutate(Data_ID = paste(Year,Month,Day,Trial, sep = "_"),
+                                  Date = paste(Year,Month,Day,Trial, sep = "_"),
+                                  Fish_ID = paste(Year,Month,Day,Trial,Fish1, sep = "_")) %>%
+  
+                           # ### Used to remove every third point to reduce autocorrelation
+                           mutate(Date = paste(Year,Month,Day,sep="_"),
+                                  Date_Trial = paste(Year,Month,Day,Trial,sep="_")) %>%
+                           group_by(Date_Trial) %>%
+                           filter(row_number() %% 3 == 1) %>%
+                           ungroup()
+                           
+fish_comp_data <- na.omit(fish_comp_data)
+
+close_min_dist <- 0
+close_max_dist <- 3
+
+far_min_dist <- 3
+far_max_dist <- 10
+
+fish_data_nn_normal_close <- fish_comp_data %>% filter(Distance >= close_min_dist & Distance <= close_max_dist) %>%
+                                        group_by(Flow_Ablation_Darkness) %>%
+                                        mutate(Fish1_Yaw_Heading_PS = Fish1_Yaw_Heading_PS - mean(Fish1_Yaw_Heading_PS)) %>%
+                                        ungroup()
+
+fish_data_nn_normal_far <- fish_comp_data %>% filter(Distance >= far_min_dist & Distance <= far_max_dist) %>%
+                                        group_by(Flow_Ablation_Darkness) %>%
+                                        mutate(Fish1_Yaw_Heading_PS = Fish1_Yaw_Heading_PS - mean(Fish1_Yaw_Heading_PS)) %>%
+                                        ungroup()
+
 ```
+
+
+```{r}
+
+heading_PS_model_close <- lmer(0 + Fish1_Yaw_Heading_PS ~ sin(Angle) + sin(Angle):Ablation + sin(Angle):Darkness + sin(Angle):Ablation:Darkness + (1|Date), 
+                   data = fish_data_nn_normal_close %>% filter(Flow == "Still Water")) 
+aov_heading_PS_model_close <- Anova(heading_PS_model_close)
+
+test(emmeans(heading_PS_model_close, pairwise ~Ablation*Darkness | Angle, at = list(Angle = c(pi/2))))
+
+
+heading_PS_model_far <- lmer(0 + Fish1_Yaw_Heading_PS ~ sin(Angle) + sin(Angle):Ablation + sin(Angle):Darkness + sin(Angle):Ablation:Darkness + (1|Date) , 
+                   data = fish_data_nn_normal_far %>% filter(Flow == "Still Water")) 
+aov_heading_PS_model_far <- Anova(heading_PS_model_far)
+
+test(emmeans(heading_PS_model_far, pairwise ~Ablation*Darkness | Angle, at = list(Angle = c(pi/2))))
+
+
+turning_school_stats_table <- tibble(
+       Near_or_Far = rep(c(rep("Near",4) , rep("Far",4)), 1),
+       Condition = rep(c("Angle","Angle x Ablation","Angle x Darkness","Angle x Ablation x Darkness"), 2),
+       DF = c(rep(length(heading_PS_model_close@resp$y)-4,4),
+                  rep(length(heading_PS_model_far@resp$y)-4,4)),
+       Chisq = round(c(aov_heading_PS_model_close$Chisq[1:4],aov_heading_PS_model_far$Chisq[1:4]),3),
+       P_Val = round(c(aov_heading_PS_model_close$`Pr(>Chisq)`[1:4],aov_heading_PS_model_far$`Pr(>Chisq)`[1:4]),3),
+       Is_Sig = P_Val < 0.05)
+
+turning_school_stats_table
+
+tab_df(turning_school_stats_table, file="turning_stats.doc")
+
+
+```
+

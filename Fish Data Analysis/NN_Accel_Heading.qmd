@@ -76,42 +76,30 @@ fish_comp_data <- read.csv("Data/Fish_Comp_Values_3D.csv") %>%
                            
 fish_comp_data <- na.omit(fish_comp_data)
 
-# fish_comp_data_switch_fish <- fish_comp_data %>% mutate(Fish3 = Fish1,
-#                                               Fish3_X = Fish1_X,
-#                                               Fish3_Y = Fish1_Y,
-#                                               Fish3_Z = Fish1_Z,
-#                                               Fish3_Speed = Fish1_Speed,
-#                                               Fish3_Accel = Fish1_Accel,
-#                                               Fish3_Yaw_Heading = Fish1_Yaw_Heading,
-#                                               Fish3_Yaw_Heading_PS = Fish1_Yaw_Heading_PS
-#                                               ) %>%
-#                                        mutate(Fish1 = Fish2,
-#                                               Fish1_X = Fish2_X,
-#                                               Fish1_Y = Fish2_Y,
-#                                               Fish1_Z = Fish2_Z,
-#                                               Fish1_Speed = Fish2_Speed,
-#                                               Fish1_Accel = Fish2_Accel,
-#                                               Fish1_Yaw_Heading = Fish2_Yaw_Heading,
-#                                               Fish1_Yaw_Heading_PS = Fish2_Yaw_Heading_PS) %>%
-#                                        mutate(Fish2 = Fish3,
-#                                               Fish2_X = Fish3_X,
-#                                               Fish2_Y = Fish3_Y,
-#                                               Fish2_Z = Fish3_Z,
-#                                               Fish2_Speed = Fish3_Speed,
-#                                               Fish2_Accel = Fish3_Accel,
-#                                               Fish2_Yaw_Heading = Fish3_Yaw_Heading,
-#                                               Fish2_Yaw_Heading_PS = Fish3_Yaw_Heading_PS) %>%
-#                                        #Switch around angle when we switch focal fish
-#                                        mutate(Angle = ifelse(Angle >= 0, Angle - pi, Angle + pi),
-#                                               Relative_X = -1*Relative_X) %>%
-#                                        select(-c(Fish3,Fish3_X,Fish3_Y,Fish3_Z,Fish3_Speed,Fish3_Accel,Fish3_Yaw_Heading,Fish3_Yaw_Heading_PS))
-# 
-# fish_comp_data_combo <- bind_rows(fish_comp_data, fish_comp_data_switch_fish)
+single_fish_comp_data <- read.csv("Data/Fish_Comp_Values_3D_Single.csv") %>%
+                           mutate(Flow = ifelse(Flow == "0", "Still Water", "Flowing Water (2 BL/s)")) %>%
+                           mutate(Ablation = ifelse(Ablation  == "S", "Single", "???")) %>%
+                           mutate(Darkness = ifelse(Darkness == "S", "Single", "???")) %>%
+                           mutate(Flow = factor(Flow), Ablation = factor(Ablation), Darkness = factor(Darkness)) %>%
+                           mutate(Flow = fct_relevel(Flow, c("Still Water"))) %>%
+                           mutate(Ablation = fct_relevel(Ablation, c("Single"))) %>%
+                           mutate(Darkness = fct_relevel(Darkness, c("Single"))) %>%
+                           mutate(Flow_Ablation_Darkness = factor(paste(Flow,Ablation,Darkness,sep=", "))) %>%
+                           separate(Fish, c("Fish1", "Fish2"),sep="x") %>% 
+                           mutate(Data_ID = paste(Year,Month,Day,Trial, sep = "_"),
+                                  Date = paste(Year,Month,Day,Trial, sep = "_"),
+                                  Fish_ID = paste(Year,Month,Day,Trial,Fish1, sep = "_"))
 
-min_dist <- 0
-max_dist <- 3
+single_fish_comp_data <- na.omit(single_fish_comp_data)
 
-fish_data_nn <- fish_comp_data %>% group_by(Fish1,Tailbeat_Num,Data_ID) %>%
+
+all_fish_comp <- rbind(fish_comp_data,single_fish_comp_data)
+
+
+min_dist <- 4
+max_dist <- 10
+
+fish_data_nn <- all_fish_comp %>% group_by(Fish1,Tailbeat_Num,Data_ID) %>%
                                     mutate(#nndDistance = min(Distance, na.rm = TRUE),
                                            nndDistance = nth_min(Distance, 1),
                                            nndDistance = ifelse(is.infinite(nndDistance), NA, nndDistance),
@@ -123,7 +111,7 @@ fish_data_nn <- fish_comp_data %>% group_by(Fish1,Tailbeat_Num,Data_ID) %>%
                                     filter(Distance >= min_dist & Distance <= max_dist)
 
 fish_data_nn_normal <- fish_data_nn %>% group_by(Flow_Ablation_Darkness) %>%
-                                        mutate(Fish1_Yaw_Heading_PS = Fish1_Yaw_Heading_PS - mean(Fish1_Yaw_Heading_PS)) %>%
+                                        mutate(Fish1_Yaw_Heading_PS = Fish1_Yaw_Heading_PS - mean(Fish1_Yaw_Heading_PS, na.rm = T)) %>%
                                         ungroup()
 
 
@@ -152,6 +140,8 @@ nn_accel_sum <- fish_data_nn_normal %>% mutate(distance_bins = round_any(Relativ
                                                 na.omit()
                            
 ```
+
+Load in Single Fish
 
 Estimating functions
 
@@ -203,7 +193,7 @@ ggplot(fish_data_nn %>% filter(Flow == "Still Water"),
   theme_classic() +
   xlab("direction of neighbour (degrees)") +
   ylab("focal fish turning angle (rad/sec)") +
-  scale_colour_manual(values = c(light_no_ab_color,light_ab_color,dark_no_ab_color,dark_ab_color)) +
+  scale_colour_manual(values = c(light_no_ab_color,light_ab_color,dark_no_ab_color,dark_ab_color,"red")) +
   scale_x_continuous(breaks = unique(nn_heading_sum$angle_bins),
                      labels = rad2deg(unique(nn_heading_sum$angle_bins))) +
   labs(color = "Sensory Conditions")
@@ -216,10 +206,10 @@ ggplot(nn_heading_sum %>% filter(Flow == "Still Water"),
   geom_line(aes(y = rad2deg(predict(manual_model,
                     newdata = nn_heading_sum %>% filter(Flow == "Still Water") %>% mutate(Angle = angle_bins)))), size = 1)+
   theme_classic() +
-  ylim(-50,50) +
+  #ylim(-50,50) +
   xlab("direction of neighbour (degrees)") +
   ylab("focal fish turning angle speed (degrees/sec)") +
-  scale_colour_manual(values = c(light_no_ab_color,light_ab_color,dark_no_ab_color,dark_ab_color)) +
+  scale_colour_manual(values = c(light_no_ab_color,light_ab_color,dark_no_ab_color,dark_ab_color,"red")) +
   scale_x_continuous(breaks = unique(nn_heading_sum$angle_bins),
                      labels = rad2deg(unique(nn_heading_sum$angle_bins))) +
   labs(color = "Sensory Conditions")+

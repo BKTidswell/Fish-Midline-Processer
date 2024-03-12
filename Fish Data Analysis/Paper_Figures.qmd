@@ -18,6 +18,7 @@ library(lme4)
 
 ```
 
+
 ## Functions and Variables
 
 ```{r}
@@ -67,22 +68,46 @@ fish_comp_data <- read.csv("Data/Fish_Comp_Values_3D.csv") %>%
                            mutate(Darkness = fct_relevel(Darkness, c("Light","Dark"))) %>%
                            mutate(Flow_Ablation_Darkness = factor(paste(Flow,Ablation,Darkness,sep=", "))) %>%
                            separate(Fish, c("Fish1", "Fish2"),sep="x") %>% 
+
+                           # ### Used to remove every third point to reduce autocorrelation
                            mutate(Data_ID = paste(Year,Month,Day,Trial, sep = "_"),
                                   Date = paste(Year,Month,Day,Trial, sep = "_"),
-                                  Fish_ID = paste(Year,Month,Day,Trial,Fish1, sep = "_"))
+                                  Fish_ID = paste(Year,Month,Day,Trial,Fish1, sep = "_"),
+                                  Comp_ID = paste(Year,Month,Day,Trial,Fish1,Fish2, sep = "_")) %>%
+                           group_by(Comp_ID) %>%
+                           filter(row_number() %% 3 == 1) %>%
+                           ungroup()
                            
 fish_comp_data <- na.omit(fish_comp_data)
 
-min_dist <- 0
-max_dist <- 3
+close_min_dist <- 0
+close_max_dist <- 3
 
-fish_data_nn_normal <- fish_comp_data %>% filter(Distance >= min_dist & Distance <= max_dist) %>%
+far_min_dist <- 3
+far_max_dist <- 100
+
+fish_data_nn_normal_close <- fish_comp_data %>% filter(Distance >= close_min_dist & Distance <= close_max_dist) %>%
                                         group_by(Flow_Ablation_Darkness) %>%
                                         mutate(Fish1_Yaw_Heading_PS = Fish1_Yaw_Heading_PS - mean(Fish1_Yaw_Heading_PS)) %>%
                                         ungroup()
 
 
-nn_heading_sum <- fish_data_nn_normal %>% mutate(angle_bins = round_any(Angle,pi/6)) %>%
+nn_heading_sum_close <- fish_data_nn_normal_close %>% mutate(angle_bins = round_any(Angle,pi/6)) %>%
+                                                group_by(angle_bins,Flow,Ablation,Darkness,Flow_Ablation_Darkness) %>%
+                                                summarise(mean_turn = mean(Fish1_Yaw_Heading_PS, na.rm = T),
+                                                          sd_turn = sd(Fish1_Yaw_Heading_PS, na.rm = T),
+                                                          n = n()) %>%
+                                                ungroup() %>%
+                                                na.omit()
+
+
+fish_data_nn_normal_far <- fish_comp_data %>% filter(Distance >= far_min_dist & Distance <= far_max_dist) %>%
+                                        group_by(Flow_Ablation_Darkness) %>%
+                                        mutate(Fish1_Yaw_Heading_PS = Fish1_Yaw_Heading_PS - mean(Fish1_Yaw_Heading_PS)) %>%
+                                        ungroup()
+
+
+nn_heading_sum_far <- fish_data_nn_normal_far %>% mutate(angle_bins = round_any(Angle,pi/6)) %>%
                                                 group_by(angle_bins,Flow,Ablation,Darkness,Flow_Ablation_Darkness) %>%
                                                 summarise(mean_turn = mean(Fish1_Yaw_Heading_PS, na.rm = T),
                                                           sd_turn = sd(Fish1_Yaw_Heading_PS, na.rm = T),
@@ -95,28 +120,56 @@ Model and Graph
 
 ```{r}
 
-heading_PS_model_still <- lm(Fish1_Yaw_Heading_PS ~ 0 + sin(Angle) + sin(Angle):Ablation + sin(Angle):Darkness + sin(Angle):Ablation:Darkness, 
-                   data = fish_data_nn_normal %>% filter(Flow == "Still Water")) 
-Anova(heading_PS_model_still)
+heading_PS_model_close <- lmer(Fish1_Yaw_Heading_PS ~ 0 + sin(Angle) + sin(Angle):Ablation + sin(Angle):Darkness + sin(Angle):Ablation:Darkness + (1|Date), 
+                   data = fish_data_nn_normal_close %>% filter(Flow == "Still Water")) 
+Anova(heading_PS_model_close)
+
+heading_PS_model_far <- lmer(Fish1_Yaw_Heading_PS ~ 0 + sin(Angle) + sin(Angle):Ablation + sin(Angle):Darkness + sin(Angle):Ablation:Darkness + (1|Date), 
+                   data = fish_data_nn_normal_far %>% filter(Flow == "Still Water")) 
+Anova(heading_PS_model_far)
 
 
-heading_PS_graph <- ggplot(nn_heading_sum %>% filter(Flow == "Still Water"),
+heading_PS_graph_close <- ggplot(nn_heading_sum_close %>% filter(Flow == "Still Water"),
        aes(x = angle_bins, y = rad2deg(mean_turn), color = interaction(Ablation, Darkness, sep =", ")))+
   geom_point()+
-  geom_line(aes(y = rad2deg(predict(heading_PS_model_still,
-                    newdata = nn_heading_sum %>% filter(Flow == "Still Water") %>% mutate(Angle = angle_bins)))), size = 1)+
+  geom_line(aes(y = rad2deg(predict(heading_PS_model_close,
+                    newdata = nn_heading_sum_close %>% filter(Flow == "Still Water") %>% mutate(Angle = angle_bins),
+                    re.form = NA))), size = 1)+
   theme_classic() +
-  ylim(-50,50) +
+  ylim(-75,75) +
   xlab("Direction of Neighbour (Degrees)") +
   ylab("Focal Fish Turning Angle Speed (Degrees/Sec)") +
   scale_colour_manual(values = c(light_no_ab_color,light_ab_color,dark_no_ab_color,dark_ab_color)) +
-  scale_x_continuous(breaks = unique(nn_heading_sum$angle_bins),
-                     labels = rad2deg(unique(nn_heading_sum$angle_bins))) +
+  scale_x_continuous(breaks = unique(nn_heading_sum_close$angle_bins),
+                     labels = rad2deg(unique(nn_heading_sum_close$angle_bins))) +
   labs(color = "Sensory Conditions")
 
-heading_PS_graph
 
-ggsave("Paper Figures/Heading_PS_Graph.jpg", heading_PS_graph, width = 7, height = 7)
+heading_PS_graph_far <- ggplot(nn_heading_sum_far %>% filter(Flow == "Still Water"),
+       aes(x = angle_bins, y = rad2deg(mean_turn), color = interaction(Ablation, Darkness, sep =", ")))+
+  geom_point()+
+  geom_line(aes(y = rad2deg(predict(heading_PS_model_far,
+                    newdata = nn_heading_sum_far %>% filter(Flow == "Still Water") %>% mutate(Angle = angle_bins),
+                    re.form = NA))), size = 1)+
+  theme_classic() +
+  ylim(-75,75) +
+  xlab("Direction of Neighbour (Degrees)") +
+  ylab("Focal Fish Turning Angle Speed (Degrees/Sec)") +
+  scale_colour_manual(values = c(light_no_ab_color,light_ab_color,dark_no_ab_color,dark_ab_color)) +
+  scale_x_continuous(breaks = unique(nn_heading_sum_far$angle_bins),
+                     labels = rad2deg(unique(nn_heading_sum_far$angle_bins))) +
+  labs(color = "Sensory Conditions")
+
+heading_PS_graph_close
+heading_PS_graph_far
+
+heading_PS_mega_plot <- ggarrange(heading_PS_graph_close, heading_PS_graph_far, 
+          labels = c("A", "B"),
+          ncol = 2, nrow = 1, common.legend = TRUE, legend="right")  
+
+heading_PS_mega_plot
+
+ggsave("Paper Figures/heading_PS_mega_plot.png", heading_PS_mega_plot, width = 14, height = 7)
 
 ```
 
