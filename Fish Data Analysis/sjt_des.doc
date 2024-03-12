@@ -1,59 +1,228 @@
 <table style="border-collapse:collapse; border:none;">
 <tr>
-<th style="border-top: double; text-align:center; font-style:italic; font-weight:normal; padding:0.2cm; border-bottom:1px solid black; text-align:left; ">Condition</th>
-<th style="border-top: double; text-align:center; font-style:italic; font-weight:normal; padding:0.2cm; border-bottom:1px solid black; ">Factor</th>
+<th style="border-top: double; text-align:center; font-style:italic; font-weight:normal; padding:0.2cm; border-bottom:1px solid black; text-align:left; ">Stat</th>
+<th style="border-top: double; text-align:center; font-style:italic; font-weight:normal; padding:0.2cm; border-bottom:1px solid black; ">Flow_or_Still</th>
+<th style="border-top: double; text-align:center; font-style:italic; font-weight:normal; padding:0.2cm; border-bottom:1px solid black; ">Condition</th>
 <th style="border-top: double; text-align:center; font-style:italic; font-weight:normal; padding:0.2cm; border-bottom:1px solid black; ">DF</th>
-<th style="border-top: double; text-align:center; font-style:italic; font-weight:normal; padding:0.2cm; border-bottom:1px solid black; ">LR_Chisq</th>
+<th style="border-top: double; text-align:center; font-style:italic; font-weight:normal; padding:0.2cm; border-bottom:1px solid black; ">Chisq</th>
 <th style="border-top: double; text-align:center; font-style:italic; font-weight:normal; padding:0.2cm; border-bottom:1px solid black; ">P_Val</th>
-<th style="border-top: double; text-align:center; font-style:italic; font-weight:normal; padding:0.2cm; border-bottom:1px solid black; ">Is_Sig</th>
+<th style="border-top: double; text-align:center; font-style:italic; font-weight:normal; padding:0.2cm; border-bottom:1px solid black; col7">Is_Sig</th>
 </tr>
 <tr>
-<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">Light</td>
-<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">Type</td>
-<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">436</td>
-<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">1.07</td>
-<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">0.30</td>
-<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">FALSE</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">NND</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">Still</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">Ablation</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">118</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">1.49</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">0.22</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; col7">FALSE</td>
 </tr>
 <tr>
-<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">Light</td>
-<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">FNR:Type</td>
-<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">436</td>
-<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">4.02</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">NND</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">Still</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">Darkness</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">118</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">5.99</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">0.01</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; col7">TRUE</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">NND</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">Still</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">Ablation:Darkness</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">118</td>
 <td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">0.04</td>
-<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">TRUE</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">0.85</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; col7">FALSE</td>
 </tr>
 <tr>
-<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">Ablated</td>
-<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">Type</td>
-<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">407</td>
-<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">5.43</td>
-<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">0.02</td>
-<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">TRUE</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">NND</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">Flow</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">Ablation</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">87</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">1.75</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">0.19</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; col7">FALSE</td>
 </tr>
 <tr>
-<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">Ablated</td>
-<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">FNR:Type</td>
-<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">407</td>
-<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">17.46</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">NND</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">Flow</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">Darkness</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">87</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">0.46</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">0.50</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; col7">FALSE</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">NND</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">Flow</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">Ablation:Darkness</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">87</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">0.04</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">0.85</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; col7">FALSE</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">Polarization</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">Still</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">Ablation</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">118</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">0.13</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">0.72</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; col7">FALSE</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">Polarization</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">Still</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">Darkness</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">118</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">0.15</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">0.69</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; col7">FALSE</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">Polarization</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">Still</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">Ablation:Darkness</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">118</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">0.04</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">0.84</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; col7">FALSE</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">Polarization</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">Flow</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">Ablation</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">87</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">2.64</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">0.10</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; col7">FALSE</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">Polarization</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">Flow</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">Darkness</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">87</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">0.62</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">0.43</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; col7">FALSE</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">Polarization</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">Flow</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">Ablation:Darkness</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">87</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">3.32</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">0.07</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; col7">FALSE</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">Speed</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">Still</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">Ablation</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">118</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">1.92</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">0.17</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; col7">FALSE</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">Speed</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">Still</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">Darkness</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">118</td>
 <td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">0.00</td>
-<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">TRUE</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">0.96</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; col7">FALSE</td>
 </tr>
 <tr>
-<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">Darkness</td>
-<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">Type</td>
-<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">406</td>
-<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">11.79</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">Speed</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">Still</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">Ablation:Darkness</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">118</td>
 <td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">0.00</td>
-<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">TRUE</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">0.98</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; col7">FALSE</td>
 </tr>
 <tr>
-<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; border-bottom: double; ">Darkness</td>
-<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; border-bottom: double; ">FNR:Type</td>
-<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; border-bottom: double; ">406</td>
-<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; border-bottom: double; ">5.07</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">Speed</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">Flow</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">Ablation</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">87</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">4.10</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">0.04</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; col7">TRUE</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">Speed</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">Flow</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">Darkness</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">87</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">0.13</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">0.72</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; col7">FALSE</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">Speed</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">Flow</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">Ablation:Darkness</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">87</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">0.03</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">0.85</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; col7">FALSE</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">Groups</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">Still</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">Ablation</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">118</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">0.62</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">0.43</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; col7">FALSE</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">Groups</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">Still</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">Darkness</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">118</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">10.56</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">0.00</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; col7">TRUE</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">Groups</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">Still</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">Ablation:Darkness</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">118</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">0.25</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">0.62</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; col7">FALSE</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">Groups</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">Flow</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">Ablation</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">87</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">1.40</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">0.24</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; col7">FALSE</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">Groups</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">Flow</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">Darkness</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">87</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">0.54</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; ">0.46</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; col7">FALSE</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; border-bottom: double; ">Groups</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; border-bottom: double; ">Flow</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; border-bottom: double; ">Ablation:Darkness</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; border-bottom: double; ">87</td>
 <td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; border-bottom: double; ">0.02</td>
-<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; border-bottom: double; ">TRUE</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; border-bottom: double; ">0.89</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center; border-bottom: double; col7">FALSE</td>
 </tr>
 </table>
 

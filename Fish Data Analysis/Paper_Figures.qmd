@@ -33,10 +33,10 @@ fold_angle_neg_180_180_to_neg_90_90 <- function(x){ifelse(x > 90,90-abs(90-x),if
 min_n <- function(x,n){sort(x)[1:n]}
 max_n <- function(x,n){sort(x,decreasing = TRUE)[1:n]}
 
-light_no_ab_color = "#d4d7dd"
+light_no_ab_color = "#9C9C9C"   #"#C62E65" #A1BAA4" #"#d4d7dd" 06D6A0
 light_ab_color = "#f5ba9e"
 dark_no_ab_color = "#5e94d4"
-dark_ab_color = "#1E4371"
+dark_ab_color = "#49A078"   #"#1E4371"
 sim_color = "#777777"
 
 flow_split_still = "#F59DE2"
@@ -74,7 +74,7 @@ fish_comp_data <- read.csv("Data/Fish_Comp_Values_3D.csv") %>%
 fish_comp_data <- na.omit(fish_comp_data)
 
 min_dist <- 0
-max_dist <- 2
+max_dist <- 3
 
 fish_data_nn_normal <- fish_comp_data %>% filter(Distance >= min_dist & Distance <= max_dist) %>%
                                         group_by(Flow_Ablation_Darkness) %>%
@@ -126,7 +126,7 @@ ggsave("Paper Figures/Heading_PS_Graph.jpg", heading_PS_graph, width = 7, height
 ```{r}
 school_data <- read.csv("Data/Fish_School_Values_3D.csv")
 
-school_data <- na.omit(school_data)
+#school_data <- na.omit(school_data)
 
 school_data <- school_data %>% mutate(Flow = ifelse(Flow == "0", "Still Water", "Flowing Water (2 BL/s)")) %>%
                            mutate(Ablation = ifelse(Ablation == "N", "No Ablation", "Ablated")) %>%
@@ -147,13 +147,13 @@ school_data <- school_data %>% mutate(Flow = ifelse(Flow == "0", "Still Water", 
                            # ###
                           
                            group_by(Flow_Ablation_Darkness) %>%
-                           mutate(NND_Mean_Val = mean(NND), NND_SD_Val = sd(NND),
-                                  Polar_Mean_Val = mean(School_Polar), Polar_SD_Val = sd(School_Polar),
-                                  Speed_Mean_Val = mean(School_Speed), Speed_SD_Val = sd(School_Speed),
-                                  Area_Mean_Val = mean(Area), Area_SD_Val = sd(Area),
-                                  Groups_Mean_Val = mean(Groups), Groups_SD_Val = sd(Groups),
-                                  Mean_Groups_Mean_Val = mean(Mean_Groups), Mean_Groups_SD_Val = sd(Mean_Groups),
-                                  Height_Mean_Val = mean(School_Height), Height_SD_Val = sd(School_Height)) %>%
+                           mutate(NND_Mean_Val = mean(NND,na.rm = T), NND_SD_Val = sd(NND,na.rm = T),
+                                  Polar_Mean_Val = mean(School_Polar,na.rm = T), Polar_SD_Val = sd(School_Polar,na.rm = T),
+                                  Speed_Mean_Val = mean(School_Speed,na.rm = T), Speed_SD_Val = sd(School_Speed,na.rm = T),
+                                  Area_Mean_Val = mean(Area,na.rm = T), Area_SD_Val = sd(Area,na.rm = T),
+                                  Groups_Mean_Val = mean(Groups,na.rm = T), Groups_SD_Val = sd(Groups,na.rm = T),
+                                  Mean_Groups_Mean_Val = mean(Mean_Groups,na.rm = T), Mean_Groups_SD_Val = sd(Mean_Groups,na.rm = T),
+                                  Height_Mean_Val = mean(School_Height,na.rm = T), Height_SD_Val = sd(School_Height,na.rm = T)) %>%
                            ungroup()
 ```
 
@@ -183,7 +183,7 @@ nnd_still <- ggplot(school_data %>% filter(Flow == "Still Water"),
   ylab("School NND (BL)") +
   theme_light()+ 
   theme(legend.position = "none") +
-  ylim(0,2.5)+
+  #ylim(0,2.5)+
   stat_compare_means(comparisons = my_comparisons, label = "p.signif", hide.ns = TRUE) +
   theme(axis.text.x = element_text(size = text_size),
         axis.text.y = element_text(size = text_size),
@@ -207,17 +207,15 @@ nnd_flow <- ggplot(school_data %>% filter(Flow == "Flowing Water (2 BL/s)"),
   ylab("School NND (BL)") +
   theme_light()+ 
   theme(legend.position = "none") +
-  ylim(0,2.5)+
+  #ylim(0,2.5)+
   stat_compare_means(comparisons = my_comparisons, label = "p.signif", hide.ns = TRUE) +
   theme(axis.text.x = element_text(size = text_size),
         axis.text.y = element_text(size = text_size),
         axis.title.y = element_text(size = text_size))+
   scale_x_discrete(labels=function(x){sub(",\\s", "\n", x)})
 
-
 nnd_still
 nnd_flow
-
 
 nnd_glm <- glm(NND ~ Ablation*Darkness*Flow, data = school_data)
 Anova(nnd_glm)
