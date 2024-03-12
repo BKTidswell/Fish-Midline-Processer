@@ -69,12 +69,10 @@ school_data <- school_data %>% mutate(Flow = ifelse(Flow == "0", "Still Water", 
                            mutate(Darkness = fct_relevel(Darkness, c("Light","Dark"))) %>%
                            mutate(Flow_Ablation_Darkness = factor(paste(Flow,Ablation,Darkness,sep="/n"))) %>%
                             
-                            # ### Used to remove every third point to reduce autocorrelation
-                           mutate(Data_ID = paste(Year,Month,Day,Trial, sep = "_"),
-                                  Date = paste(Year,Month,Day,Trial, sep = "_"),
-                                  Fish_ID = paste(Year,Month,Day,Trial,Fish1, sep = "_"),
-                                  Comp_ID = paste(Year,Month,Day,Trial,Fish1,Fish2, sep = "_")) %>%
-                           group_by(Comp_ID) %>%
+                           # ### Used to remove every third point to reduce autocorrelation
+                           mutate(Date = paste(Year,Month,Day,sep="_"),
+                                  Date_Trial = paste(Year,Month,Day,Trial,sep="_")) %>%
+                           group_by(Date_Trial) %>%
                            filter(row_number() %% 3 == 1) %>%
                            ungroup()
 ```
@@ -148,10 +146,12 @@ fish_comp_data <- read.csv("Data/Fish_Comp_Values_3D.csv") %>%
                                   Date = paste(Year,Month,Day,Trial, sep = "_"),
                                   Fish_ID = paste(Year,Month,Day,Trial,Fish1, sep = "_")) %>%
   
-                           # ### Used to remove every third point to reduce autocorrelation
-                           mutate(Date = paste(Year,Month,Day,sep="_"),
-                                  Date_Trial = paste(Year,Month,Day,Trial,sep="_")) %>%
-                           group_by(Date_Trial) %>%
+                            # ### Used to remove every third point to reduce autocorrelation
+                           mutate(Data_ID = paste(Year,Month,Day,Trial, sep = "_"),
+                                  Date = paste(Year,Month,Day,Trial, sep = "_"),
+                                  Fish_ID = paste(Year,Month,Day,Trial,Fish1, sep = "_"),
+                                  Comp_ID = paste(Year,Month,Day,Trial,Fish1,Fish2, sep = "_")) %>%
+                           group_by(Comp_ID) %>%
                            filter(row_number() %% 3 == 1) %>%
                            ungroup()
                            
@@ -161,7 +161,7 @@ close_min_dist <- 0
 close_max_dist <- 3
 
 far_min_dist <- 3
-far_max_dist <- 10
+far_max_dist <- 100
 
 fish_data_nn_normal_close <- fish_comp_data %>% filter(Distance >= close_min_dist & Distance <= close_max_dist) %>%
                                         group_by(Flow_Ablation_Darkness) %>%
