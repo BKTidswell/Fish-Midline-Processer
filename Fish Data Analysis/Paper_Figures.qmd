@@ -54,11 +54,10 @@ dot_binwidth = 0.03
 text_size = 16
 ```
 
-## Fish Turning Graphs
+Heading Velocity graphs
 
 ```{r}
-
-abalated_dark_turning_data <- read.csv("Data/ablated_dark_data_turning.csv") %>%
+fish_comp_data <- read.csv("Data/Fish_Comp_Values_3D.csv") %>%
                            mutate(Flow = ifelse(Flow == "0", "Still Water", "Flowing Water (2 BL/s)")) %>%
                            mutate(Ablation = ifelse(Ablation  == "N", "No Ablation", "Ablated")) %>%
                            mutate(Darkness = ifelse(Darkness == "N", "Light", "Dark")) %>%
@@ -67,307 +66,60 @@ abalated_dark_turning_data <- read.csv("Data/ablated_dark_data_turning.csv") %>%
                            mutate(Ablation = fct_relevel(Ablation, c("No Ablation","Ablated"))) %>%
                            mutate(Darkness = fct_relevel(Darkness, c("Light","Dark"))) %>%
                            mutate(Flow_Ablation_Darkness = factor(paste(Flow,Ablation,Darkness,sep=", "))) %>%
-                           mutate(Fish_Num_Ratio = Fish_Right/8) %>%
-                           mutate(Fish_Ratio = paste(Fish_Left,Fish_Right,sep=":")) %>%
-                           filter(Fish_Ratio %in% c("7:0","6:1","5:2","4:3","3:4","2:5","1:6","0:7")) %>%
-                           mutate(Fish_Ratio = fct_relevel(Fish_Ratio,
-                                                           c("7:0","6:1","5:2","4:3",
-                                                             "3:4","2:5","1:6","0:7"))) %>%
-                           mutate(turn_bool = ifelse(Turn_Dir == 0,1,0)) %>% 
-                           select(-c("Singles","Frame","Fish")) %>%
-                           mutate(Type = "Eight Fish")
+                           separate(Fish, c("Fish1", "Fish2"),sep="x") %>% 
+                           mutate(Data_ID = paste(Year,Month,Day,Trial, sep = "_"),
+                                  Date = paste(Year,Month,Day,Trial, sep = "_"),
+                                  Fish_ID = paste(Year,Month,Day,Trial,Fish1, sep = "_"))
+                           
+fish_comp_data <- na.omit(fish_comp_data)
 
-annushka_turning_data <- read.csv("Data/Annushka_Turning_Data_Wall.csv") %>%
-                           #filter(Next.to.Wall == 0) %>%
-                           mutate(Flow = ifelse(Flow == "F0", "Still Water", "Flowing Water (2 BL/s)")) %>%
-                           mutate(Ablation = ifelse(Ablation %in% c("LN","TN"), "No Ablation", "Ablated")) %>%
-                           mutate(Darkness = ifelse(Darkness == "DN", "Light", "Dark")) %>%
-                           mutate(Flow = factor(Flow), Ablation = factor(Ablation), Darkness = factor(Darkness)) %>%
-                           mutate(Flow = fct_relevel(Flow, c("Still Water","Flowing Water (2 BL/s)"))) %>%
-                           mutate(Ablation = fct_relevel(Ablation, c("No Ablation","Ablated"))) %>%
-                           mutate(Darkness = fct_relevel(Darkness, c("Light","Dark"))) %>%
-                           mutate(Flow_Ablation_Darkness = factor(paste(Flow,Ablation,Darkness,sep=", "))) %>%
-                           mutate(Fish_Num_Ratio = No..Fish.Right/8) %>%
-                           mutate(Fish_Ratio = paste(No..Fish.Left,No..Fish.Right,sep=":")) %>%
-                           filter(Fish_Ratio %in% c("7:0","6:1","5:2","4:3","3:4","2:5","1:6","0:7")) %>%
-                           mutate(Fish_Ratio = fct_relevel(Fish_Ratio,
-                                                           c("7:0","6:1","5:2","4:3",
-                                                             "3:4","2:5","1:6","0:7"))) %>%
-                           mutate(turn_bool = ifelse(Turn.Direction == "right",1,0)) %>% 
-                           select(-c("Turn.Start.Frame","Turn.End.Frame","Fish","Appox.Turn.Angle","X","Next.to.Wall")) %>%
-                           rename("Turn_Dir" = "Turn.Direction")  %>%
-                           rename("Fish_Left" = "No..Fish.Left")  %>%
-                           rename("Fish_Right" = "No..Fish.Right")  %>%
-                           mutate(Type = "Eight Fish")
+min_dist <- 0
+max_dist <- 2
 
-single_fish_turning_data <- read.csv("Data/single_fish_turning.csv") %>%
-                           mutate(Flow = ifelse(Flow == "0", "Still Water", "Flowing Water (2 BL/s)")) %>%
-                           mutate(Ablation = ifelse(Ablation  == "N", "No Ablation", "Ablated")) %>%
-                           mutate(Darkness = ifelse(Darkness == "N", "Light", "Dark")) %>%
-                           mutate(Flow = factor(Flow), Ablation = factor(Ablation), Darkness = factor(Darkness)) %>%
-                           mutate(Flow = fct_relevel(Flow, c("Still Water","Flowing Water (2 BL/s)"))) %>%
-                           mutate(Ablation = fct_relevel(Ablation, c("No Ablation","Ablated"))) %>%
-                           mutate(Darkness = fct_relevel(Darkness, c("Light","Dark"))) %>%
-                           mutate(Flow_Ablation_Darkness = factor(paste(Flow,Ablation,Darkness,sep=", "))) %>%
-                           mutate(Fish_Num_Ratio = Fish_Right/8) %>%
-                           mutate(Fish_Ratio = paste(Fish_Left,Fish_Right,sep=":")) %>%
-                           filter(Fish_Ratio %in% c("7:0","6:1","5:2","4:3","3:4","2:5","1:6","0:7")) %>%
-                           mutate(Fish_Ratio = fct_relevel(Fish_Ratio,
-                                                           c("7:0","6:1","5:2","4:3",
-                                                             "3:4","2:5","1:6","0:7"))) %>%
-                           mutate(turn_bool = ifelse(Turn_Dir == 0,1,0)) %>% 
-                           select(-c("Singles")) %>%
-                           mutate(Type = "Combined Single")
+fish_data_nn_normal <- fish_comp_data %>% filter(Distance >= min_dist & Distance <= max_dist) %>%
+                                        group_by(Flow_Ablation_Darkness) %>%
+                                        mutate(Fish1_Yaw_Heading_PS = Fish1_Yaw_Heading_PS - mean(Fish1_Yaw_Heading_PS)) %>%
+                                        ungroup()
 
 
-eight_fish_turning_data <- rbind(annushka_turning_data,abalated_dark_turning_data)
-
-all_turning_data <- rbind(eight_fish_turning_data,single_fish_turning_data)
-
-eight_fish_data_sum  <- eight_fish_turning_data %>% na.omit %>%
-                                     group_by(Fish_Ratio,Fish_Num_Ratio,Flow,Ablation,Darkness,Flow_Ablation_Darkness,Type) %>%
-                                     summarize(mean_right_turn = mean(turn_bool),
-                                               sd_right_turn = sd(turn_bool),
-                                               se_right_turn = sd_right_turn/sqrt(n()),
-                                               n = n()) %>%
-                                     ungroup()
-
-single_fish_data_sum  <- single_fish_turning_data %>% na.omit %>%
-                                     group_by(Fish_Ratio,Fish_Num_Ratio,Flow,Ablation,Darkness,Flow_Ablation_Darkness,Type) %>%
-                                     summarize(mean_right_turn = mean(turn_bool),
-                                               sd_right_turn = sd(turn_bool),
-                                               se_right_turn = sd_right_turn/sqrt(n()),
-                                               n = n()) %>%
-                                     ungroup() %>%
-                                     filter(Flow == "Still Water" & Darkness == "Light" & Ablation == "No Ablation")
-
-
-turning_data_sum <- all_turning_data %>% na.omit %>%
-                                     group_by(Fish_Ratio,Fish_Num_Ratio,Flow,Ablation,Darkness,Flow_Ablation_Darkness,Type) %>%
-                                     summarize(mean_right_turn = mean(turn_bool),
-                                               sd_right_turn = sd(turn_bool),
-                                               se_right_turn = sd_right_turn/sqrt(n()),
-                                               n = n()) %>%
-                                     ungroup()
+nn_heading_sum <- fish_data_nn_normal %>% mutate(angle_bins = round_any(Angle,pi/6)) %>%
+                                                group_by(angle_bins,Flow,Ablation,Darkness,Flow_Ablation_Darkness) %>%
+                                                summarise(mean_turn = mean(Fish1_Yaw_Heading_PS, na.rm = T),
+                                                          sd_turn = sd(Fish1_Yaw_Heading_PS, na.rm = T),
+                                                          n = n()) %>%
+                                                ungroup() %>%
+                                                na.omit()
 ```
 
-### All the Plots of Eight Fish in Flow and Still, Raw and GLM
+Model and Graph
 
 ```{r}
-eight_fish_still <- ggplot(turning_data_sum %>% filter(Type == "Eight Fish") %>% filter(Flow == "Still Water"),
-       aes(x = Fish_Num_Ratio, y = mean_right_turn, color = interaction(Ablation, Darkness, sep =", ")))+
+
+heading_PS_model_still <- lm(Fish1_Yaw_Heading_PS ~ 0 + sin(Angle) + sin(Angle):Ablation + sin(Angle):Darkness + sin(Angle):Ablation:Darkness, 
+                   data = fish_data_nn_normal %>% filter(Flow == "Still Water")) 
+Anova(heading_PS_model_still)
+
+
+heading_PS_graph <- ggplot(nn_heading_sum %>% filter(Flow == "Still Water"),
+       aes(x = angle_bins, y = rad2deg(mean_turn), color = interaction(Ablation, Darkness, sep =", ")))+
   geom_point()+
-  #geom_line(alpha = 0.25) +
-  geom_smooth(se = F, method = glm, formula = y ~ x, method.args = list(family = "binomial"))+
-  #facet_wrap(~ Darkness + Ablation) +
+  geom_line(aes(y = rad2deg(predict(heading_PS_model_still,
+                    newdata = nn_heading_sum %>% filter(Flow == "Still Water") %>% mutate(Angle = angle_bins)))), size = 1)+
   theme_classic() +
-  xlab("# Fish on Left : # Fish on Right") +
-  ylab("Probability of a Right Turn") +
-  ylim(0,1) +
+  ylim(-50,50) +
+  xlab("Direction of Neighbour (Degrees)") +
+  ylab("Focal Fish Turning Angle Speed (Degrees/Sec)") +
   scale_colour_manual(values = c(light_no_ab_color,light_ab_color,dark_no_ab_color,dark_ab_color)) +
-  #ggtitle("Observed Probability of a Right Turn Based on Ratio of Fish to the Left and Right") +
-  scale_x_continuous(breaks = c(0,0.125,0.25,0.375,
-                                0.5,0.625,0.75,0.875),
-                     labels = c("7:0","6:1","5:2","4:3",
-                                "3:4","2:5","1:6","0:7"))+ 
-  labs(color = "Sensory Conditions")+
-  theme(axis.text.x = element_text(size = text_size),
-        axis.text.y = element_text(size = text_size),
-        axis.title.y = element_text(size = text_size))
+  scale_x_continuous(breaks = unique(nn_heading_sum$angle_bins),
+                     labels = rad2deg(unique(nn_heading_sum$angle_bins))) +
+  labs(color = "Sensory Conditions")
 
-eight_fish_flow <- ggplot(turning_data_sum %>% filter(Type == "Eight Fish") %>% filter(Flow == "Flowing Water (2 BL/s)"),
-       aes(x = Fish_Num_Ratio, y = mean_right_turn, color = interaction(Ablation, Darkness, sep =", ")))+
-  geom_point()+
-  #geom_line(alpha = 0.25) +
-  geom_smooth(se = F, method = glm, formula = y ~ x, method.args = list(family = "binomial"))+
-  #facet_wrap(~ Darkness + Ablation) +
-  theme_classic() +
-  xlab("# Fish on Left : # Fish on Right") +
-  ylab("Probability of a Right Turn") +
-  ylim(0,1) +
-  scale_colour_manual(values = c(light_no_ab_color,light_ab_color,dark_no_ab_color,dark_ab_color)) +
-  #ggtitle("Observed Probability of a Right Turn Based on Ratio of Fish to the Left and Right") +
-  scale_x_continuous(breaks = c(0,0.125,0.25,0.375,
-                                0.5,0.625,0.75,0.875),
-                     labels = c("7:0","6:1","5:2","4:3",
-                                "3:4","2:5","1:6","0:7"))+ 
-  labs(color = "Sensory Conditions")+
-  theme(axis.text.x = element_text(size = text_size),
-        axis.text.y = element_text(size = text_size),
-        axis.title.y = element_text(size = text_size))
+heading_PS_graph
 
-eight_fish_still
-eight_fish_flow
+ggsave("Paper Figures/Heading_PS_Graph.jpg", heading_PS_graph, width = 7, height = 7)
 
 ```
 
-### All the Plots of Eight Fish vs Single in Still Water
-
-```{r}
-placeholder_tibble <- tibble("Fish_Ratio" = c("0:7"),
-                             "Fish_Num_Ratio" = c(0.875),
-                             "Flow" = c("Still Water"),
-                             "Ablation" = c("No Ablation"),
-                             "Darkness" = c("Light"),
-                             "Type" = c("Combined Single"),
-                             "n" = c(0))
-
-light_no_ab_eight_single_graph_data <- eight_fish_data_sum %>% 
-                                      filter(Flow == "Still Water" & Darkness == "Light" & Ablation == "No Ablation") %>%
-                                      full_join(.,single_fish_data_sum) %>%
-                                      full_join(.,placeholder_tibble)
-
-light_ab_eight_single_graph_data <- eight_fish_data_sum %>% 
-                                      filter(Flow == "Still Water" & Darkness == "Light" & Ablation == "Ablated") %>%
-                                      full_join(.,single_fish_data_sum) %>%
-                                      full_join(.,placeholder_tibble)
-
-dark_no_ab_eight_single_graph_data <- eight_fish_data_sum %>% 
-                                      filter(Flow == "Still Water" & Darkness == "Dark" & Ablation == "No Ablation") %>%
-                                      full_join(.,single_fish_data_sum) %>%
-                                      full_join(.,placeholder_tibble)
-
-dark_ab_eight_single_graph_data <- eight_fish_data_sum %>% 
-                                      filter(Flow == "Still Water" & Darkness == "Dark" & Ablation == "Ablated") %>%
-                                      full_join(.,single_fish_data_sum) %>%
-                                      full_join(.,placeholder_tibble)
-
-
-light_eight_and_single_graph <- ggplot(light_no_ab_eight_single_graph_data,
-       aes(x = Fish_Num_Ratio, y = mean_right_turn, color = Type))+
-  geom_point()+
-  geom_col(aes(x = Fish_Num_Ratio, y = n/80, fill = Type, color = none), color = NA, alpha = 0.3, position = "dodge2")+
-  geom_smooth(se = F, method = glm, formula = y ~ x, method.args = list(family = "binomial"))+
-  theme_classic() +
-  xlab("# Fish on Left : # Fish on Right") +
-  ylim(0,1) +
-  scale_colour_manual(values = c(sim_color,light_no_ab_color), labels=function(x){sub("\\s", "\n", x)}) +
-  scale_fill_manual(values = c(sim_color,light_no_ab_color), labels=function(x){sub("\\s", "\n", x)}) +
-  #ggtitle("Observed Probability of a Right Turn Based on Ratio of Fish to the Left and Right") +
-  scale_x_continuous(breaks = c(0,0.125,0.25,0.375,
-                                0.5,0.625,0.75,0.875),
-                     labels = c("7:0","6:1","5:2","4:3",
-                                "3:4","2:5","1:6","0:7"))+ 
-  labs(color = "School Type")+
-  theme(axis.text.x = element_text(size = text_size/2),
-        axis.text.y = element_text(size = text_size/2),
-        axis.title.y = element_text(size = text_size/2))+
-  guides(fill = FALSE)+
-  scale_y_continuous("Probability of a Right Turn",
-                     sec.axis = sec_axis(~.*80, name = "Number of Datapoints"),
-                     limits = c(0, 1))
-
-
-
-ablation_eight_and_single_graph <- ggplot(light_ab_eight_single_graph_data,
-       aes(x = Fish_Num_Ratio, y = mean_right_turn, color = Type))+
-  geom_point()+
-  geom_col(aes(x = Fish_Num_Ratio, y = n/80, fill = Type), color = NA, alpha = 0.3, position = "dodge2")+
-  geom_smooth(se = F, method = glm, formula = y ~ x, method.args = list(family = "binomial"))+
-  theme_classic() +
-  xlab("# Fish on Left : # Fish on Right") +
-  ylab("Probability of a Right Turn") +
-  ylim(0,1) +
-  scale_colour_manual(values = c(sim_color,light_ab_color), labels=function(x){sub("\\s", "\n", x)}) +
-  scale_fill_manual(values = c(sim_color,light_ab_color), labels=function(x){sub("\\s", "\n", x)}) +
-  #ggtitle("Observed Probability of a Right Turn Based on Ratio of Fish to the Left and Right") +
-  scale_x_continuous(breaks = c(0,0.125,0.25,0.375,
-                                0.5,0.625,0.75,0.875),
-                     labels = c("7:0","6:1","5:2","4:3",
-                                "3:4","2:5","1:6","0:7"))+ 
-  labs(color = "School Type")+
-  theme(axis.text.x = element_text(size = text_size/2),
-        axis.text.y = element_text(size = text_size/2),
-        axis.title.y = element_text(size = text_size/2))+
-  guides(fill = FALSE)+
-  scale_y_continuous("Probability of a Right Turn",
-                     sec.axis = sec_axis(~.*80, name = "Number of Datapoints"),
-                     limits = c(0, 1))
-
-  
-dark_eight_and_single_graph <- ggplot(dark_no_ab_eight_single_graph_data,
-       aes(x = Fish_Num_Ratio, y = mean_right_turn, color = Type))+
-  geom_point()+
-  geom_col(aes(x = Fish_Num_Ratio, y = n/80, fill = Type), color = NA, alpha = 0.3, position = "dodge2")+
-  geom_smooth(se = F, method = glm, formula = y ~ x, method.args = list(family = "binomial"))+
-  theme_classic() +
-  xlab("# Fish on Left : # Fish on Right") +
-  ylab("Probability of a Right Turn") +
-  scale_colour_manual(values = c(sim_color,dark_no_ab_color), labels=function(x){sub("\\s", "\n", x)}) +
-  scale_fill_manual(values = c(sim_color,dark_no_ab_color), labels=function(x){sub("\\s", "\n", x)}) +
-  #ggtitle("Observed Probability of a Right Turn Based on Ratio of Fish to the Left and Right") +
-  scale_x_continuous(breaks = c(0,0.125,0.25,0.375,
-                                0.5,0.625,0.75,0.875),
-                     labels = c("7:0","6:1","5:2","4:3",
-                                "3:4","2:5","1:6","0:7"))+ 
-  labs(color = "School Type")+
-  theme(axis.text.x = element_text(size = text_size/2),
-        axis.text.y = element_text(size = text_size/2),
-        axis.title.y = element_text(size = text_size/2))+
-  guides(fill = FALSE)+
-  scale_y_continuous("Probability of a Right Turn",
-                     sec.axis = sec_axis(~.*80, name = "Number of Datapoints"),
-                     limits = c(0, 1))
-  
-
-dark_ablation_eight_and_single_graph <- ggplot(dark_ab_eight_single_graph_data,
-       aes(x = Fish_Num_Ratio, y = mean_right_turn, color = Type))+
-  geom_point()+
-  geom_col(aes(x = Fish_Num_Ratio, y = n/80, fill = Type), color = NA, alpha = 0.3, position = "dodge2")+
-  geom_smooth(se = F, method = glm, formula = y ~ x, method.args = list(family = "binomial"))+
-  theme_classic() +
-  xlab("# Fish on Left : # Fish on Right") +
-  ylab("Probability of a Right Turn") +
-  scale_colour_manual(values = c(sim_color,dark_ab_color), labels=function(x){sub("\\s", "\n", x)}) +
-  scale_fill_manual(values = c(sim_color,dark_ab_color), labels=function(x){sub("\\s", "\n", x)}) +
-  #ggtitle("Observed Probability of a Right Turn Based on Ratio of Fish to the Left and Right") +
-  scale_x_continuous(breaks = c(0,0.125,0.25,0.375,
-                                0.5,0.625,0.75,0.875),
-                     labels = c("7:0","6:1","5:2","4:3",
-                                "3:4","2:5","1:6","0:7"))+ 
-  labs(color = "School Type")+
-  theme(axis.text.x = element_text(size = text_size/2),
-        axis.text.y = element_text(size = text_size/2),
-        axis.title.y = element_text(size = text_size/2))+
-  guides(fill = FALSE)+
-  scale_y_continuous("Probability of a Right Turn",
-                     sec.axis = sec_axis(~.*80, name = "Number of Datapoints"),
-                     limits = c(0, 1))
-
-
-light_eight_and_single_graph
-ablation_eight_and_single_graph
-dark_eight_and_single_graph
-dark_ablation_eight_and_single_graph
-```
-
-### Now we combine it all
-
-```{r}
-# turning_mega_plot <- ggarrange(eight_fish_still, eight_fish_flow,ggplot() + theme_classic() + theme(axis.line=element_blank()),
-#           light_eight_and_single_graph, ablation_eight_and_single_graph, dark_eight_and_single_graph,
-#           labels = c("A", "B", "", "C", "D", "E"),
-#           ncol = 3, nrow = 2)
-# 
-# ggsave("Paper Figures/turning_mega_plot.png", turning_mega_plot, width = 20, height = 12)
-
-turning_both_plot <- ggarrange(eight_fish_still, eight_fish_flow,
-          labels = c("A", "B"),
-          ncol = 2, nrow = 1)
-
-ggsave("Paper Figures/turning_both_plot.png", turning_both_plot, width = 12, height = 6)
-
-
-turning_single_test_plot <- ggarrange(
-          light_eight_and_single_graph, ablation_eight_and_single_graph, 
-          dark_eight_and_single_graph, dark_ablation_eight_and_single_graph,
-          labels = c("A", "B", "C", "D"),
-          ncol = 2, nrow = 2)
-
-ggsave("Paper Figures/turning_single_test_plot.png", turning_single_test_plot, width = 10, height = 7)
-
-
-```
 
 ## School Summary Stats
 
