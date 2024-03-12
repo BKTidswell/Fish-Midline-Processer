@@ -131,10 +131,10 @@ Anova(heading_PS_model_far)
 
 heading_PS_graph_close <- ggplot(nn_heading_sum_close %>% filter(Flow == "Still Water"),
        aes(x = angle_bins, y = rad2deg(mean_turn), color = interaction(Ablation, Darkness, sep =", ")))+
-  geom_point()+
+  geom_point(size = 3)+
   geom_line(aes(y = rad2deg(predict(heading_PS_model_close,
                     newdata = nn_heading_sum_close %>% filter(Flow == "Still Water") %>% mutate(Angle = angle_bins),
-                    re.form = NA))), size = 1)+
+                    re.form = NA))), size = 2)+
   theme_classic() +
   ylim(-75,75) +
   xlab("Direction of Neighbour (Degrees)") +
@@ -142,15 +142,18 @@ heading_PS_graph_close <- ggplot(nn_heading_sum_close %>% filter(Flow == "Still 
   scale_colour_manual(values = c(light_no_ab_color,light_ab_color,dark_no_ab_color,dark_ab_color)) +
   scale_x_continuous(breaks = unique(nn_heading_sum_close$angle_bins),
                      labels = rad2deg(unique(nn_heading_sum_close$angle_bins))) +
-  labs(color = "Sensory Conditions")
+  labs(color = "Sensory Conditions")+
+  theme(axis.text.x = element_text(size = text_size),
+        axis.text.y = element_text(size = text_size),
+        axis.title.y = element_text(size = text_size))
 
 
 heading_PS_graph_far <- ggplot(nn_heading_sum_far %>% filter(Flow == "Still Water"),
        aes(x = angle_bins, y = rad2deg(mean_turn), color = interaction(Ablation, Darkness, sep =", ")))+
-  geom_point()+
+  geom_point(size = 3)+
   geom_line(aes(y = rad2deg(predict(heading_PS_model_far,
                     newdata = nn_heading_sum_far %>% filter(Flow == "Still Water") %>% mutate(Angle = angle_bins),
-                    re.form = NA))), size = 1)+
+                    re.form = NA))), size = 2)+
   theme_classic() +
   ylim(-75,75) +
   xlab("Direction of Neighbour (Degrees)") +
@@ -158,7 +161,10 @@ heading_PS_graph_far <- ggplot(nn_heading_sum_far %>% filter(Flow == "Still Wate
   scale_colour_manual(values = c(light_no_ab_color,light_ab_color,dark_no_ab_color,dark_ab_color)) +
   scale_x_continuous(breaks = unique(nn_heading_sum_far$angle_bins),
                      labels = rad2deg(unique(nn_heading_sum_far$angle_bins))) +
-  labs(color = "Sensory Conditions")
+  labs(color = "Sensory Conditions")+
+  theme(axis.text.x = element_text(size = text_size),
+        axis.text.y = element_text(size = text_size),
+        axis.title.y = element_text(size = text_size))
 
 heading_PS_graph_close
 heading_PS_graph_far
@@ -168,6 +174,11 @@ heading_PS_mega_plot <- ggarrange(heading_PS_graph_close, heading_PS_graph_far,
           ncol = 2, nrow = 1, common.legend = TRUE, legend="right")  
 
 heading_PS_mega_plot
+
+heading_PS_mega_plot <- annotate_figure(heading_PS_mega_plot, 
+                top = text_grob("Near (< 3 BL)                                          Far (> 3 BL)",
+                                size = 24),
+                fig.lab.pos = "top")
 
 ggsave("Paper Figures/heading_PS_mega_plot.png", heading_PS_mega_plot, width = 14, height = 7)
 
