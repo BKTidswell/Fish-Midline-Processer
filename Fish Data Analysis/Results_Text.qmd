@@ -84,26 +84,60 @@ school_data <- school_data %>% mutate(Flow = ifelse(Flow == "0", "Still Water", 
 nnd_lmer_still <- lmer(NND ~ Ablation*Darkness + (1|Date), data = school_data %>% filter(Flow == "Still Water"))
 nnd_s_aov_me <- Anova(nnd_lmer_still)
 
+plot(nnd_lmer_still)
+qqnorm(resid(nnd_lmer_still))
+qqline(resid(nnd_lmer_still))
+
 nnd_lmer_flow <- lmer(NND ~ Ablation*Darkness + (1|Date), data = school_data %>% filter(Flow == "Flowing Water (2 BL/s)"))
 nnd_f_aov_me <- Anova(nnd_lmer_flow)
+
+plot(nnd_lmer_flow)
+qqnorm(resid(nnd_lmer_flow))
+qqline(resid(nnd_lmer_flow))
 
 polar_lmer_still <- lmer(School_Polar ~ Ablation*Darkness + (1|Date), data = school_data %>% filter(Flow == "Still Water"))
 polar_s_aov_me <- Anova(polar_lmer_still)
 
+plot(polar_lmer_still)
+qqnorm(resid(polar_lmer_still))
+qqline(resid(polar_lmer_still))
+
 polar_lmer_flow <- lmer(School_Polar ~ Ablation*Darkness + (1|Date), data = school_data %>% filter(Flow == "Flowing Water (2 BL/s)"))
 polar_f_aov_me <- Anova(polar_lmer_flow)
+
+plot(polar_lmer_flow)
+qqnorm(resid(polar_lmer_flow))
+qqline(resid(polar_lmer_flow))
 
 speed_lmer_still <- lmer(School_Speed ~ Ablation*Darkness + (1|Date), data = school_data %>% filter(Flow == "Still Water"))
 speed_s_aov_me <- Anova(speed_lmer_still)
 
+plot(speed_lmer_still)
+qqnorm(resid(speed_lmer_still))
+qqline(resid(speed_lmer_still))
+
 speed_lmer_flow <- lmer(School_Speed ~ Ablation*Darkness + (1|Date), data = school_data %>% filter(Flow == "Flowing Water (2 BL/s)"))
 speed_f_aov_me <- Anova(speed_lmer_flow)
 
-groups_lmer_still <- lmer(Groups ~ Ablation*Darkness + (1|Date), data = school_data %>% filter(Flow == "Still Water"))
+plot(speed_lmer_flow)
+qqnorm(resid(speed_lmer_flow))
+qqline(resid(speed_lmer_flow))
+
+groups_lmer_still <- glmer(Groups ~ Ablation*Darkness + (1|Date), data = school_data %>% filter(Flow == "Still Water"),
+                           family = poisson)
 groups_s_aov_me <- Anova(groups_lmer_still)
 
-groups_lmer_flow <- lmer(Groups ~ Ablation*Darkness + (1|Date), data = school_data %>% filter(Flow == "Flowing Water (2 BL/s)"))
+plot(groups_lmer_still)
+qqnorm(resid(groups_lmer_still))
+qqline(resid(groups_lmer_still))
+
+groups_lmer_flow <- glmer(Groups ~ Ablation*Darkness + (1|Date), data = school_data %>% filter(Flow == "Flowing Water (2 BL/s)"),
+                           family = poisson)
 groups_f_aov_me <- Anova(groups_lmer_flow)
+
+plot(groups_lmer_flow)
+qqnorm(resid(groups_lmer_flow))
+qqline(resid(groups_lmer_flow))
 
 
 glmm_school_stats_table <- tibble(Stat = c(rep("NND",6),rep("Polarization",6),rep("Speed",6),rep("Groups",6)),
@@ -178,16 +212,24 @@ fish_data_nn_normal_far <- fish_comp_data %>% filter(Distance >= far_min_dist & 
 
 ```{r}
 
-heading_PS_model_close <- lmer(0 + Fish1_Yaw_Heading_PS ~ sin(Angle) + sin(Angle):Ablation + sin(Angle):Darkness + sin(Angle):Ablation:Darkness + (1|Date), 
+heading_PS_model_close <- lmer(Fish1_Yaw_Heading_PS ~ sin(Angle) + sin(Angle):Ablation + sin(Angle):Darkness + sin(Angle):Ablation:Darkness + (1|Date), 
                    data = fish_data_nn_normal_close %>% filter(Flow == "Still Water")) 
 aov_heading_PS_model_close <- Anova(heading_PS_model_close)
+
+plot(heading_PS_model_close)
+qqnorm(resid(heading_PS_model_close))
+qqline(resid(heading_PS_model_close))
 
 test(emmeans(heading_PS_model_close, pairwise ~Ablation*Darkness | Angle, at = list(Angle = c(pi/2))))
 
 
-heading_PS_model_far <- lmer(0 + Fish1_Yaw_Heading_PS ~ sin(Angle) + sin(Angle):Ablation + sin(Angle):Darkness + sin(Angle):Ablation:Darkness + (1|Date) , 
+heading_PS_model_far <- lmer(Fish1_Yaw_Heading_PS ~ sin(Angle) + sin(Angle):Ablation + sin(Angle):Darkness + sin(Angle):Ablation:Darkness + (1|Date) , 
                    data = fish_data_nn_normal_far %>% filter(Flow == "Still Water")) 
 aov_heading_PS_model_far <- Anova(heading_PS_model_far)
+
+plot(heading_PS_model_far)
+qqnorm(resid(heading_PS_model_far))
+qqline(resid(heading_PS_model_far))
 
 test(emmeans(heading_PS_model_far, pairwise ~Ablation*Darkness | Angle, at = list(Angle = c(pi/2))))
 
