@@ -897,7 +897,7 @@ class school_comps:
         self.calc_school_polarization()
         self.calc_nnd()
         self.calc_tailbeat_cor()
-        #self.calc_school_area()
+        self.calc_school_area()
 
         #self.calc_school_groups_all_points_diff_xy_z()
         self.calc_school_groups_all_points()
@@ -928,26 +928,32 @@ class school_comps:
         self.school_center_z = savgol_filter(self.school_center_z,31,1)
 
     def calc_school_speed(self):
-        #Based on the movement of the center of the school, not the mean of all the fish speeds
+        # #Based on the movement of the center of the school, not the mean of all the fish speeds
 
-        #First we get the next points for the group
-        group_x_next = np.roll(self.school_center_x, -1)
-        group_y_next = np.roll(self.school_center_y, -1)
-        group_z_next = np.roll(self.school_center_z, -1)
+        # #First we get the next points for the group
+        # group_x_next = np.roll(self.school_center_x, -1)
+        # group_y_next = np.roll(self.school_center_y, -1)
+        # group_z_next = np.roll(self.school_center_z, -1)
 
-        #Then we create a vector of the future point minus the last one
-        vec_x = group_x_next - self.school_center_x
-        vec_y = group_y_next - self.school_center_y
-        vec_z = group_z_next - self.school_center_z
+        # #Then we create a vector of the future point minus the last one
+        # vec_x = group_x_next - self.school_center_x
+        # vec_y = group_y_next - self.school_center_y
+        # vec_z = group_z_next - self.school_center_z
 
-        #Then we add the flow to the x value
-        #Since (0,0) is in the upper left a positive vec_x value value means it is moving downstream
-        #so I should subtract the flow value 
-        #The flow value is mutliplied by the fish length since the vec_x values are in pixels, but it is in BLS so divide by fps
-        vec_x_flow = vec_x - (self.flow)/fps
+        # #Then we add the flow to the x value
+        # #Since (0,0) is in the upper left a positive vec_x value value means it is moving downstream
+        # #so I should subtract the flow value 
+        # #The flow value is mutliplied by the fish length since the vec_x values are in pixels, but it is in BLS so divide by fps
+        # vec_x_flow = vec_x - (self.flow)/fps
 
-        #It is divided in order to get it in body lengths and then times fps to get BL/s
-        self.group_speed = np.sqrt(vec_x_flow**2+vec_y**2+vec_z**2)[:-1] * fps
+        # #It is divided in order to get it in body lengths and then times fps to get BL/s
+        # self.group_speed = np.sqrt(vec_x_flow**2+vec_y**2+vec_z**2)[:-1] * fps
+
+        # Changing this to mean speed of the fish in the school
+
+        all_fish_speeds = [fish.speed for fish in self.fishes]
+
+        self.group_speed = np.nanmean(all_fish_speeds, axis = 0)
 
     def calc_school_tb_freq(self):
         tb_collect = []
@@ -1617,6 +1623,7 @@ class trial:
                                  len(chunked_y_sd),len(chunked_group_speed),len(chunked_group_tb_freq),
                                  len(chunked_nnd),len(chunked_area),len(chunked_groups),len(chunked_height)])
 
+
         d = {'Year': np.repeat(self.year,short_data_length),
              'Month': np.repeat(self.month,short_data_length),
              'Day': np.repeat(self.day,short_data_length),
@@ -1645,9 +1652,7 @@ class trial:
         return(out_data)
 
 
-#data_folder = "3D_Finished_Fish_Data_4P_gaps/"
-
-data_folder = "Single Fish Combiner/Multi Data/"
+data_folder = "3D_Finished_Fish_Data_4P_gaps/"
 
 trials = []
 
@@ -1668,21 +1673,21 @@ print("Creating CSVs...")
 
 for trial in trials:
     if first_trial:
-        #fish_sigular_dataframe = trial.return_fish_vals()
+        fish_sigular_dataframe = trial.return_fish_vals()
         fish_comp_dataframe = trial.return_comp_vals()
-        #fish_raw_comp_dataframe = trial.return_raw_comp_vals()
-        #fish_school_dataframe = trial.return_school_vals()
+        fish_raw_comp_dataframe = trial.return_raw_comp_vals()
+        fish_school_dataframe = trial.return_school_vals()
         first_trial = False
     else:
-        #fish_sigular_dataframe = fish_sigular_dataframe.append(trial.return_fish_vals())
+        fish_sigular_dataframe = fish_sigular_dataframe.append(trial.return_fish_vals())
         fish_comp_dataframe = fish_comp_dataframe.append(trial.return_comp_vals())
-        #fish_raw_comp_dataframe = fish_raw_comp_dataframe.append(trial.return_raw_comp_vals())
-        #fish_school_dataframe = fish_school_dataframe.append(trial.return_school_vals())
+        fish_raw_comp_dataframe = fish_raw_comp_dataframe.append(trial.return_raw_comp_vals())
+        fish_school_dataframe = fish_school_dataframe.append(trial.return_school_vals())
 
-#fish_sigular_dataframe.to_csv("Fish_Individual_Values_3D.csv")
+fish_sigular_dataframe.to_csv("Fish_Individual_Values_3D.csv")
 fish_comp_dataframe.to_csv("Fish_Comp_Values_3D_Single.csv")
-#fish_raw_comp_dataframe.to_csv("Fish_Raw_Comp_Values_3D.csv")
-#fish_school_dataframe.to_csv("Fish_School_Values_3D.csv")
+fish_raw_comp_dataframe.to_csv("Fish_Raw_Comp_Values_3D.csv")
+fish_school_dataframe.to_csv("Fish_School_Values_3D.csv")
 
 # #Recalculate when new data is added
 # all_trials_tailbeat_lens = []
