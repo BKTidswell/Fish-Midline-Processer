@@ -65,12 +65,12 @@ Load in the data
 
 single_comp_data <- read.csv("Data/Fish_Comp_Values_3D_Single.csv") %>%
                            mutate(Flow = ifelse(Flow == "0", "Still Water", "Flowing Water (2 BL/s)")) %>%
-                           mutate(Ablation = ifelse(Ablation  == "N", "No Ablation", "Ablated")) %>%
-                           mutate(Darkness = ifelse(Darkness == "N", "Light", "Dark")) %>%
+                           mutate(Ablation = ifelse(Ablation  == "S", "Single", "Jingle")) %>%
+                           mutate(Darkness = ifelse(Darkness == "S", "Single", "Jingle")) %>%
                            mutate(Flow = factor(Flow), Ablation = factor(Ablation), Darkness = factor(Darkness)) %>%
-                           mutate(Flow = fct_relevel(Flow, c("Still Water","Flowing Water (2 BL/s)"))) %>%
-                           mutate(Ablation = fct_relevel(Ablation, c("No Ablation","Ablated"))) %>%
-                           mutate(Darkness = fct_relevel(Darkness, c("Light","Dark"))) %>%
+                           mutate(Flow = fct_relevel(Flow, c("Still Water"))) %>%
+                           mutate(Ablation = fct_relevel(Ablation, c("Single"))) %>%
+                           mutate(Darkness = fct_relevel(Darkness, c("Single"))) %>%
                            mutate(Flow_Ablation_Darkness = factor(paste(Flow,Ablation,Darkness,sep=", "))) %>%
                            separate(Fish, c("Fish1", "Fish2"),sep="x") %>% 
                            # ### Used to remove every third point to reduce autocorrelation
@@ -107,8 +107,10 @@ fish_comp_data <- na.omit(fish_comp_data)
 
 fish_comp_data <- rbind(fish_comp_data,single_comp_data)
 
-min_dist <- 3
-max_dist <- 100
+sd <- 1.77
+
+min_dist <- sd*0.5
+max_dist <- sd*1.5
 
 #calculate average angle to all other fish in that range
 fish_comp_data_ring_angles <- fish_comp_data %>% filter(Distance >= min_dist & Distance <= max_dist) %>%
@@ -186,7 +188,7 @@ ggplot(nn_heading_sum %>% filter(Flow == "Still Water"),
   #                 fill = interaction(Ablation, Darkness, sep =", ")),
   #             alpha = 0.25, colour = NA)+
   theme_classic() +
-  ylim(-75,75) +
+  ylim(-100,100) +
   xlab("direction of neighbour (degrees)") +
   ylab("focal fish turning angle speed (degrees/sec)") +
   scale_colour_manual(values = c(light_no_ab_color,light_ab_color,dark_no_ab_color,dark_ab_color,"red")) +
