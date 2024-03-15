@@ -73,14 +73,15 @@ single_comp_data <- read.csv("Data/Fish_Comp_Values_3D_Single.csv") %>%
                            mutate(Darkness = fct_relevel(Darkness, c("Single"))) %>%
                            mutate(Flow_Ablation_Darkness = factor(paste(Flow,Ablation,Darkness,sep=", "))) %>%
                            separate(Fish, c("Fish1", "Fish2"),sep="x") %>% 
-                           # ### Used to remove every third point to reduce autocorrelation
+                           # # ### Used to remove every third point to reduce autocorrelation
                            mutate(Data_ID = paste(Year,Month,Day,Trial, sep = "_"),
                                   Date = paste(Year,Month,Day,Trial, sep = "_"),
                                   Fish_ID = paste(Year,Month,Day,Trial,Fish1, sep = "_"),
                                   Comp_ID = paste(Year,Month,Day,Trial,Fish1,Fish2, sep = "_")) %>%
                            group_by(Comp_ID) %>%
-                           filter(row_number() %% 3 == 1) %>%
-                           ungroup() %>% mutate(Type = "Single")
+                           #filter(row_number() %% 3 == 1) %>%
+                           ungroup() %>%
+                           mutate(Type = "Single")
 
 single_comp_data <- na.omit(single_comp_data)
 
@@ -94,23 +95,28 @@ fish_comp_data <- read.csv("Data/Fish_Comp_Values_3D.csv") %>%
                            mutate(Darkness = fct_relevel(Darkness, c("Light","Dark"))) %>%
                            mutate(Flow_Ablation_Darkness = factor(paste(Flow,Ablation,Darkness,sep=", "))) %>%
                            separate(Fish, c("Fish1", "Fish2"),sep="x") %>% 
-                           # ### Used to remove every third point to reduce autocorrelation
+                           ### Used to remove every third point to reduce autocorrelation
                            mutate(Data_ID = paste(Year,Month,Day,Trial, sep = "_"),
                                   Date = paste(Year,Month,Day,Trial, sep = "_"),
                                   Fish_ID = paste(Year,Month,Day,Trial,Fish1, sep = "_"),
                                   Comp_ID = paste(Year,Month,Day,Trial,Fish1,Fish2, sep = "_")) %>%
                            group_by(Comp_ID) %>%
-                           filter(row_number() %% 3 == 1) %>%
-                           ungroup() %>% mutate(Type = "Eight")
+                           #filter(row_number() %% 3 == 1) %>%
+                           ungroup() %>%
+                           mutate(Type = "Eight")
 
 fish_comp_data <- na.omit(fish_comp_data)
 
 fish_comp_data <- rbind(fish_comp_data,single_comp_data)
 
+ggplot(fish_comp_data, aes(x = Angle))+
+  geom_histogram()+
+  facet_wrap(~Flow_Ablation_Darkness)
+
 sd <- 1.77
 
-min_dist <- sd*0.5
-max_dist <- sd*1.5
+min_dist <- 0.75 #sd*0.5
+max_dist <- 3 #sd*1.5
 
 #calculate average angle to all other fish in that range
 fish_comp_data_ring_angles <- fish_comp_data %>% filter(Distance >= min_dist & Distance <= max_dist) %>%
@@ -138,6 +144,14 @@ nn_heading_sum <- fish_data_nn_normal %>% mutate(angle_bins = round_any(Mean_Ang
                                                 mutate(se = mean(se)) %>%
                                                 ungroup()
 ```
+
+Distribution of turning velocities at say 90 degrees
+just make a Kolmogorov–Smirnov to compare distribution. See if distribution is different
+  Not larger or smaller?
+Also maybe just do a t test 
+trim the edge points
+
+too much variance, not significant
 
 Load in Single Fish
 
@@ -183,10 +197,10 @@ ggplot(nn_heading_sum %>% filter(Flow == "Still Water"),
        aes(x = angle_bins, y = rad2deg(mean_turn), color = interaction(Ablation, Darkness, sep =", ")))+
   geom_point()+
   geom_line(aes( y = rad2deg(predict(manual_model,newdata = graph_model_data, re.form = NA)) ), size = 1)+
-  # geom_ribbon(aes(ymin = rad2deg(predict(manual_model,newdata = graph_model_data, re.form = NA) - se),
-  #                 ymax = rad2deg(predict(manual_model,newdata = graph_model_data, re.form = NA) + se),
-  #                 fill = interaction(Ablation, Darkness, sep =", ")),
-  #             alpha = 0.25, colour = NA)+
+  geom_ribbon(aes(ymin = rad2deg(predict(manual_model,newdata = graph_model_data, re.form = NA) - se),
+                  ymax = rad2deg(predict(manual_model,newdata = graph_model_data, re.form = NA) + se),
+                  fill = interaction(Ablation, Darkness, sep =", ")),
+              alpha = 0.25, colour = NA)+
   theme_classic() +
   ylim(-100,100) +
   xlab("direction of neighbour (degrees)") +
@@ -205,4 +219,30 @@ test(emmeans(manual_model, trt.vs.ctrlk ~ Ablation*Darkness | Mean_Angle,
 test(emmeans(manual_model, trt.vs.ctrlk ~ Ablation*Darkness | Mean_Angle,
              at = list(Mean_Angle = c(pi/2))))
 
+plot(manual_model)
+qqnorm(resid(manual_model))
+#qqline(resid(groups_lmer_flow))
+
 ```
+
+Removing underlying variation to the data?
+
+```{r}
+
+tank_data <- fish_comp_data %>% filter(Flow == "Still Water") %>% 
+                                mutate(Round_X = round_any(Fish1_X,1),
+                                       Round_Y = round_any(Fish1_Y,1)) %>%
+                                group_by(Flow_Ablation_Darkness, Round_X, Round_Y) %>%
+                                summarise(Mean_HPS = mean(Fish1_Yaw_Heading_PS)) %>%
+                                ungroup()
+
+
+ggplot(tank_data , aes(Round_X, Round_Y, fill = Mean_HPS))+
+  facet_wrap(~ Flow_Ablation_Darkness)+
+  geom_tile()+
+  theme_classic()
+
+
+
+```
+
