@@ -366,7 +366,7 @@ speed_still <- ggplot(school_data %>% filter(Flow == "Still Water"),
   scale_color_manual(values=c(light_no_ab_color, light_ab_color, dark_no_ab_color, dark_ab_color)) +
   #ggtitle("Effect of Available Senses on Speed (BL/s) in Still Water") +
   xlab("") +
-  ylab("Speed (BL/s)") +
+  ylab("Mean Speed of Fish (BL/s)") +
   theme_light()+ 
   theme(legend.position = "none") +
   ylim(0,6)+
@@ -390,7 +390,7 @@ speed_flow <- ggplot(school_data %>% filter(Flow == "Flowing Water (2 BL/s)"),
   scale_color_manual(values=c(light_no_ab_color, light_ab_color, dark_no_ab_color, dark_ab_color)) +
   #ggtitle("Effect of Available Senses on Speed (BL/s) in Flowing Water (2 BL/s)") +
   xlab("") +
-  ylab("Speed (BL/s)") +
+  ylab("Mean Speed of Fish (BL/s)") +
   theme_light()+ 
   theme(legend.position = "none") +
   ylim(0,6)+
@@ -481,26 +481,6 @@ school_stats_mega_plot <- annotate_figure(school_stats_mega_plot,
                 fig.lab.pos = "top")
 
 ggsave("Paper Figures/school_stats_mega_plot.png", school_stats_mega_plot, width = 12, height = 17)
-```
-
-Parallax
-
-```{r}
-para_vals <- read.csv("Data/Parallax_Distances.csv") %>% mutate(BLs = Distance / 200)
-
-breaks <- c("0.1")
-
-para_plot <- ggplot(para_vals, aes(X, Y, z = BLs))+
-  geom_contour_filled(bins = 5)+
-  scale_fill_viridis_d("Projection Error (BL)", 
-                       labels = c("< 0.1", "0.1 - 0.2", "0.2 - 0.3","0.3 - 0.4","0.4 - 0.5"))+
-  theme_classic()+
-  coord_fixed() +
-  ylab("Vertical Distance from Principal Point (pixels)")+
-  xlab("Hoizontal Distance from Principal Point (pixels)")+ 
-  theme(text = element_text(size = 20))  
-
-ggsave("Paper Figures/parallax_model.png", para_plot, width = 14, height = 7)
 ```
 
 Autocorrelation Figure
