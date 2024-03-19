@@ -104,17 +104,17 @@ fish_comp_data <- read.csv("Data/Fish_Comp_Values_3D.csv") %>%
 
 #fish_comp_data <- rbind(fish_comp_data,single_comp_data)
 
-x_offset <- 1.5
-y_offset <- 0.75
+x_offset <- 1.95
+y_offset <- 1.15
 
-max_x <- ceiling(max(fish_comp_data$Fish1_X)) - 1.5
-min_x <- floor(min(fish_comp_data$Fish1_X)) - 1.5
-max_y <- ceiling(max(fish_comp_data$Fish1_Y)) - 0.75
-min_y <- floor(max(fish_comp_data$Fish1_Y)) - 0.75
+max_x <- ceiling(max(fish_comp_data$Fish1_X, na.rm = T)) - 1.5
+min_x <- floor(min(fish_comp_data$Fish1_X, na.rm = T)) - 1.5
+max_y <- ceiling(max(fish_comp_data$Fish1_Y, na.rm = T)) - 0.75
+min_y <- floor(max(fish_comp_data$Fish1_Y, na.rm = T)) - 0.75
 
 #Limit away from the edge
-fish_comp_data <- fish_comp_data %>% filter(Fish1_X >= left_edge & Fish1_X <= right_edge) %>%
-                                     filter(Fish1_Y >= bottom_edge & Fish1_Y <= top_edge)
+fish_comp_data <- fish_comp_data %>% filter(Fish1_X >= min_x & Fish1_X <= max_x) %>%
+                                     filter(Fish1_Y >= min_y & Fish1_Y <= max_y)
 
 
 ggplot(fish_comp_data, aes(x = Angle))+
@@ -123,7 +123,7 @@ ggplot(fish_comp_data, aes(x = Angle))+
 
 sd <- 1.77
 
-min_dist <- 0.5 #sd*0.5
+min_dist <- 0 #sd*0.5
 max_dist <- 2 #sd*1.5
 
 
@@ -171,9 +171,9 @@ Kolmogorov–Smirnov around 90 degrees
 
 ```{r}
 
-perp_angle_df <- fish_data_nn_normal %>% filter(Mean_Angle >= deg2rad(80) & Mean_Angle <= deg2rad(100)) %>% filter(Flow == "Still Water")#%>% filter(Distance >= 0 & Distance <= 3) %>% filter(Flow == "Still Water")
+perp_angle_df <- fish_data_nn_normal %>% filter(Mean_Angle >= deg2rad(75) & Mean_Angle <= deg2rad(105)) %>% filter(Flow == "Still Water")#%>% filter(Distance >= 0 & Distance <= 3) %>% filter(Flow == "Still Water")
 
-perp_angle_df_neg <- fish_data_nn_normal %>% filter(Mean_Angle >= deg2rad(-100) & Mean_Angle <= deg2rad(-80)) %>% filter(Flow == "Still Water") %>% mutate(Fish1_Yaw_Heading_PS = -1*Fish1_Yaw_Heading_PS)
+perp_angle_df_neg <- fish_data_nn_normal %>% filter(Mean_Angle >= deg2rad(-105) & Mean_Angle <= deg2rad(-75)) %>% filter(Flow == "Still Water") %>% mutate(Fish1_Yaw_Heading_PS = -1*Fish1_Yaw_Heading_PS)
 
 perp_angle_df <- rbind(perp_angle_df,perp_angle_df_neg)
 
