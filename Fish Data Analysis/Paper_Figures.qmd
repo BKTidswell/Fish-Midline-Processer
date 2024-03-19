@@ -53,6 +53,10 @@ allowed_flow_type = c("Still Water","Flowing Water (2 BL/s)")
 dot_binwidth = 0.03
 
 text_size = 16
+
+# for turning data
+x_offset <- 1.95
+y_offset <- 1.15
 ```
 
 Heading Velocity graphs
@@ -606,3 +610,66 @@ lag_plots <- ggarrange(
 ggsave("Paper Figures/Different_Lag_Figures.png", lag_plots, width = 7, height = 7)
 
 ```
+
+Single Fish Figure
+
+```{r}
+
+single_comp_data <- read.csv("Data/Fish_Comp_Values_3D_Single.csv") %>%
+                           mutate(Flow = ifelse(Flow == "0", "Still Water", "Flowing Water (2 BL/s)")) %>%
+                           mutate(Ablation = ifelse(Ablation  == "S", "Single", "Jingle")) %>%
+                           mutate(Darkness = ifelse(Darkness == "S", "Single", "Jingle")) %>%
+                           mutate(Flow = factor(Flow), Ablation = factor(Ablation), Darkness = factor(Darkness)) %>%
+                           mutate(Flow = fct_relevel(Flow, c("Still Water"))) %>%
+                           mutate(Ablation = fct_relevel(Ablation, c("Single"))) %>%
+                           mutate(Darkness = fct_relevel(Darkness, c("Single"))) %>%
+                           mutate(Flow_Ablation_Darkness = factor(paste(Flow,Ablation,Darkness,sep=", "))) %>%
+                           separate(Fish, c("Fish1", "Fish2"),sep="x") %>% 
+                           mutate(Type = "Single")
+
+
+top_edge <- ceiling(max(single_comp_data$Fish1_Y)) - y_offset 
+bottom_edge <- floor(min(single_comp_data$Fish1_Y)) + y_offset
+left_edge <- floor(min(single_comp_data$Fish1_X)) + x_offset
+right_edge <- ceiling(max(single_comp_data$Fish1_X)) - x_offset
+
+single_fish_mean_angles_middle <- single_comp_data %>% filter(Fish1_X >= left_edge & Fish1_X <= right_edge) %>%
+                                                filter(Fish1_Y >= bottom_edge & Fish1_Y <= top_edge) %>%
+                                                 #normalize
+                                                 mutate(Fish1_Yaw_Heading_PS = Fish1_Yaw_Heading_PS - mean(Fish1_Yaw_Heading_PS, na.rm = T))
+
+#Combine -75 to -105 with 75 to 105
+single_perp_angle_df_middle <- single_fish_mean_angles_middle %>% filter(Angle >= deg2rad(75) & Angle <= deg2rad(105))
+single_perp_angle_df_neg_middle <- single_fish_mean_angles_middle %>% filter(Angle >= deg2rad(-105) & Angle <= deg2rad(-75)) %>%
+                                                                 mutate(Fish1_Yaw_Heading_PS = -1*Fish1_Yaw_Heading_PS)
+single_perp_angle_df_middle <- rbind(single_perp_angle_df_middle,single_perp_angle_df_neg_middle) %>% mutate(Label = "Edges Removed")
+
+
+single_fish_mean_angles_all <- single_comp_data %>% mutate(Fish1_Yaw_Heading_PS = Fish1_Yaw_Heading_PS - mean(Fish1_Yaw_Heading_PS, na.rm = T))
+
+single_perp_angle_df_all <- single_fish_mean_angles_all %>% filter(Angle >= deg2rad(75) & Angle <= deg2rad(105))
+single_perp_angle_df_neg_all <- single_fish_mean_angles_all %>% filter(Angle >= deg2rad(-105) & Angle <= deg2rad(-75)) %>%
+                                                                mutate(Fish1_Yaw_Heading_PS = -1*Fish1_Yaw_Heading_PS)
+single_perp_angle_df_all <- rbind(single_perp_angle_df_all,single_perp_angle_df_neg_all) %>% mutate(Label = "All Data")
+
+
+single_perp_angle_graphing <- rbind(single_perp_angle_df_middle,single_perp_angle_df_all)
+
+
+t.test(single_perp_angle_df_middle$Fish1_Yaw_Heading_PS)
+
+
+single_plot <- ggplot(single_perp_angle_graphing, aes(x = Fish1_Yaw_Heading_PS, fill = Label))+
+  geom_histogram(aes(y=0.5*..density..),binwidth=1,position='identity', alpha = 0.5)+
+  theme_classic()+
+  scale_fill_manual(values = c("#CE2414","#138EC2"))+
+  ylab("Proportion of Values")+
+  xlab("Turning Angle (Degrees / s)")+
+  xlim(-5,5)
+
+single_plot
+
+ggsave("Paper Figures/Edge_Removal_Single_Fish.png", single_plot, width = 7, height = 7)
+
+```
+
