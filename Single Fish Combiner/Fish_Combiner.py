@@ -13,7 +13,7 @@ ruler_length_m = 0.181
 header_3 = list(range(3))
 header_4 = list(range(4))
 
-data_folders = ["Good Single Fish/light/still/"]
+data_folders = ["Good Single Fish/light/still/"] #["Good Single Fish/light/still/"] #,"Good Single Fish/dark/still/","Good Single Fish/ablation/still/"]
 
 for data_folder in data_folders:
 
@@ -30,7 +30,7 @@ for data_folder in data_folders:
 
     # The smallest number of data files for a condition is 13, which still gives us 1287 combinations for that 
     # Match number of trials to real data
-    for x in range(5):
+    for x in range(10):
         shuffle(data_files)
         all_data_arr = [pd.read_csv(data_folder+f, index_col=0, header=header_3) for f in data_files]
 
