@@ -24,7 +24,9 @@ library(sjPlot)
 rad2deg <- function(rad) {(rad * 180) / (pi)}
 deg2rad <- function(deg) {(deg * pi) / (180)}
 round_any <- function(x, accuracy, f=round){f(x/ accuracy) * accuracy}
-ang_mean <- function(x){rad2deg(atan2(mean(sin(deg2rad(x))),mean(cos(deg2rad(x)))))}
+
+deg_ang_mean <- function(x){rad2deg(atan2(mean(sin(deg2rad(x))),mean(cos(deg2rad(x)))))}
+rad_ang_mean <- function(x){atan2(mean(sin(x)),mean(cos(x)))}
 
 fold_angle_0_360_to_0_180 <- function(x){abs(abs(x-180)-180)}
 
@@ -33,9 +35,10 @@ fold_angle_neg_180_180_to_neg_90_90 <- function(x){ifelse(x > 90,90-abs(90-x),if
 min_n <- function(x,n){sort(x)[1:n]}
 max_n <- function(x,n){sort(x,decreasing = TRUE)[1:n]}
 
-light_no_ab_color = "#d4d7dd"
+light_no_ab_color = "#9C9C9C"   #"#C62E65" #A1BAA4" #"#d4d7dd" 06D6A0
 light_ab_color = "#f5ba9e"
 dark_no_ab_color = "#5e94d4"
+dark_ab_color = "#49A078"   #"#1E4371"
 sim_color = "#777777"
 
 flow_split_still = "#F59DE2"
@@ -51,6 +54,10 @@ allowed_flow_type = c("Still Water","Flowing Water (2 BL/s)")
 dot_binwidth = 0.03
 
 text_size = 16
+
+# for turning data
+x_offset <- 1.95
+y_offset <- 1.15
 ```
 
 ## School Summary Stats
@@ -178,69 +185,82 @@ fish_comp_data <- read.csv("Data/Fish_Comp_Values_3D.csv") %>%
                            separate(Fish, c("Fish1", "Fish2"),sep="x") %>% 
                            mutate(Data_ID = paste(Year,Month,Day,Trial, sep = "_"),
                                   Date = paste(Year,Month,Day,Trial, sep = "_"),
-                                  Fish_ID = paste(Year,Month,Day,Trial,Fish1, sep = "_")) %>%
-  
-                            # ### Used to remove every third point to reduce autocorrelation
-                           mutate(Data_ID = paste(Year,Month,Day,Trial, sep = "_"),
-                                  Date = paste(Year,Month,Day,Trial, sep = "_"),
                                   Fish_ID = paste(Year,Month,Day,Trial,Fish1, sep = "_"),
-                                  Comp_ID = paste(Year,Month,Day,Trial,Fish1,Fish2, sep = "_")) %>%
-                           group_by(Comp_ID) %>%
-                           filter(row_number() %% 3 == 1) %>%
-                           ungroup()
+                                  Comp_ID = paste(Year,Month,Day,Trial,Fish1,Fish2, sep = "_"))
                            
-fish_comp_data <- na.omit(fish_comp_data)
 
-close_min_dist <- 0
-close_max_dist <- 3
+min_x <- floor(min(fish_comp_data$Fish1_X, na.rm = T)) + x_offset
+max_x <- ceiling(max(fish_comp_data$Fish1_X, na.rm = T)) - x_offset
+min_y <- floor(min(fish_comp_data$Fish1_Y, na.rm = T)) + y_offset
+max_y <- ceiling(max(fish_comp_data$Fish1_Y, na.rm = T)) - y_offset
 
-far_min_dist <- 3
-far_max_dist <- 100
+print(paste(min_x,max_x,min_y,max_y))
 
-fish_data_nn_normal_close <- fish_comp_data %>% filter(Distance >= close_min_dist & Distance <= close_max_dist) %>%
-                                        group_by(Flow_Ablation_Darkness) %>%
-                                        mutate(Fish1_Yaw_Heading_PS = Fish1_Yaw_Heading_PS - mean(Fish1_Yaw_Heading_PS)) %>%
-                                        ungroup()
+min_dist <- 0
+middle_dist <- 2.5
+max_dist <- 100
 
-fish_data_nn_normal_far <- fish_comp_data %>% filter(Distance >= far_min_dist & Distance <= far_max_dist) %>%
-                                        group_by(Flow_Ablation_Darkness) %>%
-                                        mutate(Fish1_Yaw_Heading_PS = Fish1_Yaw_Heading_PS - mean(Fish1_Yaw_Heading_PS)) %>%
-                                        ungroup()
+#Limit away from the edge
+fish_comp_data <- fish_comp_data %>% filter(Fish1_X >= min_x & Fish1_X <= max_x) %>%
+                                     filter(Fish1_Y >= min_y & Fish1_Y <= max_y)
+
+#close
+fish_comp_data_ring_angles <- fish_comp_data %>% filter(Distance >= min_dist & Distance <= max_dist) %>%
+                                                 mutate(Dist_Cat = ifelse(Distance <= middle_dist, "Close", "Far"))
+
+fish_data_nn_normal <- fish_comp_data_ring_angles %>% group_by(Flow_Ablation_Darkness) %>%
+                                        mutate(Fish1_Yaw_Heading_PS = Fish1_Yaw_Heading_PS - mean(Fish1_Yaw_Heading_PS, na.rm = T)) %>%
+                                        ungroup() %>% 
+                                        filter(Flow == "Still Water")
+
+
+nn_heading_sum <- fish_data_nn_normal %>% mutate(angle_bins = round_any(Angle,pi/6)) %>%
+                                                group_by(angle_bins,Flow,Ablation,Darkness,Flow_Ablation_Darkness,Dist_Cat) %>%
+                                                summarise(mean_turn = mean(Fish1_Yaw_Heading_PS, na.rm = T),
+                                                          sd_turn = sd(Fish1_Yaw_Heading_PS, na.rm = T),
+                                                          n = n()) %>%
+                                                ungroup() 
 
 ```
 
 
 ```{r}
 
-heading_PS_model_close <- lmer(Fish1_Yaw_Heading_PS ~ sin(Angle) + sin(Angle):Ablation + sin(Angle):Darkness + sin(Angle):Ablation:Darkness + (1|Date), 
-                   data = fish_data_nn_normal_close %>% filter(Flow == "Still Water")) 
-aov_heading_PS_model_close <- Anova(heading_PS_model_close)
+perp_angle_df <- fish_data_nn_normal %>% filter(Angle >= deg2rad(75) & Angle <= deg2rad(105))
 
-plot(heading_PS_model_close)
-qqnorm(resid(heading_PS_model_close))
-qqline(resid(heading_PS_model_close))
+perp_angle_df_neg <- fish_data_nn_normal %>% filter(Angle >= deg2rad(-105) & Angle <= deg2rad(-75)) %>% 
+                                                   mutate(Fish1_Yaw_Heading_PS = -1*Fish1_Yaw_Heading_PS)
 
-test(emmeans(heading_PS_model_close, pairwise ~Ablation*Darkness | Angle, at = list(Angle = c(pi/2))))
+perp_angle_df <- rbind(perp_angle_df,perp_angle_df_neg)
 
+perp_angle_df <- perp_angle_df %>% group_by(Flow,Ablation,Darkness,Flow_Ablation_Darkness,Dist_Cat) %>%
+                                                mutate(mean_turn = mean(Fish1_Yaw_Heading_PS, na.rm = T),
+                                                       sd_turn = sd(Fish1_Yaw_Heading_PS, na.rm = T),
+                                                       n = n()) %>%
+                                                ungroup()
 
-heading_PS_model_far <- lmer(Fish1_Yaw_Heading_PS ~ sin(Angle) + sin(Angle):Ablation + sin(Angle):Darkness + sin(Angle):Ablation:Darkness + (1|Date) , 
-                   data = fish_data_nn_normal_far %>% filter(Flow == "Still Water")) 
-aov_heading_PS_model_far <- Anova(heading_PS_model_far)
+perp_angle_lmer_close <- lmer(Fish1_Yaw_Heading_PS ~ Ablation*Darkness + (1|Date), data = perp_angle_df %>% filter(Dist_Cat == "Close"))
+perp_angle_aov_me_close <- Anova(perp_angle_lmer_close)
 
-plot(heading_PS_model_far)
-qqnorm(resid(heading_PS_model_far))
-qqline(resid(heading_PS_model_far))
+plot(perp_angle_lmer_close)
+qqnorm(resid(perp_angle_lmer_close))
+qqline(resid(perp_angle_lmer_close))
 
-test(emmeans(heading_PS_model_far, pairwise ~Ablation*Darkness | Angle, at = list(Angle = c(pi/2))))
+perp_angle_lmer_far <- lmer(Fish1_Yaw_Heading_PS ~ Ablation*Darkness + (1|Date), data = perp_angle_df %>% filter(Dist_Cat == "Far"))
+perp_angle_aov_me_far <- Anova(perp_angle_lmer_far)
+
+plot(perp_angle_lmer_far)
+qqnorm(resid(perp_angle_lmer_far))
+qqline(resid(perp_angle_lmer_far))
 
 
 turning_school_stats_table <- tibble(
-       Near_or_Far = rep(c(rep("Near",4) , rep("Far",4)), 1),
-       Condition = rep(c("Angle","Angle x Ablation","Angle x Darkness","Angle x Ablation x Darkness"), 2),
-       DF = c(rep(length(heading_PS_model_close@resp$y)-4,4),
-                  rep(length(heading_PS_model_far@resp$y)-4,4)),
-       Chisq = round(c(aov_heading_PS_model_close$Chisq[1:4],aov_heading_PS_model_far$Chisq[1:4]),3),
-       P_Val = round(c(aov_heading_PS_model_close$`Pr(>Chisq)`[1:4],aov_heading_PS_model_far$`Pr(>Chisq)`[1:4]),3),
+       Near_or_Far = rep(c(rep("Near",3) , rep("Far",3)), 1),
+       Condition = rep(c("Ablation","Darkness","Ablation x Darkness"), 2),
+       DF = c(rep(length(perp_angle_lmer_close@resp$y)-3,3),
+                  rep(length(perp_angle_lmer_far@resp$y)-3,3)),
+       Chisq = round(c(perp_angle_aov_me_close$Chisq[1:3],perp_angle_aov_me_far$Chisq[1:3]),3),
+       P_Val = round(c(perp_angle_aov_me_close$`Pr(>Chisq)`[1:3],perp_angle_aov_me_far$`Pr(>Chisq)`[1:3]),3),
        Is_Sig = P_Val < 0.05)
 
 turning_school_stats_table
