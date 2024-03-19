@@ -13,7 +13,7 @@ ruler_length_m = 0.181
 header_3 = list(range(3))
 header_4 = list(range(4))
 
-data_folders = ["Good Single Fish/light/still/"] #,"Good Single Fish/dark/still/","Good Single Fish/ablation/still/"]
+data_folders = ["Good Single Fish/light/still/"] #["Good Single Fish/light/still/"] #,"Good Single Fish/dark/still/","Good Single Fish/ablation/still/"]
 
 for data_folder in data_folders:
 

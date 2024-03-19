@@ -18,13 +18,12 @@ library(emmeans)
 library(lme4)
 library(viridis)
 library(lme4)
-
 ```
 
 ```{r}
 rad2deg <- function(rad) {(rad * 180) / (pi)}
 deg2rad <- function(deg) {(deg * pi) / (180)}
-round_any <- function(x, accuracy, f=round){f(x/ accuracy) * accuracy}
+round_any <- function(x, accuracy, f=round){f(x / accuracy) * accuracy}
 
 deg_ang_mean <- function(x){rad2deg(atan2(mean(sin(deg2rad(x))),mean(cos(deg2rad(x)))))}
 rad_ang_mean <- function(x){atan2(mean(sin(x)),mean(cos(x)))}
@@ -103,7 +102,7 @@ fish_comp_data <- read.csv("Data/Fish_Comp_Values_3D.csv") %>%
                            ungroup() %>%
                            mutate(Type = "Eight")
 
-fish_comp_data <- rbind(fish_comp_data,single_comp_data)
+#fish_comp_data <- rbind(fish_comp_data,single_comp_data)
 
 
 ggplot(fish_comp_data, aes(x = Angle))+
@@ -112,8 +111,15 @@ ggplot(fish_comp_data, aes(x = Angle))+
 
 sd <- 1.77
 
-min_dist <- 3 #sd*0.5
-max_dist <- 100 #sd*1.5
+min_dist <- 0.5 #sd*0.5
+max_dist <- 3 #sd*1.5
+
+offset <- 1.5
+
+top_edge <- 3 - offset 
+bottom_edge <- 0# + offset
+left_edge <- 0 + offset
+right_edge <- 7 - offset
 
 #calculate average angle to all other fish in that range
 fish_comp_data_ring_angles <- fish_comp_data %>% filter(Distance >= min_dist & Distance <= max_dist) %>%
@@ -158,32 +164,45 @@ Kolmogorov–Smirnov around 90 degrees
 
 ```{r}
 
-perp_angle_df <- fish_comp_data %>% filter(Angle >= deg2rad(75) & Angle <= deg2rad(105)) %>% filter(Distance >= 2 & Distance <= 100) %>% filter(Flow == "Still Water")
+perp_angle_df <- fish_data_nn_normal %>% filter(Mean_Angle >= deg2rad(80) & Mean_Angle <= deg2rad(100)) %>% filter(Flow == "Still Water")#%>% filter(Distance >= 0 & Distance <= 3) %>% filter(Flow == "Still Water")
 
-single_fish_df <- perp_angle_df %>% filter(Darkness == "Single" & Ablation == "Single")
+perp_angle_df_neg <- fish_data_nn_normal %>% filter(Mean_Angle >= deg2rad(-100) & Mean_Angle <= deg2rad(-80)) %>% filter(Flow == "Still Water") %>% mutate(Fish1_Yaw_Heading_PS = -1*Fish1_Yaw_Heading_PS)
+
+perp_angle_df <- rbind(perp_angle_df,perp_angle_df_neg)
+
+perp_angle_df <- perp_angle_df %>% group_by(Flow,Ablation,Darkness,Flow_Ablation_Darkness,Type) %>%
+                                                mutate(mean_turn = mean(Fish1_Yaw_Heading_PS, na.rm = T),
+                                                       sd_turn = sd(Fish1_Yaw_Heading_PS, na.rm = T),
+                                                       n = n()) %>%
+                                                ungroup()
+
+#single_fish_df <- perp_angle_df %>% filter(Darkness == "Single" & Ablation == "Single")
 LNDN_fish_df <- perp_angle_df %>% filter(Darkness == "Light" & Ablation == "No Ablation")
 LYDN_fish_df <- perp_angle_df %>% filter(Darkness == "Light" & Ablation == "Ablated")
 LNDY_fish_df <- perp_angle_df %>% filter(Darkness == "Dark" & Ablation == "No Ablation")
 LYDY_fish_df <- perp_angle_df %>% filter(Darkness == "Dark" & Ablation == "Ablated")
 
-LNDN_KS <- ks.test(single_fish_df$Fish1_Yaw_Heading_PS,LNDN_fish_df$Fish1_Yaw_Heading_PS)
-LYDN_KS <- ks.test(single_fish_df$Fish1_Yaw_Heading_PS,LYDN_fish_df$Fish1_Yaw_Heading_PS)
-LNDY_KS <- ks.test(single_fish_df$Fish1_Yaw_Heading_PS,LNDY_fish_df$Fish1_Yaw_Heading_PS)
-LNDY_KS <- ks.test(single_fish_df$Fish1_Yaw_Heading_PS,LYDY_fish_df$Fish1_Yaw_Heading_PS)
+# LNDN_KS <- ks.test(single_fish_df$Fish1_Yaw_Heading_PS,LNDN_fish_df$Fish1_Yaw_Heading_PS)
+# LYDN_KS <- ks.test(single_fish_df$Fish1_Yaw_Heading_PS,LYDN_fish_df$Fish1_Yaw_Heading_PS)
+# LNDY_KS <- ks.test(single_fish_df$Fish1_Yaw_Heading_PS,LNDY_fish_df$Fish1_Yaw_Heading_PS)
+# LNDY_KS <- ks.test(single_fish_df$Fish1_Yaw_Heading_PS,LYDY_fish_df$Fish1_Yaw_Heading_PS)
 
-p.adjust(c(LNDN_KS$p.value,LYDN_KS$p.value,LNDY_KS$p.value,LNDY_KS$p.value))
+#p.adjust(c(LNDN_KS$p.value,LYDN_KS$p.value,LNDY_KS$p.value,LNDY_KS$p.value))
 
-# perp_model <- aov(Fish1_Yaw_Heading_PS ~ Darkness*Ablation, data = perp_angle_df)
-# Anova(perp_model)
-# TukeyHSD(perp_model)
+perp_model <- aov(Fish1_Yaw_Heading_PS ~ Darkness*Ablation, data = perp_angle_df)
+Anova(perp_model)
+qqnorm(resid(perp_model))
+TukeyHSD(perp_model)
 
-ggplot(perp_angle_df, aes(x = Flow_Ablation_Darkness, y = Fish1_Yaw_Heading_PS,
-                          fill = Flow_Ablation_Darkness, color = Flow_Ablation_Darkness))+
+ggplot(perp_angle_df, aes(x = interaction(Ablation, Darkness, sep =", "), y = rad2deg(Fish1_Yaw_Heading_PS),
+                          fill = interaction(Ablation, Darkness, sep =", "), color = interaction(Ablation, Darkness, sep =", ")))+
   stat_dots(side = "both", binwidth = unit(0.01, "npc")) +
-  scale_fill_manual(values = c(light_no_ab_color,light_ab_color,dark_no_ab_color,dark_ab_color,"red")) +
-  scale_color_manual(values = c(light_no_ab_color,light_ab_color,dark_no_ab_color,dark_ab_color,"red")) +
+  geom_point(aes(y = rad2deg(mean_turn)), size = 5, color = "black") +
+  geom_errorbar(aes(ymin=rad2deg(mean_turn-sd_turn), ymax=rad2deg(mean_turn+sd_turn)), width=.2, color = "black")+
   theme_classic()+
-  ggtitle("Heading per Second, 2 to 100 BL, 75 to 100 Degrees")
+  ggtitle(paste0("All Neighbors From ",min_dist," to ",max_dist))+
+  scale_fill_manual(values = c(light_no_ab_color,light_ab_color,dark_no_ab_color,dark_ab_color)) +
+  scale_color_manual(values = c(light_no_ab_color,light_ab_color,dark_no_ab_color,dark_ab_color))
 
 ```
 
@@ -193,7 +212,7 @@ ggplot(perp_angle_df, aes(x = Flow_Ablation_Darkness, y = Fish1_Yaw_Heading_PS,
 
 fish_data_nn_model <- fish_data_nn_normal %>% filter(Flow == "Still Water") %>% 
                                        mutate(AblationCat = ifelse(Ablation == "Ablated",1,0),
-                                              DarknessCat = ifelse(Darkness == "Dark",1,0))
+                                              DarknessCat = ifelse(Darkness == "Dark",1,0)) %>% na.omit()
 
 heading_ps_angle_base <- lm(Fish1_Yaw_Heading_PS ~ 1, data = fish_data_nn_model) 
 
@@ -277,4 +296,77 @@ ggplot(tank_data , aes(Round_X, Round_Y, fill = Mean_HPS))+
 
 
 ```
+
+
+When are single fish flat?
+```{r}
+
+offset <- 2
+
+top_edge <- 3 - offset 
+bottom_edge <- 0# + offset
+left_edge <- 0 + offset
+right_edge <- 7 - offset
+
+#calculate average angle to all other fish in that range
+single_fish_mean_angles <- single_comp_data %>%   #filter(Flow_Ablation_Darkness == "Still Water, No Ablation, Light") %>%
+                                                filter(Fish1_X >= left_edge & Fish1_X <= right_edge) %>%
+                                                filter(Fish1_Y >= bottom_edge & Fish1_Y <= top_edge) %>%
+                                                #filter(Distance >= min_dist & Distance <= max_dist) %>%
+                                                group_by(Date,Year,Month,Day,Trial,
+                                                          Flow,Ablation,Darkness,Type,Flow_Ablation_Darkness,Fish1,Tailbeat_Num) %>%
+                                                 summarise(Mean_Angle = rad_ang_mean(Angle),
+                                                           #Should be the same number each time
+                                                           Fish1_Yaw_Heading_PS = mean(Fish1_Yaw_Heading_PS, rm.na = T),
+                                                           Fish1_X = mean(Fish1_X, rm.na = T),
+                                                           Fish1_Y = mean(Fish1_Y, rm.na = T)) %>%
+                                                 ungroup() %>%
+                                                 #normalize
+                                                 mutate(Fish1_Yaw_Heading_PS = Fish1_Yaw_Heading_PS - mean(Fish1_Yaw_Heading_PS, na.rm = T))
+
+single_flat_lm <- lm(Fish1_Yaw_Heading_PS ~ 1, data = single_fish_mean_angles)
+single_lin_lm <- lm(Fish1_Yaw_Heading_PS ~ Mean_Angle, data = single_fish_mean_angles)
+single_sin_lm <- lm(Fish1_Yaw_Heading_PS ~ sin(Mean_Angle), data = single_fish_mean_angles)
+
+
+AIC(single_flat_lm,single_lin_lm,single_sin_lm) %>% arrange(AIC)
+
+
+single_perp_angle_df <- single_fish_mean_angles %>% filter(Mean_Angle >= deg2rad(80) & Mean_Angle <= deg2rad(100)) %>% filter(Flow == "Still Water")
+
+single_perp_angle_df_neg <- single_fish_mean_angles %>% filter(Mean_Angle >= deg2rad(-100) & Mean_Angle <= deg2rad(-80)) %>% filter(Flow == "Still Water") %>% mutate(Fish1_Yaw_Heading_PS = -1*Fish1_Yaw_Heading_PS)
+
+single_perp_angle_df <- rbind(single_perp_angle_df,single_perp_angle_df)
+
+t.test(single_perp_angle_df$Fish1_Yaw_Heading_PS)
+
+effect_size <- mean(single_perp_angle_df$Fish1_Yaw_Heading_PS) / sd(single_perp_angle_df$Fish1_Yaw_Heading_PS)
+
+ggplot(single_perp_angle_df, aes(x = Fish1_Yaw_Heading_PS))+
+  geom_histogram(color = "black", fill = "red")+
+  theme_classic()
+
+
+ggplot(single_fish_mean_angles, aes(x = Mean_Angle, y = Fish1_Yaw_Heading_PS))+
+  geom_point(color = "red")+
+  # geom_smooth(method = "glm", formula = y ~ 1, color = "black")+
+  # geom_smooth(method = "glm", formula = y ~ x, color = "green")+
+  # geom_smooth(method = "glm", formula = y ~ sin(x), color = "blue")+
+  theme_classic()
+
+
+single_fish_mean_angles_heatmap <- single_fish_mean_angles %>% mutate(RoundX = round_any(Fish1_X, -0.5),
+                                                                      RoundY = round_any(Fish1_Y, -0.5)) %>%
+                                                               group_by(RoundX,RoundY) %>%
+                                                               summarise(mean_turn = mean(Mean_Angle)) %>%
+                                                               ungroup()
+
+ggplot(single_fish_mean_angles_heatmap, aes(x = RoundX, y = RoundY, fill = mean_turn))+
+  geom_tile()+
+  coord_equal()+
+  scale_fill_gradient2(low = "blue", mid = "white", high = "red")+
+  theme_classic()
+
+```
+
 
