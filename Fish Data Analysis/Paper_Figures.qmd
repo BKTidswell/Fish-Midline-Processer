@@ -556,7 +556,7 @@ nnd_lag_plot <- ggplot(school_autocorrs, aes(as.factor(lag), nnd_corr))+
   stat_summary(fun.y=mean, geom="point", size = 3) +
   ylim(0,1)+
   ylab("NND Autocorrelation")+
-  xlab("Offest")+
+  xlab("Offset")+
   theme_classic()+ 
   theme(legend.position = "none")
 
@@ -565,7 +565,7 @@ polar_lag_plot <- ggplot(school_autocorrs, aes(as.factor(lag), polar_corr))+
   stat_summary(fun.y=mean, geom="point", size = 3) +
   ylim(0,1)+
   ylab("Polarity Autocorrelation")+
-  xlab("Offest")+
+  xlab("Offset")+
   theme_classic()+ 
   theme(legend.position = "none")
 
@@ -574,7 +574,7 @@ speed_lag_plot <- ggplot(school_autocorrs, aes(as.factor(lag), speed_corr))+
   stat_summary(fun.y=mean, geom="point", size = 3) +
   ylim(0,1)+
   ylab("Speed Autocorrelation")+
-  xlab("Offest")+
+  xlab("Offset")+
   theme_classic()+ 
   theme(legend.position = "none")
 
@@ -583,7 +583,7 @@ groups_lag_plot <- ggplot(school_autocorrs, aes(as.factor(lag), groups_corr))+
   stat_summary(fun.y=mean, geom="point", size = 3) +
   ylim(0,1)+
   ylab("Numebr of Groups Autocorrelation")+
-  xlab("Offest")+
+  xlab("Offset")+
   theme_classic()+ 
   theme(legend.position = "none")
 
@@ -638,19 +638,31 @@ single_perp_angle_df_neg_all <- single_fish_mean_angles_all %>% filter(Angle >= 
 single_perp_angle_df_all <- rbind(single_perp_angle_df_all,single_perp_angle_df_neg_all) %>% mutate(Label = "All Data")
 
 
-single_perp_angle_graphing <- rbind(single_perp_angle_df_middle,single_perp_angle_df_all)
+single_perp_angle_graphing <- rbind(single_perp_angle_df_middle,single_perp_angle_df_all) %>%
+                              mutate(Rounded_Turning = round_any(Fish1_Yaw_Heading_PS, pi/6)) %>%
+                              group_by(Label) %>%
+                              mutate(group_n = n()) %>%
+                              ungroup() %>%
+                              group_by(Label,Rounded_Turning,group_n) %>%
+                              summarise(perc = mean(n()/group_n*100)) %>%
+                              ungroup()
 
-
+t.test(single_perp_angle_df_all$Fish1_Yaw_Heading_PS)
 t.test(single_perp_angle_df_middle$Fish1_Yaw_Heading_PS)
 
 
-single_plot <- ggplot(single_perp_angle_graphing, aes(x = rad2deg(Fish1_Yaw_Heading_PS), fill = Label))+
-  geom_histogram(aes(y=0.5*..density..),binwidth=45,position='identity', alpha = 0.5)+
+single_plot <- ggplot(single_perp_angle_graphing, aes(x = rad2deg(Rounded_Turning), y = perc, fill = Label))+
+  #geom_histogram(aes(y=0.5*..density..*100),binwidth=45,position='identity', alpha = 0.5)+
+  geom_col(position='identity',alpha = 0.5)+
   theme_classic()+
   scale_fill_manual(values = c("#CE2414","#138EC2"))+
-  ylab("Proportion of Values")+
-  xlab("Turning Angle (Degrees / s)")+
-  xlim(-200,200)
+  ylab("Percentage of Values")+
+  xlab("Turning Angle Rate (Degrees / s)")+
+  xlim(-200,200)+
+  theme(axis.text.x = element_text(size = text_size),
+        axis.text.y = element_text(size = text_size),
+        axis.title.x = element_text(size = text_size),
+        axis.title.y = element_text(size = text_size))
 
 single_plot
 
