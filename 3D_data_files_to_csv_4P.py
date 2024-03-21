@@ -1652,7 +1652,7 @@ class trial:
         return(out_data)
 
 
-data_folder = "Single Fish Combiner/Multi Data/"
+data_folder = "3D_Finished_Fish_Data_4P_gaps/"
 
 trials = []
 
@@ -1673,23 +1673,23 @@ print("Creating CSVs...")
 
 for trial in trials:
     if first_trial:
-        # fish_sigular_dataframe = trial.return_fish_vals()
+        fish_sigular_dataframe = trial.return_fish_vals()
         fish_comp_dataframe = trial.return_comp_vals()
-        # fish_raw_comp_dataframe = trial.return_raw_comp_vals()
-        # fish_school_dataframe = trial.return_school_vals()
+        fish_raw_comp_dataframe = trial.return_raw_comp_vals()
+        fish_school_dataframe = trial.return_school_vals()
         first_trial = False
     else:
-        # fish_sigular_dataframe = fish_sigular_dataframe.append(trial.return_fish_vals())
+        fish_sigular_dataframe = fish_sigular_dataframe.append(trial.return_fish_vals())
         fish_comp_dataframe = fish_comp_dataframe.append(trial.return_comp_vals())
-        # fish_raw_comp_dataframe = fish_raw_comp_dataframe.append(trial.return_raw_comp_vals())
-        # fish_school_dataframe = fish_school_dataframe.append(trial.return_school_vals())
+        fish_raw_comp_dataframe = fish_raw_comp_dataframe.append(trial.return_raw_comp_vals())
+        fish_school_dataframe = fish_school_dataframe.append(trial.return_school_vals())
 
-# fish_sigular_dataframe.to_csv("Fish_Individual_Values_3D.csv")
-#fish_comp_dataframe.to_csv("Fish_Comp_Values_3D.csv")
-# fish_raw_comp_dataframe.to_csv("Fish_Raw_Comp_Values_3D.csv")
-# fish_school_dataframe.to_csv("Fish_School_Values_3D.csv")
+fish_sigular_dataframe.to_csv("Fish_Individual_Values_3D.csv")
+fish_comp_dataframe.to_csv("Fish_Comp_Values_3D.csv")
+fish_raw_comp_dataframe.to_csv("Fish_Raw_Comp_Values_3D.csv")
+fish_school_dataframe.to_csv("Fish_School_Values_3D.csv")
 
-fish_comp_dataframe.to_csv("Fish_Comp_Values_3D_Single.csv")
+#fish_comp_dataframe.to_csv("Fish_Comp_Values_3D_Single.csv")
 
 
 # #Recalculate when new data is added
