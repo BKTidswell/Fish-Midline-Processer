@@ -155,11 +155,7 @@ nn_heading_sum <- fish_data_nn_normal %>% mutate(angle_bins = round_any(Mean_Ang
                                                 ungroup()
 ```
 
-Distribution of turning velocities at say 90 degrees
-just make a Kolmogorov–Smirnov to compare distribution. See if distribution is different
-  Not larger or smaller?
-Also maybe just do a t test 
-trim the edge points
+Distribution of turning velocities at say 90 degrees just make a Kolmogorov--Smirnov to compare distribution. See if distribution is different Not larger or smaller? Also maybe just do a t test trim the edge points
 
 too much variance, not significant
 
@@ -167,7 +163,7 @@ Load in Single Fish
 
 Estimating functions
 
-Kolmogorov–Smirnov around 90 degrees
+Kolmogorov--Smirnov around 90 degrees
 
 ```{r}
 
@@ -215,8 +211,6 @@ ggplot(perp_angle_df, aes(x = interaction(Ablation, Darkness, sep =", "), y = ra
   ylab("Turning Angle (Degrees / s)")
 
 ```
-
-
 
 ```{r}
 
@@ -307,8 +301,8 @@ ggplot(tank_data , aes(Round_X, Round_Y, fill = Mean_HPS))+
 
 ```
 
-
 When are single fish flat?
+
 ```{r}
 
 x_offset <- 1.5
@@ -416,5 +410,3 @@ for(x in seq(0,2,0.25)){
 }
 
 ```
-
-

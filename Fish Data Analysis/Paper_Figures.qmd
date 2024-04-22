@@ -55,6 +55,7 @@ allowed_flow_type = c("Still Water","Flowing Water (2 BL/s)")
 dot_binwidth = 0.03
 
 text_size = 16
+sig_text_size = 6
 
 # for turning data
 x_offset <- 1.95
@@ -130,12 +131,8 @@ perp_angle_df <- perp_angle_df %>% group_by(Flow,Ablation,Darkness,Flow_Ablation
                                                        n = n()) %>%
                                                 ungroup()
 
-perp_angle_lm_close <- lm(Fish1_Yaw_Heading_PS ~ Ablation*Darkness, data = perp_angle_df %>% filter(Dist_Cat == "Close"))
-Anova(perp_angle_lm_close)
-emmeans(perp_angle_lm_close, specs = pairwise ~ Ablation:Darkness)
-
-my_comparisons <- list(c("No Ablation, Light", "Ablated, Dark"),
-                       c("No Ablation, Dark", "Ablated, Dark"))
+sig_dict <- list("No Ablation, Light" = "A", "Ablated, Light" = "B","No Ablation, Dark" = "A", "Ablated, Dark" = "B")
+perp_angle_df$sig_letters <- unlist(sig_dict[interaction(perp_angle_df$Ablation, perp_angle_df$Darkness, sep =", ")])
 
 heading_PS_graph_close <- ggplot(perp_angle_df %>% filter(Dist_Cat == "Close"),
                                  aes(x = interaction(Ablation, Darkness, sep =", "), y = rad2deg(Fish1_Yaw_Heading_PS),
@@ -150,20 +147,18 @@ heading_PS_graph_close <- ggplot(perp_angle_df %>% filter(Dist_Cat == "Close"),
   theme(legend.position = "none")+
   xlab("")+
   ylab("Focal Fish Turning Angular Speed (Degrees / s)")+
-  scale_y_continuous(breaks = seq(-180,180, 60))+
-  stat_compare_means(comparisons = my_comparisons, label = "p.signif", hide.ns = TRUE) +
+  scale_y_continuous(breaks = seq(-180,180, 60), limits = c(-180,300))+
+  geom_text(aes(label = sig_letters, y = 300), color = "black", size = sig_text_size) +
   theme(axis.text.x = element_text(size = text_size),
         axis.text.y = element_text(size = text_size),
         axis.title.y = element_text(size = text_size))+
   scale_x_discrete(labels=function(x){sub(",\\s", "\n", x)})
 
-
-perp_angle_lm_far <- lm(Fish1_Yaw_Heading_PS ~ Ablation*Darkness, data = perp_angle_df %>% filter(Dist_Cat == "Far"))
-Anova(perp_angle_lm_far)
-emmeans(perp_angle_lm_far, specs = pairwise ~ Ablation:Darkness)
-
 my_comparisons <- list(c("No Ablation, Light", "No Ablation, Dark"),
                        c("No Ablation, Light", "Ablated, Dark"))
+
+sig_dict <- list("No Ablation, Light" = "A", "Ablated, Light" = "A","No Ablation, Dark" = "B", "Ablated, Dark" = "B")
+perp_angle_df$sig_letters <- unlist(sig_dict[interaction(perp_angle_df$Ablation, perp_angle_df$Darkness, sep =", ")])
 
 heading_PS_graph_far <- ggplot(perp_angle_df %>% filter(Dist_Cat == "Far"),
                                  aes(x = interaction(Ablation, Darkness, sep =", "), y = rad2deg(Fish1_Yaw_Heading_PS),
@@ -172,19 +167,18 @@ heading_PS_graph_far <- ggplot(perp_angle_df %>% filter(Dist_Cat == "Far"),
   geom_point(aes(y = rad2deg(mean_turn)), size = 5, color = "black") +
    geom_line(aes(y = rad2deg(mean_turn), group = 1), size = 1, color = "black") +
   geom_errorbar(aes(ymin=rad2deg(mean_turn-sd_turn), ymax=rad2deg(mean_turn+sd_turn)), width=.2, color = "black")+
+  geom_text(aes(label = sig_letters, y = 300), color = "black", size = sig_text_size) +
   theme_light()+
   scale_fill_manual(values = c(light_no_ab_color,light_ab_color,dark_no_ab_color,dark_ab_color)) +
   scale_color_manual(values = c(light_no_ab_color,light_ab_color,dark_no_ab_color,dark_ab_color)) +
   theme(legend.position = "none")+
   xlab("")+
   ylab("Focal Fish Turning Angular Speed (Degrees / s)")+
-  scale_y_continuous(breaks = seq(-180,180, 60))+
-  stat_compare_means(comparisons = my_comparisons, label = "p.signif", hide.ns = TRUE) +
+  scale_y_continuous(breaks = seq(-180,180, 60), limits = c(-180,300))+
   theme(axis.text.x = element_text(size = text_size),
         axis.text.y = element_text(size = text_size),
         axis.title.y = element_text(size = text_size))+
   scale_x_discrete(labels=function(x){sub(",\\s", "\n", x)})
-
 
 heading_PS_graph_close
 heading_PS_graph_far
@@ -199,7 +193,7 @@ heading_PS_mega_plot <- annotate_figure(heading_PS_mega_plot,
                 top = text_grob("  Near (< 2.5 BL)                                                Far (> 2.5 BL)",
                                 size = 24))
 
-ggsave("Paper Figures/heading_PS_mega_plot.png", heading_PS_mega_plot, width = 14, height = 7)
+ggsave("Paper Figures/Figure 3.png", heading_PS_mega_plot, width = 14, height = 7)
 
 ```
 
@@ -246,10 +240,8 @@ school_data <- school_data %>% mutate(Flow = ifelse(Flow == "0", "Still Water", 
 
 ```{r}
 
-my_comparisons <- list(c("No Ablation, Light", "No Ablation, Dark"),
-                       c("No Ablation, Light", "Ablated, Dark"),
-                       c("Ablated, Light", "No Ablation, Dark"),
-                       c("Ablated, Light", "Ablated, Dark"))
+sig_dict <- list("No Ablation, Light" = "A", "Ablated, Light" = "A","No Ablation, Dark" = "B", "Ablated, Dark" = "B")
+school_data$sig_letters <- unlist(sig_dict[interaction(school_data$Ablation, school_data$Darkness, sep =", ")])
 
 nnd_still <- ggplot(school_data %>% filter(Flow == "Still Water"),
        aes(x = interaction(Ablation,Darkness,sep=", "), y = NND,
@@ -267,13 +259,14 @@ nnd_still <- ggplot(school_data %>% filter(Flow == "Still Water"),
   theme_light()+ 
   theme(legend.position = "none") +
   #ylim(0,2.5)+
-  stat_compare_means(comparisons = my_comparisons, label = "p.signif", hide.ns = TRUE) +
+  geom_text(aes(label = sig_letters, y = 4), color = "black", size = sig_text_size) +
   theme(axis.text.x = element_text(size = text_size),
         axis.text.y = element_text(size = text_size),
         axis.title.y = element_text(size = text_size))+
   scale_x_discrete(labels=function(x){sub(",\\s", "\n", x)})
 
-my_comparisons <- list(c("Ablated, Light", "No Ablation, Dark"))
+sig_dict <- list("No Ablation, Light" = "", "Ablated, Light" = "","No Ablation, Dark" = "", "Ablated, Dark" = "")
+school_data$sig_letters <- unlist(sig_dict[interaction(school_data$Ablation, school_data$Darkness, sep =", ")])
 
 nnd_flow <- ggplot(school_data %>% filter(Flow == "Flowing Water (2 BL/s)"),
        aes(x = interaction(Ablation,Darkness,sep=", "), y = NND,
@@ -291,7 +284,7 @@ nnd_flow <- ggplot(school_data %>% filter(Flow == "Flowing Water (2 BL/s)"),
   theme_light()+ 
   theme(legend.position = "none") +
   #ylim(0,5)+
-  stat_compare_means(comparisons = my_comparisons, label = "p.signif", hide.ns = TRUE) +
+  geom_text(aes(label = sig_letters, y = 4), color = "black", size = sig_text_size) +
   theme(axis.text.x = element_text(size = text_size),
         axis.text.y = element_text(size = text_size),
         axis.title.y = element_text(size = text_size))+
@@ -299,18 +292,14 @@ nnd_flow <- ggplot(school_data %>% filter(Flow == "Flowing Water (2 BL/s)"),
 
 nnd_still
 nnd_flow
-
-nnd_glm <- glm(NND ~ Ablation*Darkness*Flow, data = school_data)
-Anova(nnd_glm)
-emmeans(nnd_glm, specs = pairwise ~ Ablation:Darkness | Flow)
-
 ```
 
 ### Polarization
 
 ```{r}
 
-my_comparisons <- list()
+sig_dict <- list("No Ablation, Light" = "", "Ablated, Light" = "","No Ablation, Dark" = "", "Ablated, Dark" = "")
+school_data$sig_letters <- unlist(sig_dict[interaction(school_data$Ablation, school_data$Darkness, sep =", ")])
 
 polar_still <- ggplot(school_data %>% filter(Flow == "Still Water"),
        aes(x = interaction(Ablation,Darkness,sep=", "), y = School_Polar,
@@ -329,13 +318,14 @@ polar_still <- ggplot(school_data %>% filter(Flow == "Still Water"),
   theme(legend.position = "none") +
   ylim(0,1)+
   scale_y_continuous(breaks = c(0,0.25,0.5,0.75,1))+
-  stat_compare_means(comparisons = my_comparisons, label = "p.signif", hide.ns = TRUE) +
+  geom_text(aes(label = sig_letters, y = 1.1), color = "black", size = sig_text_size) +
   theme(axis.text.x = element_text(size = text_size),
         axis.text.y = element_text(size = text_size),
         axis.title.y = element_text(size = text_size))+
   scale_x_discrete(labels=function(x){sub(",\\s", "\n", x)})
 
-my_comparisons <- list()
+sig_dict <- list("No Ablation, Light" = "A", "Ablated, Light" = "A","No Ablation, Dark" = "A", "Ablated, Dark" = "B")
+school_data$sig_letters <- unlist(sig_dict[interaction(school_data$Ablation, school_data$Darkness, sep =", ")])
 
 polar_flow <- ggplot(school_data %>% filter(Flow == "Flowing Water (2 BL/s)"),
        aes(x = interaction(Ablation,Darkness,sep=", "), y = School_Polar,
@@ -354,7 +344,7 @@ polar_flow <- ggplot(school_data %>% filter(Flow == "Flowing Water (2 BL/s)"),
   theme(legend.position = "none") +
   ylim(0,1)+
   scale_y_continuous(breaks = c(0,0.25,0.5,0.75,1))+
-  stat_compare_means(comparisons = my_comparisons, label = "p.signif", hide.ns = TRUE) +
+  geom_text(aes(label = sig_letters, y = 1.1), color = "black", size = sig_text_size) +
   theme(axis.text.x = element_text(size = text_size),
         axis.text.y = element_text(size = text_size),
         axis.title.y = element_text(size = text_size))+
@@ -362,16 +352,13 @@ polar_flow <- ggplot(school_data %>% filter(Flow == "Flowing Water (2 BL/s)"),
 
 polar_still
 polar_flow
-
-polar_glm <- glm(School_Polar ~ Ablation*Darkness*Flow, data = school_data)
-Anova(polar_glm)
-emmeans(polar_glm, specs = pairwise ~ Ablation:Darkness | Flow)
 ```
 
 ### Speed
 
 ```{r}
-my_comparisons <- list()
+sig_dict <- list("No Ablation, Light" = "", "Ablated, Light" = "","No Ablation, Dark" = "", "Ablated, Dark" = "")
+school_data$sig_letters <- unlist(sig_dict[interaction(school_data$Ablation, school_data$Darkness, sep =", ")])
 
 speed_still <- ggplot(school_data %>% filter(Flow == "Still Water"),
        aes(x = interaction(Ablation,Darkness,sep=", "), y = School_Speed,
@@ -389,13 +376,14 @@ speed_still <- ggplot(school_data %>% filter(Flow == "Still Water"),
   theme_light()+ 
   theme(legend.position = "none") +
   ylim(0,6)+
-  stat_compare_means(comparisons = my_comparisons, label = "p.signif", hide.ns = TRUE) +
+  geom_text(aes(label = sig_letters, y = 5.5), color = "black", size = sig_text_size) +
   theme(axis.text.x = element_text(size = text_size),
         axis.text.y = element_text(size = text_size),
         axis.title.y = element_text(size = text_size))+
   scale_x_discrete(labels=function(x){sub(",\\s", "\n", x)})
 
-my_comparisons <- list()
+sig_dict <- list("No Ablation, Light" = "", "Ablated, Light" = "","No Ablation, Dark" = "", "Ablated, Dark" = "")
+school_data$sig_letters <- unlist(sig_dict[interaction(school_data$Ablation, school_data$Darkness, sep =", ")])
 
 speed_flow <- ggplot(school_data %>% filter(Flow == "Flowing Water (2 BL/s)"),
        aes(x = interaction(Ablation,Darkness,sep=", "), y = School_Speed,
@@ -413,7 +401,7 @@ speed_flow <- ggplot(school_data %>% filter(Flow == "Flowing Water (2 BL/s)"),
   theme_light()+ 
   theme(legend.position = "none") +
   ylim(0,6)+
-  stat_compare_means(comparisons = my_comparisons, label.y = c(5.5), label = "p.signif", hide.ns = TRUE) +
+  geom_text(aes(label = sig_letters, y = 5.5), color = "black", size = sig_text_size) +
   theme(axis.text.x = element_text(size = text_size),
         axis.text.y = element_text(size = text_size),
         axis.title.y = element_text(size = text_size))+
@@ -421,10 +409,6 @@ speed_flow <- ggplot(school_data %>% filter(Flow == "Flowing Water (2 BL/s)"),
 
 speed_still
 speed_flow
-
-speed_glm <- glm(School_Speed ~ Ablation*Darkness*Flow, data = school_data)
-Anova(speed_glm)
-emmeans(speed_glm, specs = pairwise ~ Ablation:Darkness | Flow)
 ```
 
 ### Number of Groups
@@ -436,6 +420,9 @@ group_sum_data <- school_data %>% filter(Groups > 0) %>% group_by(Flow, Ablation
                             mutate(Groups = as.factor(Groups),
                                    Groups = fct_rev(Groups))
 
+sig_dict <- list("No Ablation, Light" = "A", "Ablated, Light" = "A","No Ablation, Dark" = "B", "Ablated, Dark" = "B")
+group_sum_data$sig_letters <- unlist(sig_dict[interaction(group_sum_data$Ablation, group_sum_data$Darkness, sep =", ")])
+
 group_still <- ggplot(group_sum_data %>% filter(Flow == "Still Water"),
        aes(x = interaction(Ablation,Darkness,sep=", "),
            y = count,
@@ -446,10 +433,14 @@ group_still <- ggplot(group_sum_data %>% filter(Flow == "Still Water"),
     theme_light()+ 
     scale_fill_manual(values=c("8" = "#1D3557","7" = "#325A7C","6" = "#457B9D","5" = "#7BAFBF",
                                "4" = "#A8DADC","3" = "#D0EBE6","2" = "#F1FAEE","1" = "#3ae639")) +
+    geom_text(aes(label = sig_letters, y = 1.1), color = "black", size = sig_text_size) +
     theme(axis.text.x = element_text(size = text_size),
           axis.text.y = element_text(size = text_size),
           axis.title.y = element_text(size = text_size))+
   scale_x_discrete(labels=function(x){sub(",\\s", "\n", x)})
+
+sig_dict <- list("No Ablation, Light" = "", "Ablated, Light" = "","No Ablation, Dark" = "", "Ablated, Dark" = "")
+group_sum_data$sig_letters <- unlist(sig_dict[interaction(group_sum_data$Ablation, group_sum_data$Darkness, sep =", ")])
 
 group_flow <- ggplot(group_sum_data %>% filter(Flow == "Flowing Water (2 BL/s)"),
        aes(x = interaction(Ablation,Darkness,sep=", "),
@@ -461,6 +452,7 @@ group_flow <- ggplot(group_sum_data %>% filter(Flow == "Flowing Water (2 BL/s)")
     theme_light()+ 
     scale_fill_manual(values=c("8" = "#1D3557","7" = "#325A7C","6" = "#457B9D","5" = "#7BAFBF",
                                "4" = "#A8DADC","3" = "#D0EBE6","2" = "#F1FAEE","1" = "#3ae639")) +
+    geom_text(aes(label = sig_letters, y = 1.1), color = "black", size = sig_text_size) +
     theme(axis.text.x = element_text(size = text_size),
           axis.text.y = element_text(size = text_size),
           axis.title.y = element_text(size = text_size))+
@@ -469,17 +461,6 @@ group_flow <- ggplot(group_sum_data %>% filter(Flow == "Flowing Water (2 BL/s)")
 
 group_still
 group_flow
-
-groups_glm <- glm(Groups ~ Ablation*Darkness*Flow, data = school_data, family  = poisson)
-Anova(groups_glm)
-emmeans(groups_glm, specs = pairwise ~ Ablation:Darkness | Flow)
-
-groups_glm_still <- glm(Groups ~ Ablation*Darkness, data = school_data %>% filter(Flow == "Still Water"), family  = poisson)
-Anova(groups_glm_still, test.statistic="F")
-
-groups_glm_flow <- glm(Groups ~ Ablation*Darkness, data = school_data %>% filter(Flow == "Flowing Water (2 BL/s)"), family  = poisson)
-Anova(groups_glm_flow, test.statistic="F")
-
 ```
 
 ### Now we combine them
@@ -499,7 +480,7 @@ school_stats_mega_plot <- annotate_figure(school_stats_mega_plot,
                                 size = 24),
                 fig.lab.pos = "top")
 
-ggsave("Paper Figures/school_stats_mega_plot.png", school_stats_mega_plot, width = 12, height = 17)
+ggsave("Paper Figures/Figure 2.png", school_stats_mega_plot, width = 12, height = 17)
 ```
 
 Autocorrelation Figure

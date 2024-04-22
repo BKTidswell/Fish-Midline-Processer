@@ -7,6 +7,7 @@ editor: visual
 ## Loading in the Libraries for Everything
 
 ```{r}
+library(marginaleffects)
 library(tidyverse)
 library(ggplot2)
 library(bbmle) #For ICtab
@@ -84,83 +85,120 @@ school_data <- school_data %>% mutate(Flow = ifelse(Flow == "0", "Still Water", 
                            ungroup()
 ```
 
+```{r}
+still_school <- school_data %>% filter(Flow == "Still Water")
+
+nnd_lmer_still <- lmer(NND ~ Ablation*Darkness + Trial + (1|Date), data = still_school)
+nnd_s_aov_me <- Anova(nnd_lmer_still, type=c("III"))
+
+m1 <- lmer(NND ~ Ablation*Darkness + (1|Date), data = still_school)
+m2 <- lmer(NND ~ Ablation*Darkness + Trial + (1|Date), data = still_school)
+m3 <- lmer(NND ~ Ablation*Darkness + Trial + (0 + Trial|Date), data = still_school)
+m4 <- lmer(NND ~ Ablation*Darkness + Trial+ (0 + Trial|Date) + (1|Date), data = still_school)
+m5 <- lmer(NND ~ Ablation*Darkness + (1|Date/Trial) + (1|Date), data = still_school)
+
+AIC(m1,m2,m3,m4,m5) %>% arrange(AIC)
+
+summary(nnd_lmer_still)
+nnd_s_aov_me
+
+Anova(m5, type=c("III"))
+
+emmeans(nnd_lmer_still, specs = pairwise ~ Ablation:Darkness)
+
+NND_pred <- predictions(m3, newdata = datagrid(Ablation = c("No Ablation","Ablated"),
+         Darkness = c("Light","Dark"),
+         Date = unique(still_school$Date),
+         Trial = seq(1:max(still_school$Trial)),
+         model = nnd_lmer_still))
+
+ggplot(NND_pred, aes(x = Trial, y = estimate, color = Date))+
+  geom_line()+
+  geom_point(data = still_school, aes(x = Trial, y = NND, color = Date))+
+  facet_wrap(~ Ablation+Darkness)+
+  theme_light()
+```
+
+
 ### School Stats Table Here
 
 ```{r}
 
-nnd_lmer_still <- lmer(NND ~ Ablation*Darkness + (1|Date), data = school_data %>% filter(Flow == "Still Water"))
-nnd_s_aov_me <- Anova(nnd_lmer_still)
+nnd_lmer_still <- lmer(NND ~ Ablation*Darkness + Trial + (1|Date), data = school_data %>% filter(Flow == "Still Water"))
+nnd_s_aov_me <- Anova(nnd_lmer_still, type=c("III"))
+nnd_s_aov_me
 
 plot(nnd_lmer_still)
 qqnorm(resid(nnd_lmer_still))
 qqline(resid(nnd_lmer_still))
 
-nnd_lmer_flow <- lmer(NND ~ Ablation*Darkness + (1|Date), data = school_data %>% filter(Flow == "Flowing Water (2 BL/s)"))
-nnd_f_aov_me <- Anova(nnd_lmer_flow)
+nnd_lmer_flow <- lmer(NND ~ Ablation*Darkness + Trial + (1|Date), data = school_data %>% filter(Flow == "Flowing Water (2 BL/s)"))
+nnd_f_aov_me <- Anova(nnd_lmer_flow, type=c("III"))
 
 plot(nnd_lmer_flow)
 qqnorm(resid(nnd_lmer_flow))
 qqline(resid(nnd_lmer_flow))
 
-polar_lmer_still <- lmer(School_Polar ~ Ablation*Darkness + (1|Date), data = school_data %>% filter(Flow == "Still Water"))
-polar_s_aov_me <- Anova(polar_lmer_still)
+polar_lmer_still <- lmer(School_Polar ~ Ablation*Darkness + Trial + (1|Date), data = school_data %>% filter(Flow == "Still Water"))
+polar_s_aov_me <- Anova(polar_lmer_still, type=c("III"))
 
 plot(polar_lmer_still)
 qqnorm(resid(polar_lmer_still))
 qqline(resid(polar_lmer_still))
 
-polar_lmer_flow <- lmer(School_Polar ~ Ablation*Darkness + (1|Date), data = school_data %>% filter(Flow == "Flowing Water (2 BL/s)"))
-polar_f_aov_me <- Anova(polar_lmer_flow)
+polar_lmer_flow <- lmer(School_Polar ~ Ablation*Darkness + Trial + (1|Date), data = school_data %>% filter(Flow == "Flowing Water (2 BL/s)"))
+polar_f_aov_me <- Anova(polar_lmer_flow, type=c("III"))
 
 plot(polar_lmer_flow)
 qqnorm(resid(polar_lmer_flow))
 qqline(resid(polar_lmer_flow))
 
-speed_lmer_still <- lmer(School_Speed ~ Ablation*Darkness + (1|Date), data = school_data %>% filter(Flow == "Still Water"))
-speed_s_aov_me <- Anova(speed_lmer_still)
+speed_lmer_still <- lmer(School_Speed ~ Ablation*Darkness + Trial + (1|Date), data = school_data %>% filter(Flow == "Still Water"))
+speed_s_aov_me <- Anova(speed_lmer_still, type=c("III"))
 
 plot(speed_lmer_still)
 qqnorm(resid(speed_lmer_still))
 qqline(resid(speed_lmer_still))
 
-speed_lmer_flow <- lmer(School_Speed ~ Ablation*Darkness + (1|Date), data = school_data %>% filter(Flow == "Flowing Water (2 BL/s)"))
-speed_f_aov_me <- Anova(speed_lmer_flow)
+speed_lmer_flow <- lmer(School_Speed ~ Ablation*Darkness + Trial + (1|Date), data = school_data %>% filter(Flow == "Flowing Water (2 BL/s)"))
+speed_f_aov_me <- Anova(speed_lmer_flow, type=c("III"))
 
 plot(speed_lmer_flow)
 qqnorm(resid(speed_lmer_flow))
 qqline(resid(speed_lmer_flow))
 
-groups_lmer_still <- glmer(Groups ~ Ablation*Darkness + (1|Date), data = school_data %>% filter(Flow == "Still Water"),
+groups_lmer_still <- glmer(Groups ~ Ablation*Darkness + Trial + (1|Date), data = school_data %>% filter(Flow == "Still Water"),
                            family = poisson)
-groups_s_aov_me <- Anova(groups_lmer_still)
+groups_s_aov_me <- Anova(groups_lmer_still, type=c("III"))
 
 plot(groups_lmer_still)
 qqnorm(resid(groups_lmer_still))
 qqline(resid(groups_lmer_still))
 
-groups_lmer_flow <- glmer(Groups ~ Ablation*Darkness + (1|Date), data = school_data %>% filter(Flow == "Flowing Water (2 BL/s)"),
+groups_lmer_flow <- glmer(Groups ~ Ablation*Darkness + Trial + (1|Date), data = school_data %>% filter(Flow == "Flowing Water (2 BL/s)"),
                            family = poisson)
-groups_f_aov_me <- Anova(groups_lmer_flow)
+groups_f_aov_me <- Anova(groups_lmer_flow, type=c("III"))
 
 plot(groups_lmer_flow)
 qqnorm(resid(groups_lmer_flow))
 qqline(resid(groups_lmer_flow))
 
+values_to_grab <- c(2,3,4,5)
 
-glmm_school_stats_table <- tibble(Stat = c(rep("NND",6),rep("Polarization",6),rep("Speed",6),rep("Groups",6)),
-       Flow_or_Still = rep(c(rep("Still",3) , rep("Flow",3)), 4),
-       Condition = rep(c("Ablation","Darkness","Ablation x Darkness"), 8),
-       DF = rep(c(rep(length(nnd_lmer_still@resp$y)-3,3),
-                  rep(length(nnd_lmer_flow@resp$y)-3,3)),times = 4),
-       Chisq = round(c(nnd_s_aov_me$Chisq[1:3],nnd_f_aov_me$Chisq[1:3],
-                 polar_s_aov_me$Chisq[1:3],polar_f_aov_me$Chisq[1:3],
-                 speed_s_aov_me$Chisq[1:3],speed_f_aov_me$Chisq[1:3],
-                 groups_s_aov_me$Chisq[1:3],groups_f_aov_me$Chisq[1:3]),2),
+glmm_school_stats_table <- tibble(Stat = c(rep("NND",8),rep("Polarization",8),rep("Speed",8),rep("Groups",8)),
+       Flow_or_Still = rep(c(rep("Still",4) , rep("Flow",4)), 4),
+       Condition = rep(c("Ablation","Darkness","Trial","Ablation x Darkness"), 8),
+       DF = rep(c(rep(length(nnd_lmer_still@resp$y)-3,4),
+                  rep(length(nnd_lmer_flow@resp$y)-3,4)),times = 4),
+       Chisq = round(c(nnd_s_aov_me$Chisq[values_to_grab],nnd_f_aov_me$Chisq[values_to_grab],
+                 polar_s_aov_me$Chisq[values_to_grab],polar_f_aov_me$Chisq[values_to_grab],
+                 speed_s_aov_me$Chisq[values_to_grab],speed_f_aov_me$Chisq[values_to_grab],
+                 groups_s_aov_me$Chisq[values_to_grab],groups_f_aov_me$Chisq[values_to_grab]),2),
        
-       P_Val = round(c(nnd_s_aov_me$`Pr(>Chisq)`[1:3],nnd_f_aov_me$`Pr(>Chisq)`[1:3],
-                 polar_s_aov_me$`Pr(>Chisq)`[1:3],polar_f_aov_me$`Pr(>Chisq)`[1:3],
-                 speed_s_aov_me$`Pr(>Chisq)`[1:3],speed_f_aov_me$`Pr(>Chisq)`[1:3],
-                 groups_s_aov_me$`Pr(>Chisq)`[1:3],groups_f_aov_me$`Pr(>Chisq)`[1:3]),2),
+       P_Val = round(c(nnd_s_aov_me$`Pr(>Chisq)`[values_to_grab],nnd_f_aov_me$`Pr(>Chisq)`[values_to_grab],
+                 polar_s_aov_me$`Pr(>Chisq)`[values_to_grab],polar_f_aov_me$`Pr(>Chisq)`[values_to_grab],
+                 speed_s_aov_me$`Pr(>Chisq)`[values_to_grab],speed_f_aov_me$`Pr(>Chisq)`[values_to_grab],
+                 groups_s_aov_me$`Pr(>Chisq)`[values_to_grab],groups_f_aov_me$`Pr(>Chisq)`[values_to_grab]),2),
        
        Is_Sig = P_Val < 0.05)
 
@@ -239,34 +277,33 @@ perp_angle_df <- perp_angle_df %>% group_by(Flow,Ablation,Darkness,Flow_Ablation
                                                        n = n()) %>%
                                                 ungroup()
 
-perp_angle_lmer_close <- lmer(Fish1_Yaw_Heading_PS ~ Ablation*Darkness + (1|Date), data = perp_angle_df %>% filter(Dist_Cat == "Close"))
+perp_angle_lmer_close <- lmer(Fish1_Yaw_Heading_PS ~ Ablation*Darkness + Trial + (1|Date), data = perp_angle_df %>% filter(Dist_Cat == "Close"))
 perp_angle_aov_me_close <- Anova(perp_angle_lmer_close)
 
 plot(perp_angle_lmer_close)
 qqnorm(resid(perp_angle_lmer_close))
 qqline(resid(perp_angle_lmer_close))
 
-perp_angle_lmer_far <- lmer(Fish1_Yaw_Heading_PS ~ Ablation*Darkness + (1|Date), data = perp_angle_df %>% filter(Dist_Cat == "Far"))
+perp_angle_lmer_far <- lmer(Fish1_Yaw_Heading_PS ~ Ablation*Darkness + Trial + (1|Date), data = perp_angle_df %>% filter(Dist_Cat == "Far"))
 perp_angle_aov_me_far <- Anova(perp_angle_lmer_far)
 
 plot(perp_angle_lmer_far)
 qqnorm(resid(perp_angle_lmer_far))
 qqline(resid(perp_angle_lmer_far))
 
+shapiro.test(resid(perp_angle_lmer_far))
 
 turning_school_stats_table <- tibble(
-       Near_or_Far = rep(c(rep("Near",3) , rep("Far",3)), 1),
-       Condition = rep(c("Ablation","Darkness","Ablation x Darkness"), 2),
-       DF = c(rep(length(perp_angle_lmer_close@resp$y)-3,3),
-                  rep(length(perp_angle_lmer_far@resp$y)-3,3)),
-       Chisq = round(c(perp_angle_aov_me_close$Chisq[1:3],perp_angle_aov_me_far$Chisq[1:3]),3),
-       P_Val = round(c(perp_angle_aov_me_close$`Pr(>Chisq)`[1:3],perp_angle_aov_me_far$`Pr(>Chisq)`[1:3]),3),
+       Near_or_Far = rep(c(rep("Near",4) , rep("Far",4)), 1),
+       Condition = rep(c("Ablation","Darkness","Trial","Ablation x Darkness"), 2),
+       DF = c(rep(length(perp_angle_lmer_close@resp$y)-3,4),
+                  rep(length(perp_angle_lmer_far@resp$y)-3,4)),
+       Chisq = round(c(perp_angle_aov_me_close$Chisq[1:4],perp_angle_aov_me_far$Chisq[1:4]),2),
+       P_Val = round(c(perp_angle_aov_me_close$`Pr(>Chisq)`[1:4],perp_angle_aov_me_far$`Pr(>Chisq)`[1:4]),2),
        Is_Sig = P_Val < 0.05)
 
 turning_school_stats_table
 
 tab_df(turning_school_stats_table, file="turning_stats.doc")
-
-
 ```
 
