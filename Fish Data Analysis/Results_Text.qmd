@@ -204,6 +204,8 @@ glmm_school_stats_table <- tibble(Stat = c(rep("NND",8),rep("Polarization",8),re
 
 glmm_school_stats_table
 
+saveRDS(glmm_school_stats_table, "Chapter2_Table1.rds")
+
 tab_df(glmm_school_stats_table, file="sjt_des.doc")
 ```
 
@@ -303,6 +305,8 @@ turning_school_stats_table <- tibble(
        Is_Sig = P_Val < 0.05)
 
 turning_school_stats_table
+
+saveRDS(turning_school_stats_table, "Chapter2_Table2.rds")
 
 tab_df(turning_school_stats_table, file="turning_stats.doc")
 ```
