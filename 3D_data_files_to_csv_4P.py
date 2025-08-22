@@ -1441,6 +1441,38 @@ class trial:
 
         return(out_data)
 
+    def return_raw_points(self):
+        firstfish = True
+
+        for fish in self.fishes:
+
+            data_len = len(fish.head_x)
+
+            d = {'Year': np.repeat(self.year,data_len),
+                 'Month': np.repeat(self.month,data_len),
+                 'Day': np.repeat(self.day,data_len),
+                 'Trial': np.repeat(self.trial,data_len), 
+                 'Tailbeat': np.linspace(1,data_len,data_len) // tailbeat_len,
+                 'Frame': np.linspace(1,data_len,data_len),
+                 'Ablation': np.repeat(self.abalation,data_len), 
+                 'Darkness': np.repeat(self.darkness,data_len), 
+                 'Flow': np.repeat(self.flow,data_len), 
+                 #get into cm, not BL or meters
+                 'Head_X': fish.head_x * fish_len*100,
+                 'Head_Y': fish.head_y * fish_len*100,
+                 'Head_Z': fish.head_z * fish_len*100,
+                 'Midline_X': fish.head_x * fish_len*100,
+                 'Midline_Y': fish.head_y * fish_len*100,
+                 'Midline_Z': fish.head_z * fish_len*100} #,
+
+            if firstfish:
+                out_data = pd.DataFrame(data=d)
+                firstfish = False
+            else:
+                out_data = out_data.append(pd.DataFrame(data=d))
+
+        return(out_data)
+
     def return_comp_vals(self):
         firstfish = True
 
@@ -1677,17 +1709,20 @@ for trial in trials:
         fish_comp_dataframe = trial.return_comp_vals()
         fish_raw_comp_dataframe = trial.return_raw_comp_vals()
         fish_school_dataframe = trial.return_school_vals()
+        fish_raw_dataframe = trial.return_raw_points()
         first_trial = False
     else:
         fish_sigular_dataframe = fish_sigular_dataframe.append(trial.return_fish_vals())
         fish_comp_dataframe = fish_comp_dataframe.append(trial.return_comp_vals())
         fish_raw_comp_dataframe = fish_raw_comp_dataframe.append(trial.return_raw_comp_vals())
         fish_school_dataframe = fish_school_dataframe.append(trial.return_school_vals())
+        fish_raw_dataframe = fish_raw_dataframe.append(trial.return_raw_points())
 
 fish_sigular_dataframe.to_csv("Fish_Individual_Values_3D.csv")
 fish_comp_dataframe.to_csv("Fish_Comp_Values_3D.csv")
 fish_raw_comp_dataframe.to_csv("Fish_Raw_Comp_Values_3D.csv")
 fish_school_dataframe.to_csv("Fish_School_Values_3D.csv")
+fish_raw_dataframe.to_csv("Fish_Raw_Values_3D.csv")
 
 #fish_comp_dataframe.to_csv("Fish_Comp_Values_3D_Single.csv")
 

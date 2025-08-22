@@ -431,6 +431,7 @@ group_still <- ggplot(group_sum_data %>% filter(Flow == "Still Water"),
     xlab("") +
     ylab("Proportion of Time") +
     theme_light()+ 
+    scale_y_continuous(breaks = seq(0, 1, by = 0.25)) +
     scale_fill_manual(values=c("8" = "#1D3557","7" = "#325A7C","6" = "#457B9D","5" = "#7BAFBF",
                                "4" = "#A8DADC","3" = "#D0EBE6","2" = "#F1FAEE","1" = "#3ae639")) +
     geom_text(aes(label = sig_letters, y = 1.1), color = "black", size = sig_text_size) +
@@ -450,6 +451,7 @@ group_flow <- ggplot(group_sum_data %>% filter(Flow == "Flowing Water (2 BL/s)")
     xlab("") +
     ylab("Proportion of Time") +
     theme_light()+ 
+    scale_y_continuous(breaks = seq(0, 1, by = 0.25)) +
     scale_fill_manual(values=c("8" = "#1D3557","7" = "#325A7C","6" = "#457B9D","5" = "#7BAFBF",
                                "4" = "#A8DADC","3" = "#D0EBE6","2" = "#F1FAEE","1" = "#3ae639")) +
     geom_text(aes(label = sig_letters, y = 1.1), color = "black", size = sig_text_size) +
